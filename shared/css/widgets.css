@@ -1,0 +1,95 @@
+/* ---------- interactive widgets ---------- */
+.widget{margin:26px 0; border:2px solid var(--accent); border-radius:14px; background:var(--card); overflow:hidden}
+.widget-head{display:flex; align-items:center; gap:10px; padding:10px 16px; background:var(--accent-soft); color:var(--accent-ink); font:700 13px var(--f-body)}
+.widget-head .live{font:700 10.5px var(--f-body); letter-spacing:.08em; text-transform:uppercase; background:var(--accent); color:var(--on-accent); padding:2px 8px; border-radius:99px}
+.widget-body{padding:16px}
+.controls{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:14px}
+.btn{font:600 13.5px var(--f-body); color:var(--ink); background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:8px 13px; cursor:pointer}
+.btn:hover{border-color:var(--accent); color:var(--accent-ink)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--on-accent)}
+.btn.on{background:var(--ink); color:var(--paper); border-color:var(--ink)}
+select.btn{padding-right:8px}
+.wlog{font:12.5px/1.6 var(--f-mono); color:var(--ink-2); background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:10px 12px; height:120px; overflow:auto; white-space:pre-wrap}
+.wlog .ok{color:var(--good)} .wlog .err{color:var(--bad)} .wlog .warn{color:var(--amber)}
+.statrow{display:flex; flex-wrap:wrap; gap:8px 18px; font-size:13.5px; color:var(--ink-2); margin:10px 0}
+.statrow b{font:700 18px var(--f-mono); color:var(--ink)}
+.servers{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px}
+.srv{border:1.5px solid var(--line); border-radius:10px; padding:10px; background:var(--paper); min-width:0}
+.srv h6{margin:0 0 6px; font:700 13px var(--f-body); display:flex; justify-content:space-between}
+.srv .meter{height:70px; border-radius:6px; background:var(--card); border:1px solid var(--line); display:flex; flex-direction:column-reverse; overflow:hidden}
+.srv .meter i{display:block; background:var(--accent); transition:height .25s}
+.srv.flash{border-color:var(--accent)}
+.srv small{font-size:11.5px; color:var(--ink-3)}
+@media (max-width:520px){ .servers{grid-template-columns:repeat(2,minmax(0,1fr))} }
+.lru-row{display:flex; gap:8px; align-items:center; flex-wrap:wrap; min-height:64px}
+.lru-cell{width:58px; height:58px; border-radius:10px; display:grid; place-items:center; font:800 22px var(--f-display); background:var(--accent-soft); border:2px solid var(--accent); color:var(--accent-ink); transition:transform .2s}
+.lru-cell.new{animation:pop .35s}
+.lru-cell.hit{background:var(--good-soft); border-color:var(--good); color:var(--good)}
+.lru-cell.empty{background:var(--paper); border-style:dashed; border-color:var(--line); color:var(--ink-3); font-size:12px; font-weight:500}
+@keyframes pop{0%{transform:scale(.6)}70%{transform:scale(1.08)}}
+.lru-label{font:600 11.5px var(--f-body); color:var(--ink-3); text-transform:uppercase; letter-spacing:.07em}
+.bucket-wrap{display:flex; gap:20px; align-items:flex-end; flex-wrap:wrap}
+.bucket{width:120px; height:150px; border:3px solid var(--ink-2); border-top:0; border-radius:0 0 16px 16px; display:flex; flex-wrap:wrap-reverse; align-content:flex-start; gap:6px; padding:8px; background:var(--paper)}
+.token{width:22px; height:22px; border-radius:50%; background:var(--amber-line); border:2px solid var(--amber); animation:pop .3s}
+.cb-states{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px}
+.cb-state{flex:1; min-width:140px; border:2px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--paper); opacity:.55; transition:all .2s}
+.cb-state b{display:block; font-family:var(--f-display); font-size:16px}
+.cb-state small{color:var(--ink-2); font-size:12.5px}
+.cb-state.on{opacity:1}
+.cb-state.closed.on{border-color:var(--good); background:var(--good-soft)}
+.cb-state.open.on{border-color:var(--bad); background:var(--bad-soft)}
+.cb-state.half.on{border-color:var(--amber-line); background:var(--amber-soft)}
+
+/* ---------- Netflix: adaptive bitrate player ---------- */
+.abr-player{display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:14px; margin:6px 0 12px}
+@media (max-width:620px){ .abr-player{grid-template-columns:1fr} }
+.abr-screen{--blur:2px; position:relative; aspect-ratio:16/9; max-width:100%; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:#fff;
+  background:#0B1A2E; isolation:isolate}
+.abr-screen::before{content:""; position:absolute; inset:-10px; z-index:-1; filter:blur(var(--blur)); transition:filter .4s;
+  background:radial-gradient(circle at 70% 30%,#F2B33D 0 9%,transparent 10%),linear-gradient(180deg,#2A5CC4 0 55%,#1E7A4F 55% 62%,#2E8F5A 62%),
+  repeating-linear-gradient(90deg,transparent 0 40px,rgba(255,255,255,.12) 40px 44px)}
+.abr-screen span{font:800 34px var(--f-display); text-shadow:0 2px 12px rgba(0,0,0,.5)}
+.abr-screen small{font:600 12px var(--f-body); background:rgba(0,0,0,.45); padding:3px 9px; border-radius:99px}
+.abr-screen.stalled::after{content:""; position:absolute; width:34px; height:34px; border-radius:50%; border:4px solid rgba(255,255,255,.35); border-top-color:#fff; animation:spin .8s linear infinite; top:18px; right:18px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.abr-side{display:flex; flex-direction:column; gap:8px; min-width:0}
+.abr-buffer{height:16px; border-radius:99px; background:var(--paper); border:1px solid var(--line); overflow:hidden}
+.abr-buffer i{display:block; height:100%; width:0; background:var(--good); transition:width .3s}
+
+/* ---------- UPI and deadlock step text ---------- */
+.upi-step{min-height:52px; margin-top:10px; padding:10px 14px; border-radius:10px; background:var(--paper); border:1px solid var(--line); font-size:14.5px}
+
+/* ---------- Stripe idempotency ---------- */
+.idem-grid{display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:12px}
+@media (max-width:620px){ .idem-grid{grid-template-columns:1fr} }
+.idem-charges{height:120px; overflow:auto; border:1px solid var(--line); border-radius:8px; background:var(--paper); padding:6px; display:flex; flex-direction:column; gap:6px}
+.idem-charge{display:flex; justify-content:space-between; gap:8px; background:var(--card); border:1px solid var(--line); border-radius:7px; padding:6px 10px; font-size:13px}
+.idem-charge b{font-family:var(--f-mono); font-size:12.5px}
+.idem-charge.dup{border-color:var(--bad); background:var(--bad-soft); color:var(--bad)}
+
+/* ---------- IAM playground ---------- */
+.iam-form{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-bottom:12px}
+.iam-form label{display:flex; flex-direction:column; gap:4px; font:600 12px var(--f-body); color:var(--ink-2); text-transform:uppercase; letter-spacing:.06em}
+.iam-form select{text-transform:none; letter-spacing:0; width:100%}
+.iam-decision{display:flex; flex-direction:column; gap:4px; border-radius:10px; padding:12px 14px; border:2px solid var(--line); background:var(--paper)}
+.iam-decision b{font:800 22px var(--f-display)}
+.iam-decision span{font-size:14px; color:var(--ink-2)}
+.iam-decision.allow{border-color:var(--good); background:var(--good-soft)} .iam-decision.allow b{color:var(--good)}
+.iam-decision.deny{border-color:var(--bad); background:var(--bad-soft)} .iam-decision.deny b{color:var(--bad)}
+.iam-decision.step{border-color:var(--amber-line); background:var(--amber-soft)} .iam-decision.step b{color:var(--amber)}
+.iam-trace{font-size:13.5px; margin:10px 0 0; padding-left:20px; color:var(--ink-2)}
+.iam-trace .ok{color:var(--good)} .iam-trace .err{color:var(--bad)}
+
+/* ---------- shared: practice terminal ---------- */
+.term-chips{margin-bottom:10px}
+.term{background:#0B1220; color:#D6E2F2; border-radius:10px; border:1px solid #1C2A40; font:13px/1.6 var(--f-mono); height:300px; overflow:auto; padding:12px 14px; display:flex; flex-direction:column}
+.term-out{flex:1}
+.term-cmd{color:#FFFFFF; margin-top:6px}
+.term-prompt{color:#7EE0A1; font-weight:600}
+.term-note{color:#8C9AB3; font-style:italic}
+.term-res{margin:2px 0 6px; white-space:pre-wrap; font:inherit; color:#C9D6EA}
+.term-err{color:#FF9A8F}
+.term-line{display:flex; gap:8px; align-items:center; border-top:1px dashed #22324C; padding-top:8px; margin-top:6px}
+.term-in{flex:1; min-width:0; background:transparent; border:0; color:#fff; font:inherit; outline:none}
+.seq-count{margin-left:auto}
+.term-chips .chip{max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; font-family:var(--f-mono); font-weight:500}

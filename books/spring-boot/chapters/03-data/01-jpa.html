@@ -1,0 +1,129 @@
+<section class="chapter" id="ch-jpa" data-title="JPA and Hibernate: entities and relationships">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Data</div>
+    <h2>JPA and Hibernate: entities, relationships and the N+1 problem</h2>
+    <p class="ch-oneline"><b>JPA is the specification, Hibernate the implementation, Spring Data the convenience layer.</b> Map classes to tables, keep associations LAZY, and fetch what you need explicitly.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>The storekeeper keeps a <strong>working copy</strong> of every ledger page he's opened today (the persistence context). Change a number on his copy and he updates the real ledger at closing time (dirty checking on commit). If you ask for 50 customers and then, one by one, "what did this customer order?", he walks to the storeroom 51 times (N+1). Smart: "give me the 50 customers <em>with</em> their orders" in one trip (JOIN FETCH).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 170" role="img" aria-label="Your code uses Spring Data repositories, which use the JPA API, implemented by Hibernate, which issues SQL over JDBC with a HikariCP pool to the database">
+      <rect x="10" y="50" width="130" height="66" rx="12" class="d-vio"/><text x="75" y="78" text-anchor="middle" class="d-t">Your code</text><text x="75" y="96" text-anchor="middle" class="d-xs">services</text>
+      <path d="M140 83 H170" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="172" y="50" width="140" height="66" rx="12" class="d-good"/><text x="242" y="78" text-anchor="middle" class="d-t">Spring Data</text><text x="242" y="96" text-anchor="middle" class="d-xs">repositories</text>
+      <path d="M312 83 H342" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="344" y="50" width="140" height="66" rx="12" class="d-acc"/><text x="414" y="78" text-anchor="middle" class="d-t">JPA API</text><text x="414" y="96" text-anchor="middle" class="d-xs">EntityManager (spec)</text>
+      <path d="M484 83 H514" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="516" y="50" width="140" height="66" rx="12" class="d-amb"/><text x="586" y="78" text-anchor="middle" class="d-t">Hibernate 7</text><text x="586" y="96" text-anchor="middle" class="d-xs">implementation</text>
+      <path d="M656 83 H686" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="688" y="50" width="160" height="66" rx="12" class="d-teal"/><text x="768" y="78" text-anchor="middle" class="d-t">JDBC + HikariCP</text><text x="768" y="96" text-anchor="middle" class="d-xs">→ PostgreSQL / MySQL</text>
+      <text x="430" y="150" text-anchor="middle" class="d-s">Class ↔ table · object ↔ row · field ↔ column</text>
+    </svg></div></figure>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Entities with the annotations you'll be asked about">
+@Entity
+@Table(name = "orders", indexes = @Index(name = "idx_orders_customer", columnList = "customer_id"))
+public class Order {
+    @Id @GeneratedValue(strategy = GenerationType.SEQUENCE)   // SEQUENCE allows insert batching
+    private Long id;
+
+    @Enumerated(EnumType.STRING)                              // store "PAID", not 1 (ordinals break on reorder)
+    @Column(nullable = false, length = 20)
+    private Status status;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)      // owning side: holds the FK column
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)  // inverse side
+    private List<OrderLine> lines = new ArrayList<>();
+
+    @Version                                                  // optimistic locking (next chapter)
+    private long version;
+
+    @CreationTimestamp private Instant createdAt;
+    @Transient private BigDecimal cachedTotal;                // not persisted
+
+    public void addLine(OrderLine l) { lines.add(l); l.setOrder(this); }   // keep BOTH sides in sync
+}
+</script>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Relationship</th><th>Example</th><th>Default fetch</th><th>Advice</th></tr>
+    <tr><td><code>@ManyToOne</code></td><td>Order → Customer</td><td><b>EAGER</b></td><td>set LAZY</td></tr>
+    <tr><td><code>@OneToOne</code></td><td>User → Profile</td><td><b>EAGER</b></td><td>set LAZY; share the PK with @MapsId</td></tr>
+    <tr><td><code>@OneToMany</code></td><td>Order → Lines</td><td>LAZY</td><td>always mappedBy (bidirectional) or @JoinColumn</td></tr>
+    <tr><td><code>@ManyToMany</code></td><td>Student ↔ Course</td><td>LAZY</td><td>use Set; often better as an explicit join entity</td></tr>
+  </table></div>
+
+  <h3>The N+1 problem</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 210" role="img" aria-label="N plus one: one query loads 50 orders, then 50 separate queries load each customer. JOIN FETCH loads everything in one query">
+      <text x="210" y="22" text-anchor="middle" class="d-tl">N+1: 51 round trips</text>
+      <rect x="20" y="36" width="380" height="30" rx="7" class="d-amb"/><text x="210" y="56" text-anchor="middle" class="d-m">SELECT * FROM orders            (1)</text>
+      <rect x="20" y="74" width="380" height="24" rx="6" class="d-bad"/><text x="210" y="91" text-anchor="middle" class="d-m">SELECT * FROM customer WHERE id=1</text>
+      <rect x="20" y="102" width="380" height="24" rx="6" class="d-bad"/><text x="210" y="119" text-anchor="middle" class="d-m">SELECT * FROM customer WHERE id=2</text>
+      <text x="210" y="146" text-anchor="middle" class="d-m">⋮ 47 more</text>
+      <rect x="20" y="156" width="380" height="24" rx="6" class="d-bad"/><text x="210" y="173" text-anchor="middle" class="d-m">SELECT * FROM customer WHERE id=50   (N)</text>
+      <line x1="430" y1="20" x2="430" y2="200" class="d-line d-dash"/>
+      <text x="645" y="22" text-anchor="middle" class="d-tl">JOIN FETCH: 1 round trip</text>
+      <rect x="460" y="60" width="380" height="64" rx="10" class="d-good"/><text x="650" y="86" text-anchor="middle" class="d-m">SELECT o.*, c.* FROM orders o</text><text x="650" y="106" text-anchor="middle" class="d-m">JOIN customer c ON c.id = o.customer_id</text>
+      <text x="650" y="160" text-anchor="middle" class="d-s">10 ms instead of 51 × 3 ms ≈ 150 ms</text>
+    </svg></div></figure>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Looks innocent, fires 51 queries">
+List<Order> orders = orderRepo.findByStatus(Status.PAID);   // 1 query
+for (Order o : orders) {
+    System.out.println(o.getCustomer().getName());            // LAZY proxy initialised:
+}                                                             // 1 query PER order
+// Same thing hides inside DTO mapping and Jackson serialisation.
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Three fixes">
+// 1. JOIN FETCH in JPQL
+@Query("select o from Order o join fetch o.customer where o.status = :s")
+List<Order> findPaidWithCustomer(@Param("s") Status s);
+
+// 2. @EntityGraph on a derived query: same SQL, no JPQL
+@EntityGraph(attributePaths = {"customer", "lines"})
+List<Order> findByStatus(Status s);
+
+// 3. Batch fetching: load lazy proxies 50 ids at a time (WHERE id IN (...))
+//    spring.jpa.properties.hibernate.default_batch_fetch_size=50
+
+// 4. Best for read APIs: project straight into a DTO, no entities at all
+@Query("select new com.ramu.dto.OrderRow(o.id, c.name, o.status) from Order o join o.customer c")
+List<OrderRow> rows();
+</script>
+</div>
+  <div class="box pitfall"><div class="box-tag">Two traps</div><p><strong>JOIN FETCH of a collection + pagination</strong>: Hibernate paginates in memory (warning HHH90003004). Page the parent ids first, then fetch. <strong>LazyInitializationException</strong>: touching a lazy field after the transaction closed. Fix by fetching what you need inside the service, not by turning on EAGER or open-in-view.</p></div>
+
+  <h3>Entity states and the persistence context</h3>
+  <div class="cards">
+    <div class="card"><span class="k">transient</span><h5>new, unknown</h5><p><code>new Order()</code>: not tracked, no id yet.</p></div>
+    <div class="card good"><span class="k">managed</span><h5>tracked</h5><p>After <code>persist</code>/<code>find</code> inside a transaction: changes are flushed automatically (dirty checking). First-level cache: the same id returns the same object.</p></div>
+    <div class="card"><span class="k">detached</span><h5>was tracked</h5><p>After the transaction/session ends. Changes are ignored unless you <code>merge</code>.</p></div>
+    <div class="card bad"><span class="k">removed</span><h5>scheduled for delete</h5><p>DELETE runs at flush/commit.</p></div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th><code>ddl-auto</code></th><th>Does</th><th>Where</th></tr>
+    <tr><td><code>none</code></td><td>nothing</td><td>production (with Flyway/Liquibase)</td></tr>
+    <tr><td><code>validate</code></td><td>checks the schema matches; fails on startup if not</td><td>production safety net</td></tr>
+    <tr><td><code>update</code></td><td>adds missing tables/columns, never drops</td><td>local dev only</td></tr>
+    <tr><td><code>create</code> / <code>create-drop</code></td><td>drop and recreate (and drop on shutdown)</td><td>tests, demos</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">One trip with everything, not fifty-one trips.</p>
+    <p>JPA = spec, Hibernate = implementation. <span class="hl">LAZY everywhere</span>, fetch explicitly (JOIN FETCH, @EntityGraph, DTO projections). Owning side has the FK; mappedBy marks the inverse. Prod: ddl-auto none/validate.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What is the N+1 problem and how do you detect it?</summary><div class="ans"><p>One query loads N parents, then accessing a lazy association triggers one query per parent. Detect with SQL logging (<code>spring.jpa.show-sql</code> or a datasource proxy), Hibernate statistics, APM traces showing repeated identical queries, or tests asserting query counts. Fix with JOIN FETCH, @EntityGraph, batch fetching or DTO projections.</p></div></details>
+    <details><summary>What is the first-level cache?</summary><div class="ans"><p>The persistence context (EntityManager/Session) caches entities by id for the duration of the transaction, so repeated <code>find</code> calls return the same instance without a query and changes are tracked for dirty checking. A second-level cache (Ehcache, Caffeine via JCache) is optional and shared across sessions.</p></div></details>
+    <details><summary>What does cascade = ALL with orphanRemoval do?</summary><div class="ans"><p>Cascade propagates persist/merge/remove from parent to children. orphanRemoval deletes a child row when it's removed from the parent's collection. Use only for true composition (order lines belong to one order), never on @ManyToOne.</p></div></details>
+  </div>
+  {{done}}
+</section>

@@ -1,0 +1,85 @@
+<section class="chapter" id="ch-equals" data-title="equals, hashCode and immutability">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>OOP Java</div>
+    <h2>equals, hashCode, compareTo and immutability</h2>
+    <p class="ch-oneline"><b>If two objects are equal, they must have the same hashCode.</b> Break that rule and HashMap and HashSet silently lose your data.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>Spice jars are stored on racks by the <strong>first letter of the label</strong> (the hash code), and inside a rack Ramu reads labels to find the exact jar (equals). If two jars both say "Haldi" but somebody files one under "H" and the other under "T", Ramu will look under "H", never find the second jar, and buy a duplicate. That's what happens when equal objects return different hash codes.</p></div>
+
+  <div class="box def"><div class="box-tag">The contract</div>
+    <p><strong>equals</strong> must be reflexive (a = a), symmetric (a = b ⇔ b = a), transitive, consistent, and <code>x.equals(null)</code> is false. <strong>hashCode</strong>: equal objects ⇒ equal hash codes. (Unequal objects <em>may</em> share a hash code; that's a collision, which is allowed.)</p></div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: equals overridden, hashCode forgotten">
+class Customer {
+    String phone;
+    Customer(String phone) { this.phone = phone; }
+    @Override public boolean equals(Object o) {
+        return o instanceof Customer c && phone.equals(c.phone);
+    }
+    // hashCode NOT overridden: uses Object's identity-based hash
+}
+
+Set<Customer> loyal = new HashSet<>();
+loyal.add(new Customer("98300"));
+loyal.contains(new Customer("98300"));   // false!  looks in the wrong bucket
+loyal.add(new Customer("98300"));        // duplicate added: size is now 2
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: both overridden from the same fields (or just use a record)">
+final class Customer {
+    private final String phone;                       // immutable key field
+    Customer(String phone) { this.phone = Objects.requireNonNull(phone); }
+
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;                   // fast path: same object
+        if (!(o instanceof Customer c)) return false; // also handles null
+        return phone.equals(c.phone);                 // compare the SAME fields...
+    }
+    @Override public int hashCode() {
+        return Objects.hash(phone);                   // ...used for the hash
+    }
+}
+// Or simply:  record Customer(String phone) {}   equals + hashCode generated correctly
+</script>
+</div>
+
+  <div class="box pitfall"><div class="box-tag">Common trap</div><p>Mutating a field used in <code>hashCode</code> while the object is inside a HashSet or used as a HashMap key. Its bucket no longer matches its hash, so <code>contains</code> and <code>remove</code> fail and the entry leaks. Keys should be immutable.</p></div>
+
+  <h3>Comparable vs Comparator</h3>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Natural order on the class, other orders outside it">
+record Dish(String name, int price, int rating) implements Comparable<Dish> {
+    @Override public int compareTo(Dish other) {        // natural order: by name
+        return name.compareTo(other.name);              // negative, zero or positive
+    }
+}
+List<Dish> menu = new ArrayList<>(List.of(/* ... */));
+Collections.sort(menu);                                  // uses compareTo (by name)
+
+menu.sort(Comparator.comparingInt(Dish::price));         // a different order, no class change
+menu.sort(Comparator.comparingInt(Dish::rating).reversed()
+                    .thenComparing(Dish::name));          // rating high→low, then name
+// Never write: (a, b) -> a.price - b.price   // overflows for large/negative values
+</script>
+
+  <h3>How to make a class immutable</h3>
+  <ol class="steps">
+    <li><b>Make the class <code>final</code></b>so no subclass can add mutable state.</li>
+    <li><b>All fields <code>private final</code></b>assigned once in the constructor.</li>
+    <li><b>No setters</b>; "withX" methods return a new object instead.</li>
+    <li><b>Defensive copies</b>of mutable inputs and outputs: <code>this.items = List.copyOf(items)</code>.</li>
+    <li><b>Or use a record</b>, then still copy mutable components like lists in the compact constructor.</li>
+  </ol>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Same label, same rack.</p>
+    <p>Override <strong>equals and hashCode together</strong>, from the same fields. Map keys should be immutable. Comparable = one natural order; Comparator = any number of orders.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What is the difference between <code>==</code> and <code>equals()</code>?</summary><div class="ans"><p><code>==</code> compares primitive values or, for objects, whether two references point to the same object. <code>equals()</code> compares logical equality as defined by the class; Object's default is the same as ==.</p></div></details>
+    <details><summary>Can two unequal objects have the same hashCode?</summary><div class="ans"><p>Yes, that's a collision and it's legal; the map then uses equals within the bucket. Many collisions make lookups slower (O(log n) after treeification), so a good hash spreads values evenly.</p></div></details>
+    <details><summary>Why are immutable objects good for concurrency?</summary><div class="ans"><p>Their state can't change after construction, so they can be shared between threads with no locks and no visibility problems (final fields are safely published by the Java memory model).</p></div></details>
+  </div>
+  {{done}}
+</section>

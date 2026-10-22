@@ -1,0 +1,210 @@
+<section class="chapter" id="ch-structural" data-title="Structural patterns">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Patterns · Structural</div>
+    <h2>Structural patterns: how objects fit together</h2>
+    <p class="ch-oneline"><b>Structural patterns combine classes and objects into bigger structures</b> while keeping them flexible: wrapping, adapting, simplifying and nesting.</p>
+  </header>
+
+  <!-- Adapter -->
+  <h3>Adapter: make incompatible interfaces work together</h3>
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div><p>The new UPI card machine has a USB-C cable; the old billing computer only has USB-A. Ramu doesn't replace either: he buys a small <strong>adapter</strong> dongle.</p></div>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Wrap a legacy SDK so it fits your interface">
+// Your app's interface (what the rest of the code expects)
+public interface PaymentGateway {
+    PaymentResult charge(String customerId, BigDecimal amount);
+}
+
+// Third-party SDK you can't change: different names, paise as long, its own result type
+public class LegacyPayKart {
+    public PkResponse makeTxn(String uid, long amountInPaise, String currency) { ... }
+}
+
+// The adapter: implements YOUR interface, translates to THEIRS
+public class PayKartAdapter implements PaymentGateway {
+    private final LegacyPayKart sdk;
+    public PayKartAdapter(LegacyPayKart sdk) { this.sdk = sdk; }
+
+    @Override
+    public PaymentResult charge(String customerId, BigDecimal amount) {
+        long paise = amount.movePointRight(2).longValueExact();  // ₹15.50 -> 1550
+        PkResponse r = sdk.makeTxn(customerId, paise, "INR");      // call their API
+        return r.code() == 0 ? PaymentResult.ok(r.txnId())         // translate back
+                             : PaymentResult.failed(r.message());
+    }
+}
+// Real world: Arrays.asList(), InputStreamReader (bytes -> chars), Spring MVC HandlerAdapter
+</script>
+
+  <!-- Decorator -->
+  <h3>Decorator: add behaviour by wrapping</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg viewBox="0 0 640 220" role="img" aria-label="Decorators wrap a core object like layers of an onion: logging wraps retry, which wraps the email notifier">
+      <rect x="40" y="20" width="560" height="180" rx="90" class="d-amb"/><text x="320" y="48" text-anchor="middle" class="d-t">LoggingNotifier</text>
+      <rect x="110" y="62" width="420" height="124" rx="62" class="d-vio"/><text x="320" y="88" text-anchor="middle" class="d-t">RetryingNotifier</text>
+      <rect x="190" y="100" width="260" height="66" rx="33" class="d-good"/><text x="320" y="130" text-anchor="middle" class="d-t">EmailNotifier</text><text x="320" y="148" text-anchor="middle" class="d-xs">the real work</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Every layer implements the same <code>Notifier</code> interface and holds the next one inside. Callers can't tell how many layers there are, and you can stack them in any order at runtime.</figcaption>
+  </figure>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: a subclass for every combination">
+class EmailNotifier { void send(Msg m) { ... } }
+class LoggingEmailNotifier extends EmailNotifier { ... }
+class RetryingEmailNotifier extends EmailNotifier { ... }
+class LoggingRetryingEmailNotifier extends EmailNotifier { ... }
+class LoggingSmsNotifier extends SmsNotifier { ... }   // and so on, multiplying
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: small wrappers you stack freely">
+public interface Notifier { void send(Msg m); }
+
+public class EmailNotifier implements Notifier {
+    public void send(Msg m) { /* SMTP call */ }
+}
+
+public abstract class NotifierDecorator implements Notifier {
+    protected final Notifier inner;                     // the wrapped object
+    protected NotifierDecorator(Notifier inner) { this.inner = inner; }
+}
+
+public class RetryingNotifier extends NotifierDecorator {
+    public RetryingNotifier(Notifier inner) { super(inner); }
+    public void send(Msg m) {
+        for (int i = 1; ; i++) {
+            try { inner.send(m); return; }              // delegate to the inner layer
+            catch (RuntimeException e) { if (i == 3) throw e; }  // add: retries
+        }
+    }
+}
+
+public class LoggingNotifier extends NotifierDecorator {
+    public LoggingNotifier(Notifier inner) { super(inner); }
+    public void send(Msg m) {
+        log.info("sending {}", m.id());                 // add: before
+        inner.send(m);
+        log.info("sent {}", m.id());                    // add: after
+    }
+}
+
+Notifier n = new LoggingNotifier(new RetryingNotifier(new EmailNotifier()));
+// Real world: java.io  new BufferedReader(new InputStreamReader(new FileInputStream(f)))
+</script>
+</div>
+
+  <!-- Facade -->
+  <h3>Facade: one simple front for a complicated system</h3>
+  <p>Ramu's mobile app has a single "Order again" button. Behind it: check stock, reserve it, charge the saved card, tell the kitchen, book a rider. The button is a <strong>facade</strong>.</p>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="A facade over five subsystems">
+@Service
+public class QuickOrderFacade {
+    private final InventoryService inventory; private final PaymentService payments;
+    private final KitchenService kitchen;     private final DeliveryService delivery;
+    private final OrderRepository orders;
+    // (constructor injection omitted for brevity)
+
+    @Transactional
+    public OrderConfirmation reorder(long customerId, long previousOrderId) {
+        Order last = orders.get(previousOrderId);
+        inventory.reserve(last.items());                  // subsystem 1
+        String payId = payments.chargeSavedCard(customerId, last.total()); // 2
+        Order fresh = orders.save(last.copyAsNew(payId)); // 3
+        kitchen.enqueue(fresh);                           // 4
+        Eta eta = delivery.bookRider(fresh);              // 5
+        return new OrderConfirmation(fresh.id(), eta);    // callers see ONE call
+    }
+}
+// Real world: SLF4J (facade over Logback/Log4j), JdbcTemplate over raw JDBC
+</script>
+
+  <!-- Proxy -->
+  <h3>Proxy: a stand-in that controls access</h3>
+  <p>A proxy has the <strong>same interface</strong> as the real object and sits in front of it to add control: caching, lazy loading, access checks, remote calls, transactions.</p>
+  <div class="cards">
+    <div class="card"><h5>Virtual proxy</h5><p>Delay creating something expensive (Hibernate lazy-loaded collections).</p></div>
+    <div class="card"><h5>Protection proxy</h5><p>Check permissions before calling (Spring Security <code>@PreAuthorize</code>).</p></div>
+    <div class="card"><h5>Remote proxy</h5><p>Local object that forwards calls over the network (gRPC stubs, Feign clients).</p></div>
+    <div class="card"><h5>Caching / smart proxy</h5><p>Return cached results, count calls, open transactions (Spring <code>@Transactional</code>, <code>@Cacheable</code>).</p></div>
+  </div>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="A caching proxy, and why Spring&#x27;s self-invocation trap exists">
+public interface MenuService { Menu menuFor(long stallId); }
+
+public class DbMenuService implements MenuService {          // the real subject
+    public Menu menuFor(long stallId) { /* slow DB query */ return loadFromDb(stallId); }
+}
+
+public class CachingMenuProxy implements MenuService {       // same interface
+    private final MenuService real;
+    private final Map<Long, Menu> cache = new ConcurrentHashMap<>();
+    public CachingMenuProxy(MenuService real) { this.real = real; }
+
+    public Menu menuFor(long stallId) {
+        return cache.computeIfAbsent(stallId, real::menuFor); // only call real on a miss
+    }
+}
+
+// Spring generates proxies like this for @Transactional / @Cacheable / @Async.
+// Calls from OUTSIDE go through the proxy. A call from inside the same class,
+// this.otherMethod(), goes straight to the real object and SKIPS the proxy,
+// so the annotation silently does nothing. That's the self-invocation trap.
+</script>
+  <p class="small"><strong>Decorator vs Proxy:</strong> same shape, different intent. A decorator <em>adds features</em> and is usually stacked by the client; a proxy <em>controls access</em> to one subject and is usually invisible to the client.</p>
+
+  <!-- Composite -->
+  <h3>Composite: treat a group like a single item</h3>
+  <p>The menu has items (Masala chai ₹15) and categories that contain items <em>or other categories</em> ("Combos" → "Breakfast combo" → chai + samosa). You want <code>price()</code> to work on any of them.</p>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Leaf and composite share one interface">
+public interface MenuComponent { String name(); BigDecimal price(); }
+
+public record MenuItem(String name, BigDecimal price) implements MenuComponent { } // leaf
+
+public class Combo implements MenuComponent {                                    // composite
+    private final String name;
+    private final List<MenuComponent> parts = new ArrayList<>();
+    private final BigDecimal discount;
+    public Combo(String name, BigDecimal discount) { this.name = name; this.discount = discount; }
+    public Combo add(MenuComponent c) { parts.add(c); return this; }  // can hold combos too
+
+    public String name() { return name; }
+    public BigDecimal price() {                       // recursion does the work
+        return parts.stream().map(MenuComponent::price)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add).subtract(discount);
+    }
+}
+
+MenuComponent breakfast = new Combo("Breakfast", bd(5))
+        .add(new MenuItem("Masala chai", bd(15)))
+        .add(new MenuItem("Samosa", bd(12)));        // price() = 22
+// Real world: file systems (folder/file), UI trees, org charts, Swing JPanel
+</script>
+
+  <!-- Bridge + Flyweight -->
+  <h3>Bridge and Flyweight, briefly</h3>
+  <div class="cards">
+    <div class="card"><span class="k">Bridge</span><h5>Split two dimensions that vary independently</h5><p>Messages (OrderAlert, PromoMessage) × channels (SMS, Email). Instead of 2×2 subclasses, a <code>Message</code> <em>has a</em> <code>Channel</code>. Add a channel or a message type independently. JDBC: the <code>DriverManager</code>/API side and the vendor driver side are a bridge.</p></div>
+    <div class="card"><span class="k">Flyweight</span><h5>Share common state to save memory</h5><p>Millions of map markers share one icon image object; only position differs. JDK: <code>Integer.valueOf(-128..127)</code> cache, the <code>String</code> pool.</p></div>
+  </div>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Bridge: message type and delivery channel vary separately">
+public interface Channel { void deliver(String to, String text); }   // implementation side
+public class SmsChannel implements Channel { public void deliver(String to, String t) { /* SMS */ } }
+public class EmailChannel implements Channel { public void deliver(String to, String t) { /* SMTP */ } }
+
+public abstract class Message {                                     // abstraction side
+    protected final Channel channel;                                // the "bridge"
+    protected Message(Channel channel) { this.channel = channel; }
+    public abstract void send(Customer c);
+}
+public class OrderAlert extends Message {
+    public OrderAlert(Channel ch) { super(ch); }
+    public void send(Customer c) { channel.deliver(c.contact(), "Your chai is ready!"); }
+}
+new OrderAlert(new SmsChannel()).send(priya);   // any message × any channel
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Adapter converts, Decorator adds, Facade simplifies, Proxy guards, Composite nests, Bridge splits.</p>
+    <p>Adapter = <strong>different interface → mine</strong>. Decorator = <strong>same interface + extra</strong>. Proxy = <strong>same interface + control</strong>. Facade = <strong>new, simpler interface over many</strong>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Adapter vs Facade?</summary><div class="ans"><p>Adapter makes one existing interface match another interface that clients already expect; it's about compatibility. Facade defines a new, simpler interface over a whole subsystem; it's about convenience. An adapter usually wraps one object; a facade usually coordinates many.</p></div></details>
+    <details><summary>Where are decorators used in the JDK?</summary><div class="ans"><p><code>java.io</code>: <code>BufferedInputStream</code>, <code>DataInputStream</code>, <code>GZIPInputStream</code> all wrap another <code>InputStream</code>. Also <code>Collections.synchronizedList()</code> and <code>Collections.unmodifiableList()</code> wrap a list to add synchronization or read-only behaviour.</p></div></details>
+  </div>
+  {{done}}
+</section>

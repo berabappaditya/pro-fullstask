@@ -1,0 +1,37 @@
+<div class="front" id="cover" data-title="Start here">
+<section class="cover">
+  <p class="eyebrow">Book 04 · Cloud, deployment and Linux for the SDE-2 interview</p>
+  <h1>Cloud &amp; DevOps <em>Field Guide</em></h1>
+  <p class="lead">How your code gets from a laptop to millions of users: AWS and GCP building blocks, networks and permissions, containers and Kubernetes, pipelines that ship safely, and the Linux commands you'll type on every server. Each service is explained by what problem it solves, drawn as a picture, and compared across both clouds.</p>
+  <div class="cover-art">
+    <svg viewBox="0 0 900 300" role="img" aria-label="Code is pushed to Git, CI builds a container image into a registry, CD deploys it to a Kubernetes cluster inside a VPC across two availability zones behind a load balancer, with a managed database and monitoring">
+      <rect x="10" y="40" width="110" height="50" rx="10" class="d-vio"/><text x="65" y="62" text-anchor="middle" class="d-t">git push</text><text x="65" y="78" text-anchor="middle" class="d-xs">your laptop</text>
+      <path d="M120 65 H150" class="d-lacc d-flow" marker-end="url(#aa)"/>
+      <rect x="152" y="40" width="120" height="50" rx="10" class="d-acc"/><text x="212" y="62" text-anchor="middle" class="d-t">CI pipeline</text><text x="212" y="78" text-anchor="middle" class="d-xs">test · build · scan</text>
+      <path d="M272 65 H302" class="d-lacc d-flow" marker-end="url(#aa)"/>
+      <rect x="304" y="40" width="120" height="50" rx="10" class="d-amb"/><text x="364" y="62" text-anchor="middle" class="d-t">Registry</text><text x="364" y="78" text-anchor="middle" class="d-xs">ECR / Artifact Reg.</text>
+      <path d="M364 90 C364 120,300 130,300 150" class="d-lacc d-flow" marker-end="url(#aa)"/><text x="380" y="122" class="d-xs">CD deploys</text>
+      <rect x="150" y="150" width="600" height="138" rx="16" class="d-good"/><text x="450" y="172" text-anchor="middle" class="d-t">VPC · region ap-south-1 (Mumbai)</text>
+      <rect x="170" y="186" width="120" height="44" rx="10" class="d-acc"/><text x="230" y="206" text-anchor="middle" class="d-t">Load balancer</text><text x="230" y="221" text-anchor="middle" class="d-xs">public subnet</text>
+      <rect x="320" y="182" width="190" height="96" rx="12" class="d-paper"/><text x="415" y="200" text-anchor="middle" class="d-xs">AZ-a · private subnet</text>
+      <rect x="334" y="210" width="74" height="30" rx="7" class="d-box"/><text x="371" y="230" text-anchor="middle" class="d-xs">pod</text>
+      <rect x="420" y="210" width="74" height="30" rx="7" class="d-box"/><text x="457" y="230" text-anchor="middle" class="d-xs">pod</text>
+      <text x="415" y="264" text-anchor="middle" class="d-xs">Kubernetes nodes</text>
+      <rect x="530" y="182" width="100" height="96" rx="12" class="d-paper"/><text x="580" y="200" text-anchor="middle" class="d-xs">AZ-b</text>
+      <rect x="543" y="210" width="74" height="30" rx="7" class="d-box"/><text x="580" y="230" text-anchor="middle" class="d-xs">pod</text>
+      <rect x="648" y="186" width="90" height="70" rx="10" class="d-teal"/><text x="693" y="214" text-anchor="middle" class="d-t">RDS</text><text x="693" y="232" text-anchor="middle" class="d-xs">multi-AZ</text>
+      <path d="M290 208 H332" class="d-line" marker-end="url(#ah)"/>
+      <rect x="780" y="150" width="110" height="80" rx="12" class="d-bad"/><text x="835" y="182" text-anchor="middle" class="d-t">Monitoring</text><text x="835" y="200" text-anchor="middle" class="d-xs">metrics, logs,</text><text x="835" y="214" text-anchor="middle" class="d-xs">alerts</text>
+      <rect x="560" y="30" width="200" height="70" rx="12" class="d-vio"/><text x="660" y="58" text-anchor="middle" class="d-t">Users</text><text x="660" y="76" text-anchor="middle" class="d-xs">DNS → CDN → LB</text>
+      <path d="M600 100 C560 140,300 150,240 184" class="d-lvio d-flow" marker-end="url(#av)"/>
+    </svg>
+  </div>
+  <div class="cover-stats">
+    <div><b>{{count}}</b>chapters</div>
+    <div><b>{{diagrams}}</b>diagrams</div>
+    <div><b>{{widgets}}</b>live simulators</div>
+    <div><b>{{quizcount}}</b>quiz questions</div>
+    <div><b>{{bankcount}}</b>interview answers</div>
+  </div>
+</section>
+</div>

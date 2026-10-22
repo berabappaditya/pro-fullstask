@@ -1,0 +1,54 @@
+<section class="chapter" id="ch-observability-cloud" data-title="Observability, SLOs and alerting">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Operate</div>
+    <h2>Observability, SLOs and alerting</h2>
+    <p class="ch-oneline"><b>Metrics tell you something is wrong, traces tell you where, logs tell you why.</b> Alert on what users feel (SLOs), not on every CPU spike.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>Ramu doesn't stand at every counter. He watches a <strong>wall of gauges</strong> (metrics), follows a <strong>tracking number</strong> through every station when an order is late (traces), and reads the <strong>kitchen diary</strong> for that order (logs). His promise to customers: "99.5% of orders served within 5 minutes" (SLO). He only gets a phone call when that promise is at risk.</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Signal</th><th>Answers</th><th>AWS</th><th>GCP</th><th>Open source</th></tr>
+    <tr><td>Metrics</td><td>how much / how fast / how many errors</td><td>CloudWatch Metrics, Managed Prometheus</td><td>Cloud Monitoring, Managed Prometheus</td><td>Prometheus + Grafana</td></tr>
+    <tr><td>Logs</td><td>what exactly happened</td><td>CloudWatch Logs</td><td>Cloud Logging</td><td>Loki, ELK/OpenSearch</td></tr>
+    <tr><td>Traces</td><td>where the time went across services</td><td>X-Ray / CloudWatch Application Signals</td><td>Cloud Trace</td><td>OpenTelemetry + Tempo/Jaeger</td></tr>
+  </table></div>
+
+  <div class="cards">
+    <div class="card"><span class="k">RED (services)</span><h5>Rate, Errors, Duration</h5><p>Requests per second, error rate, latency percentiles (p50/p95/p99) per endpoint.</p></div>
+    <div class="card"><span class="k">USE (resources)</span><h5>Utilisation, Saturation, Errors</h5><p>CPU, memory, disk, connection pools, queue depth.</p></div>
+    <div class="card"><span class="k">Golden signals</span><h5>Latency, traffic, errors, saturation</h5><p>Google SRE's four signals; same idea.</p></div>
+  </div>
+
+  <h3>SLI, SLO, SLA and error budgets</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Term</th><th>Meaning</th><th>Example</th></tr>
+    <tr><td>SLI (indicator)</td><td>a measurement of user experience</td><td>% of requests answered successfully in &lt; 300 ms</td></tr>
+    <tr><td>SLO (objective)</td><td>the target for the SLI over a window</td><td>99.9% over 30 days</td></tr>
+    <tr><td>Error budget</td><td>allowed failure: 100% − SLO</td><td>0.1% ≈ 43 minutes of full outage per 30 days</td></tr>
+    <tr><td>SLA (agreement)</td><td>a contractual promise with penalties, looser than the SLO</td><td>99.5% or service credits</td></tr>
+  </table></div>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Availability</th><th>Downtime per year</th><th>per 30 days</th></tr>
+    <tr><td>99%</td><td class="num">3.65 days</td><td class="num">7.2 hours</td></tr>
+    <tr><td>99.9%</td><td class="num">8.76 hours</td><td class="num">43.2 minutes</td></tr>
+    <tr><td>99.95%</td><td class="num">4.38 hours</td><td class="num">21.6 minutes</td></tr>
+    <tr><td>99.99%</td><td class="num">52.6 minutes</td><td class="num">4.3 minutes</td></tr>
+  </table></div>
+
+  <div class="cards">
+    <div class="card good"><h5>Good alerts</h5><p>Page on <strong>symptoms</strong>: SLO burn rate (errors eating the budget fast), p99 latency above target, no successful orders in 5 minutes. Every alert has a runbook link.</p></div>
+    <div class="card bad"><h5>Bad alerts</h5><p>Page on causes that may not hurt users: one instance at 90% CPU, a single 500, disk at 70%. Those belong on dashboards or tickets.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Gauges, a tracking number, a diary, and one promise.</p>
+    <p>Metrics → traces → logs. <span class="hl">RED for services, USE for resources.</span> SLO 99.9% = 43 min/month budget. Alert on burn rate, with runbooks.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Your API's p99 latency doubled after a deploy. How do you investigate?</summary><div class="ans"><p>Confirm on dashboards (which endpoints, all instances or some, correlated with the deploy). Compare traces before/after to find the slow span (DB query, downstream call, GC). Check saturation: connection pool waits, CPU throttling, GC pauses. Check logs for errors/timeouts. If user impact is significant, roll back first, then investigate in staging with the same load.</p></div></details>
+    <details><summary>What's an error budget used for?</summary><div class="ans"><p>It balances reliability and velocity: while budget remains, teams ship features and take risks; when it's exhausted, they freeze risky changes and invest in reliability. It turns "how reliable?" into an agreed number.</p></div></details>
+  </div>
+  {{done}}
+</section>

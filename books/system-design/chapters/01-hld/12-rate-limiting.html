@@ -1,0 +1,127 @@
+<section class="chapter" id="ch-rate" data-title="Rate limiting">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Protection</div>
+    <h2>Rate limiting</h2>
+    <p class="ch-oneline"><b>A rate limiter caps how many requests a client may make in a period of time</b>, protecting the system from abuse, accidents and overload.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>A reseller starts buying 200 cups at a time and selling them outside the station at double the price. Regular customers find the flasks empty. Ramu puts up a sign: <strong>"Maximum 5 cups per person per 10 minutes."</strong> Bablu at the gate gives each person 5 tokens; every cup costs a token; tokens come back slowly over time. When you're out of tokens, you wait.</p>
+    <p>That's the <strong>token bucket</strong> algorithm, the most widely used rate limiter.</p></div>
+
+  <h3>Why rate limit?</h3>
+  <div class="cards">
+    <div class="card"><h5>Stop abuse</h5><p>Brute-force logins, scraping, DDoS.</p></div>
+    <div class="card"><h5>Fairness</h5><p>One noisy tenant can't starve everyone else.</p></div>
+    <div class="card"><h5>Protect downstream</h5><p>Your DB or a paid third-party API can only take so much.</p></div>
+    <div class="card"><h5>Cost control</h5><p>Free tier = 100 calls/day; paid tier = more.</p></div>
+  </div>
+
+  <h3>Five algorithms</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 250" role="img" aria-label="Token bucket fills with tokens at a fixed rate and each request consumes one; leaky bucket queues requests and drains at a fixed rate">
+      <text x="200" y="22" text-anchor="middle" class="d-tl">Token bucket</text>
+      <text x="200" y="44" text-anchor="middle" class="d-xs">refill: 1 token / second</text>
+      <path d="M200 50 V78" class="d-lamb d-flow" marker-end="url(#am)"/>
+      <path d="M140 80 V190 Q140 205 155 205 H245 Q260 205 260 190 V80" class="d-line" style="stroke-width:3"/>
+      <circle cx="165" cy="190" r="10" class="d-ambf"/><circle cx="190" cy="190" r="10" class="d-ambf"/><circle cx="215" cy="190" r="10" class="d-ambf"/><circle cx="240" cy="190" r="10" class="d-ambf"/><circle cx="178" cy="168" r="10" class="d-ambf"/><circle cx="203" cy="168" r="10" class="d-ambf"/>
+      <text x="200" y="125" text-anchor="middle" class="d-xs">capacity 10</text><text x="200" y="140" text-anchor="middle" class="d-xs">(allows bursts)</text>
+      <path d="M50 150 H135" class="d-lacc" marker-end="url(#aa)"/><text x="70" y="142" class="d-ta">request</text>
+      <path d="M265 175 H350" class="d-lgood" marker-end="url(#ag)"/><text x="300" y="166" text-anchor="middle" class="d-tg">token? → allow</text>
+      <text x="300" y="196" text-anchor="middle" class="d-tb">empty? → 429</text>
+      <line x1="410" y1="15" x2="410" y2="235" class="d-line d-dash"/>
+      <text x="620" y="22" text-anchor="middle" class="d-tl">Leaky bucket</text>
+      <text x="620" y="44" text-anchor="middle" class="d-xs">requests pour in, any rate</text>
+      <path d="M560 50 L600 78 M620 50 V78 M680 50 L640 78" class="d-lacc" marker-end="url(#aa)"/>
+      <path d="M560 80 V180 L610 205 H630 L680 180 V80" class="d-line" style="stroke-width:3"/>
+      <rect x="575" y="150" width="90" height="14" rx="3" class="d-acc"/><rect x="575" y="132" width="90" height="14" rx="3" class="d-acc"/><rect x="575" y="114" width="90" height="14" rx="3" class="d-acc"/>
+      <text x="620" y="100" text-anchor="middle" class="d-xs">FIFO queue</text>
+      <path d="M620 207 V238" class="d-lgood d-flow" marker-end="url(#ag)"/><text x="700" y="228" class="d-tg">drains at fixed rate</text>
+      <text x="720" y="110" class="d-tb">overflow</text><text x="720" y="124" class="d-tb">→ dropped</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Token bucket allows short bursts up to the bucket size; leaky bucket smooths output to a constant rate.</figcaption>
+  </figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Algorithm</th><th>How</th><th>Pros</th><th>Cons</th></tr>
+    <tr><td>Token bucket</td><td>Tokens refill at rate r up to capacity b; each request takes one</td><td>Allows bursts; memory-light; used by AWS, Stripe</td><td>Two parameters to tune</td></tr>
+    <tr><td>Leaky bucket</td><td>Queue drains at constant rate</td><td>Smooth, steady output</td><td>Bursts wait or drop; old requests can block new</td></tr>
+    <tr><td>Fixed window counter</td><td>Count per calendar minute; reset at :00</td><td>Simplest (Redis INCR)</td><td>Edge burst: 100 at 0:59 + 100 at 1:00 = 200 in 2 s</td></tr>
+    <tr><td>Sliding window log</td><td>Store each request's timestamp; count those in the last 60 s</td><td>Exact</td><td>Memory per request</td></tr>
+    <tr><td>Sliding window counter</td><td>Current window + weighted previous window</td><td>Close to exact, cheap</td><td>Approximation</td></tr>
+  </table></div>
+
+  <div class="widget" id="w-bucket">
+    <div class="widget-head"><span class="live">Live</span>Token bucket: capacity 5, refill 1 token every 1.5 s</div>
+    <div class="widget-body">
+      <div class="bucket-wrap">
+        <div><div class="bucket" id="bucket" aria-label="tokens in bucket"></div><p class="small" style="text-align:center;margin:6px 0 0"><span id="bucketCount">5</span> / 5 tokens</p></div>
+        <div style="flex:1;min-width:220px">
+          <div class="controls">
+            <button class="btn primary" id="bkOne">Send 1 request</button>
+            <button class="btn" id="bkBurst">Burst of 8</button>
+          </div>
+          <div class="statrow" id="bkStats"></div>
+          <div class="wlog" id="bkLog" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="A thread-safe token bucket (single server)">
+public class TokenBucket {
+    private final long capacity;          // max burst size
+    private final double refillPerNano;   // tokens added per nanosecond
+    private double tokens;                // current tokens (fractional is fine)
+    private long lastRefill;              // when we last topped up
+
+    public TokenBucket(long capacity, long tokensPerSecond) {
+        this.capacity = capacity;
+        this.refillPerNano = tokensPerSecond / 1_000_000_000.0;
+        this.tokens = capacity;           // start full
+        this.lastRefill = System.nanoTime();
+    }
+
+    public synchronized boolean tryConsume() {
+        refill();                         // lazily add tokens for time passed
+        if (tokens >= 1) { tokens -= 1; return true; }   // allowed
+        return false;                     // caller responds 429 Too Many Requests
+    }
+
+    private void refill() {
+        long now = System.nanoTime();
+        tokens = Math.min(capacity, tokens + (now - lastRefill) * refillPerNano);
+        lastRefill = now;                 // no background thread needed
+    }
+}
+</script>
+
+  <h3>Distributed rate limiting</h3>
+  <p>With 20 API servers, each keeping its own bucket, a user could get 20× the limit. Keep counters in <strong>Redis</strong>, shared by all servers, and make the check-and-increment atomic with a Lua script (or <code>INCR</code> + <code>EXPIRE</code> for a fixed window).</p>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Fixed-window limit in Redis: 100 requests per user per minute">
+public boolean allow(String userId) {
+    long window = Instant.now().getEpochSecond() / 60;      // current minute bucket
+    String key = "rl:" + userId + ":" + window;             // e.g. rl:u42:29001234
+    Long count = redis.opsForValue().increment(key);        // atomic INCR
+    if (count != null && count == 1) {
+        redis.expire(key, Duration.ofSeconds(61));          // auto-clean old windows
+    }
+    return count != null && count <= 100;                   // over 100 -> reject
+}
+// Respond with: 429 Too Many Requests
+//   Retry-After: 23   X-RateLimit-Limit: 100   X-RateLimit-Remaining: 0
+</script>
+
+  <div class="box tip"><div class="box-tag">Interview tip</div>
+    <p>Say <strong>where</strong> the limiter lives (API gateway is typical), <strong>what key</strong> it limits by (user ID, API key, IP for anonymous traffic), <strong>what happens on reject</strong> (429 + Retry-After), and <strong>what happens if Redis is down</strong> (usually fail open: allow traffic rather than block every user).</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Tokens drip in, requests spend them.</p>
+    <p>Token bucket = bursts OK, average capped. Leaky bucket = smooth output. Fixed window = simple but edge bursts. Sliding window = accurate. Share counters in <span class="hl">Redis with atomic ops</span> across servers.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Design a rate limiter for an API used by 10 million users.</summary><div class="ans"><p>Put it in the API gateway as middleware. Rules (per user/API key/endpoint) come from a config store and are cached locally. Counters live in a Redis cluster sharded by key; use a token bucket or sliding window counter via an atomic Lua script. Return 429 with Retry-After and rate-limit headers. For latency, consider a small local pre-check and async syncing for non-critical limits. Monitor rejected counts; fail open if Redis is unreachable.</p></div></details>
+    <details><summary>What's the fixed-window edge problem?</summary><div class="ans"><p>A limit of 100/minute resets at each minute boundary, so a client can send 100 requests at 12:00:59 and another 100 at 12:01:00, i.e. 200 within two seconds. Sliding windows fix this.</p></div></details>
+  </div>
+  {{done}}
+</section>

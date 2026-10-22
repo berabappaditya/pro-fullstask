@@ -1,0 +1,71 @@
+<section class="chapter" id="ch-iam" data-title="IAM: identities, roles and policies">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Foundations</div>
+    <h2>IAM: who can do what to which resource</h2>
+    <p class="ch-oneline"><b>Every API call in the cloud is checked: which identity, which action, which resource, under which conditions.</b> Grant the least privilege, prefer short-lived role credentials over long-lived keys.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>Staff don't get <strong>master keys</strong>. The baker's badge opens the oven room only, during his shift. A delivery partner gets a <strong>temporary pass</strong> valid for one hour. And the kitchen <em>robot</em> also has a badge (a role), so nobody tapes a key to it.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 220" role="img" aria-label="A principal (user, role or service account) makes a request; the policy evaluation checks action, resource and conditions; an explicit deny wins, then allow, otherwise implicit deny">
+      <rect x="10" y="70" width="170" height="80" rx="12" class="d-vio"/><text x="95" y="96" text-anchor="middle" class="d-t">Principal</text><text x="95" y="114" text-anchor="middle" class="d-xs">user · role · service</text><text x="95" y="130" text-anchor="middle" class="d-xs">account · workload</text>
+      <path d="M180 110 H220" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="222" y="62" width="200" height="96" rx="12" class="d-box"/><text x="322" y="86" text-anchor="middle" class="d-t">Request</text><text x="322" y="106" text-anchor="middle" class="d-m">s3:GetObject</text><text x="322" y="124" text-anchor="middle" class="d-xs">on arn:aws:s3:::menus/*</text><text x="322" y="140" text-anchor="middle" class="d-xs">from IP, at time, with MFA?</text>
+      <path d="M422 110 H462" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="464" y="20" width="230" height="180" rx="12" class="d-amb"/><text x="579" y="44" text-anchor="middle" class="d-t">Policy evaluation</text>
+      <text x="482" y="72" class="d-xs">1. explicit Deny anywhere? → DENY</text>
+      <text x="482" y="98" class="d-xs">2. SCP / org boundary allows?</text>
+      <text x="482" y="124" class="d-xs">3. identity or resource policy</text><text x="494" y="140" class="d-xs">Allows? → ALLOW</text>
+      <text x="482" y="166" class="d-xs">4. otherwise → implicit DENY</text>
+      <path d="M694 80 H740" class="d-lgood" marker-end="url(#ag)"/><path d="M694 150 H740" class="d-lbad" marker-end="url(#ab)"/>
+      <rect x="742" y="58" width="108" height="44" rx="10" class="d-good"/><text x="796" y="85" text-anchor="middle" class="d-t">allowed</text>
+      <rect x="742" y="128" width="108" height="44" rx="10" class="d-bad"/><text x="796" y="155" text-anchor="middle" class="d-t">denied</text>
+    </svg></div></figure>
+
+<script type="text/x-code" data-lang="json" data-variant="good" data-title="AWS: a least-privilege policy for the orders service's role">
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadWriteOwnBucketPrefix",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject"],
+      "Resource": "arn:aws:s3:::ramu-receipts/orders/*"
+    },
+    {
+      "Sid": "ReadOneSecret",
+      "Effect": "Allow",
+      "Action": "secretsmanager:GetSecretValue",
+      "Resource": "arn:aws:secretsmanager:ap-south-1:123456789012:secret:orders/db-*"
+    }
+  ]
+}
+</script>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Concept</th><th>AWS</th><th>GCP</th></tr>
+    <tr><td>Human identity</td><td>IAM Identity Center (SSO) users, or IAM users (avoid)</td><td>Google accounts / Workspace / Cloud Identity</td></tr>
+    <tr><td>Machine identity</td><td>IAM role (assumed → temporary STS credentials)</td><td>service account</td></tr>
+    <tr><td>Permissions</td><td>JSON policies attached to identities or resources</td><td>roles (bundles of permissions) bound to principals on a resource</td></tr>
+    <tr><td>Pods → cloud</td><td>EKS Pod Identity / IRSA</td><td>GKE Workload Identity Federation</td></tr>
+    <tr><td>CI → cloud without keys</td><td>OIDC federation (GitHub Actions → role)</td><td>Workload Identity Federation</td></tr>
+    <tr><td>Org guardrails</td><td>Organizations + SCPs</td><td>Organization policies</td></tr>
+  </table></div>
+
+  <div class="cards">
+    <div class="card good"><h5>Do</h5><p>Least privilege, scoped to resources. Roles/service accounts for workloads. SSO + MFA for humans. Separate accounts/projects per environment. Audit with CloudTrail / Cloud Audit Logs.</p></div>
+    <div class="card bad"><h5>Don't</h5><p>Use the root account. Put access keys in code, images or Git. Grant <code>*:*</code> or project Owner to apps. Share one role across unrelated services.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Badges, not master keys. Temporary passes, not copied keys.</p>
+    <p>Principal + action + resource + condition. <span class="hl">Explicit deny wins, default deny</span>. Workloads use roles/service accounts with short-lived credentials.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How does an app on EC2/EKS get AWS permissions without access keys?</summary><div class="ans"><p>EC2: an instance profile attaches a role; the SDK fetches temporary credentials from the instance metadata service (IMDSv2) and refreshes them. EKS: Pod Identity or IRSA maps a Kubernetes service account to an IAM role, giving each pod its own temporary credentials. No keys stored anywhere.</p></div></details>
+    <details><summary>Identity-based vs resource-based policies?</summary><div class="ans"><p>Identity-based policies attach to a user/role and say what it can do. Resource-based policies attach to a resource (S3 bucket policy, SQS queue policy, KMS key policy) and say who can access it, including other accounts. Cross-account access usually needs both sides to allow.</p></div></details>
+  </div>
+  {{done}}
+</section>

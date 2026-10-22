@@ -1,0 +1,83 @@
+<section class="chapter" id="ch-linux-basics" data-title="Linux I: files, permissions, text">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Linux</div>
+    <h2>Linux I: navigating, files, permissions and text processing</h2>
+    <p class="ch-oneline"><b>Everything is a file, every file has an owner and permissions, and small commands joined with pipes do big jobs.</b></p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>The kitchen machines don't have buttons; you <strong>talk to them</strong>. "Go to the storeroom" (<code>cd</code>), "what's on this shelf?" (<code>ls</code>), "read me this label" (<code>cat</code>), "find every jar with 'chilli' on it" (<code>grep</code>). And every cupboard has a lock that says who may open, change, or use it (permissions).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 210" role="img" aria-label="Linux filesystem tree: root with etc for config, var for logs and data, home for users, opt for apps, tmp, proc and usr/bin">
+      <rect x="390" y="10" width="80" height="34" rx="8" class="d-acc"/><text x="430" y="32" text-anchor="middle" class="d-t">/</text>
+      <g class="d-xs">
+        <rect x="10" y="90" width="96" height="70" rx="8" class="d-box"/><text x="58" y="112" text-anchor="middle" class="d-t">/etc</text><text x="58" y="130" text-anchor="middle">config files</text><text x="58" y="146" text-anchor="middle">nginx, systemd</text>
+        <rect x="116" y="90" width="96" height="70" rx="8" class="d-box"/><text x="164" y="112" text-anchor="middle" class="d-t">/var</text><text x="164" y="130" text-anchor="middle">/var/log logs</text><text x="164" y="146" text-anchor="middle">data, caches</text>
+        <rect x="222" y="90" width="96" height="70" rx="8" class="d-box"/><text x="270" y="112" text-anchor="middle" class="d-t">/home</text><text x="270" y="130" text-anchor="middle">users' files</text><text x="270" y="146" text-anchor="middle">~ = your home</text>
+        <rect x="328" y="90" width="96" height="70" rx="8" class="d-box"/><text x="376" y="112" text-anchor="middle" class="d-t">/opt</text><text x="376" y="130" text-anchor="middle">installed apps</text><text x="376" y="146" text-anchor="middle">/opt/orders</text>
+        <rect x="434" y="90" width="96" height="70" rx="8" class="d-box"/><text x="482" y="112" text-anchor="middle" class="d-t">/tmp</text><text x="482" y="130" text-anchor="middle">temporary</text><text x="482" y="146" text-anchor="middle">cleared on boot</text>
+        <rect x="540" y="90" width="96" height="70" rx="8" class="d-box"/><text x="588" y="112" text-anchor="middle" class="d-t">/usr/bin</text><text x="588" y="130" text-anchor="middle">commands</text><text x="588" y="146" text-anchor="middle">ls, grep, java</text>
+        <rect x="646" y="90" width="96" height="70" rx="8" class="d-box"/><text x="694" y="112" text-anchor="middle" class="d-t">/proc</text><text x="694" y="130" text-anchor="middle">live kernel info</text><text x="694" y="146" text-anchor="middle">/proc/&lt;pid&gt;</text>
+        <rect x="752" y="90" width="96" height="70" rx="8" class="d-box"/><text x="800" y="112" text-anchor="middle" class="d-t">/root</text><text x="800" y="130" text-anchor="middle">root's home</text><text x="800" y="146" text-anchor="middle">(admin)</text>
+      </g>
+      <path d="M430 44 L58 88 M430 44 L164 88 M430 44 L270 88 M430 44 L376 88 M430 44 L482 88 M430 44 L588 88 M430 44 L694 88 M430 44 L800 88" class="d-line"/>
+      <text x="430" y="196" text-anchor="middle" class="d-s">One tree from / (no C: or D:). Disks are mounted into it (e.g. /data).</text>
+    </svg></div></figure>
+
+  <div class="widget" data-terminal>
+    <div class="widget-head"><span class="live">Live</span>Practice terminal: navigation, files and permissions</div>
+    <div class="widget-body">
+<script type="application/json">
+{"prompt":"ramu@orders-vm:~$","welcome":"A practice server. Tap a command or type one (try 'clear').","commands":[
+{"cmd":"pwd","out":"/home/ramu","note":"Print working directory: where am I?"},
+{"cmd":"ls -lah","out":"total 28K\ndrwxr-x--- 4 ramu ramu 4.0K Oct 20 09:12 .\ndrwxr-xr-x 3 root root 4.0K Oct  1 10:00 ..\n-rw-r--r-- 1 ramu ramu  220 Oct  1 10:00 .bashrc\ndrwxr-xr-x 2 ramu ramu 4.0K Oct 20 09:10 deploy\n-rwxr-x--- 1 ramu ramu 1.2K Oct 20 09:12 start.sh","note":"-l long format, -a include hidden files (starting with .), -h human sizes. First column = type + permissions."},
+{"cmd":"cd /opt/orders && ls","out":"app.jar  application.yml  logs","note":"Change directory. && runs the next command only if the first succeeded. cd ~ or cd alone = home; cd - = previous dir; cd .. = parent."},
+{"cmd":"cat application.yml","out":"server:\n  port: 8080\nspring:\n  profiles:\n    active: prod","note":"Print a whole file. For long files use less (scroll, / to search, q to quit), head -n 20, or tail -n 50."},
+{"cmd":"mkdir -p /tmp/backup/2026-10-22 && cp -r logs /tmp/backup/2026-10-22/","out":"","note":"mkdir -p creates parent folders as needed. cp -r copies a directory recursively. mv moves/renames; rm -r deletes (no recycle bin!)."},
+{"cmd":"find /opt/orders -name '*.log' -mtime +7 -size +100M","out":"/opt/orders/logs/app-2026-10-01.log\n/opt/orders/logs/app-2026-10-03.log","note":"Find files by name, age (modified more than 7 days ago) and size. Add -delete to remove them (careful)."},
+{"cmd":"grep -rin 'OutOfMemoryError' logs/ | head","out":"logs/app.log:10422:java.lang.OutOfMemoryError: Java heap space\nlogs/app.log:10423:\tat java.util.Arrays.copyOf(Arrays.java:3537)","note":"Search text: -r recursive, -i ignore case, -n line numbers. -v inverts, -c counts, -A3/-B3 show context lines, -E for regex."},
+{"cmd":"chmod 750 start.sh","out":"","note":"Permissions as octal: owner 7 (rwx), group 5 (r-x), others 0 (---). r=4, w=2, x=1. chmod +x start.sh just adds execute."},
+{"cmd":"sudo chown -R orders:orders /opt/orders","out":"","note":"Change owner and group recursively. sudo runs one command as root; the service should run as its own non-root user."},
+{"cmd":"cut -d' ' -f1 logs/access.log | sort | uniq -c | sort -rn | head -5","out":"  9124 203.0.113.50\n  2210 198.51.100.7\n   981 192.0.2.44\n   402 203.0.113.9\n   311 198.51.100.21","note":"A pipeline: take field 1 (client IP), sort, count duplicates, sort by count descending, top 5. Classic 'who is hammering us?'."},
+{"cmd":"awk '$9 >= 500 {print $7}' logs/access.log | sort | uniq -c | sort -rn | head -3","out":"   57 /api/orders/checkout\n   12 /api/payments/callback\n    3 /api/menu","note":"awk splits each line into fields ($1, $2…). Here: when the status (field 9) is 5xx, print the path (field 7), then count per path."},
+{"cmd":"sed -i 's/port: 8080/port: 9090/' application.yml","out":"","note":"Stream editor: replace text in place (-i). Make a backup first with -i.bak."},
+{"cmd":"tar -czf orders-logs.tar.gz logs/ && ls -lh orders-logs.tar.gz","out":"-rw-r--r-- 1 ramu ramu 38M Oct 22 10:31 orders-logs.tar.gz","note":"Create (-c) a gzip-compressed (-z) archive file (-f). Extract with tar -xzf file.tar.gz."},
+{"cmd":"wc -l logs/app.log","out":"184233 logs/app.log","note":"Count lines (-l), words (-w) or bytes (-c)."}
+]}
+</script>
+    </div>
+  </div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg viewBox="0 0 640 150" role="img" aria-label="Permission string -rwxr-x--- split into file type, owner rwx = 7, group r-x = 5, others --- = 0">
+      <g class="d-m">
+        <rect x="20" y="30" width="40" height="44" rx="6" class="d-paper"/><text x="40" y="58" text-anchor="middle">-</text>
+        <rect x="70" y="30" width="150" height="44" rx="6" class="d-good"/><text x="145" y="58" text-anchor="middle">r w x</text>
+        <rect x="230" y="30" width="150" height="44" rx="6" class="d-amb"/><text x="305" y="58" text-anchor="middle">r - x</text>
+        <rect x="390" y="30" width="150" height="44" rx="6" class="d-bad"/><text x="465" y="58" text-anchor="middle">- - -</text>
+      </g>
+      <text x="40" y="96" text-anchor="middle" class="d-xs">type</text><text x="145" y="96" text-anchor="middle" class="d-xs">owner = 4+2+1 = 7</text><text x="305" y="96" text-anchor="middle" class="d-xs">group = 4+0+1 = 5</text><text x="465" y="96" text-anchor="middle" class="d-xs">others = 0</text>
+      <text x="320" y="132" text-anchor="middle" class="d-s">chmod 750 · d = directory, l = symlink · x on a directory = may enter it</text>
+    </svg></div></figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Symbol</th><th>Meaning</th><th>Example</th></tr>
+    <tr><td><code>|</code></td><td>pipe: output of one command → input of the next</td><td><code>ps aux | grep java</code></td></tr>
+    <tr><td><code>&gt;</code> / <code>&gt;&gt;</code></td><td>write / append stdout to a file</td><td><code>echo ok &gt;&gt; health.txt</code></td></tr>
+    <tr><td><code>2&gt;&amp;1</code></td><td>send errors to the same place as output</td><td><code>./run.sh &gt; out.log 2&gt;&amp;1</code></td></tr>
+    <tr><td><code>&amp;&amp;</code> / <code>||</code></td><td>run next if success / if failure</td><td><code>mvn test &amp;&amp; deploy || alert</code></td></tr>
+    <tr><td><code>&amp;</code>, <code>nohup</code></td><td>run in background / survive logout</td><td><code>nohup java -jar app.jar &amp;</code></td></tr>
+    <tr><td><code>$VAR</code>, <code>export</code></td><td>environment variables</td><td><code>export SPRING_PROFILES_ACTIVE=prod</code></td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Where am I, what's here, read it, find it, lock it.</p>
+    <p><code>pwd ls cd cat less head tail cp mv rm mkdir find grep</code> · <span class="hl">chmod 4-2-1 per owner/group/others</span> · pipes: <code>cut sort uniq awk sed wc</code>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Find the 10 most frequent errors in a log file.</summary><div class="ans"><p><code>grep ERROR app.log | awk -F'ERROR' '{print $2}' | sort | uniq -c | sort -rn | head -10</code>: filter error lines, keep the message part, sort so duplicates are adjacent, count, sort by count descending, top 10.</p></div></details>
+    <details><summary>What does chmod 644 mean? 755?</summary><div class="ans"><p>644: owner read/write, group and others read only (typical files). 755: owner full, group and others read and execute (typical directories and scripts).</p></div></details>
+  </div>
+  {{done}}
+</section>

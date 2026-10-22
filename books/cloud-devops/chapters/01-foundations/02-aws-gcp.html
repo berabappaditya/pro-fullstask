@@ -1,0 +1,52 @@
+<section class="chapter" id="ch-aws-gcp" data-title="AWS and GCP: the service map">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Foundations</div>
+    <h2>AWS and GCP side by side: the service map</h2>
+    <p class="ch-oneline"><b>Both clouds offer the same building blocks under different names.</b> Learn the categories once, then map the names.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>Two landlords, same facilities, different signboards: Amazon calls the cold store "S3", Google calls it "Cloud Storage". Ramu learns <strong>what each facility does</strong>, then reads the signboard.</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Category</th><th>AWS</th><th>GCP</th><th>What it does</th></tr>
+    <tr><td>Virtual machines</td><td>EC2</td><td>Compute Engine</td><td>rent servers by the second</td></tr>
+    <tr><td>VM autoscaling</td><td>Auto Scaling groups</td><td>Managed instance groups</td><td>add/remove VMs by load</td></tr>
+    <tr><td>Managed Kubernetes</td><td>EKS</td><td>GKE (Standard / Autopilot)</td><td>run containers on a managed control plane</td></tr>
+    <tr><td>Serverless containers</td><td>ECS on Fargate</td><td>Cloud Run</td><td>run containers without managing servers</td></tr>
+    <tr><td>Functions</td><td>Lambda</td><td>Cloud Run functions</td><td>run code per event</td></tr>
+    <tr><td>Object storage</td><td>S3</td><td>Cloud Storage (GCS)</td><td>files/blobs, unlimited, 11 nines durability</td></tr>
+    <tr><td>Block storage</td><td>EBS</td><td>Persistent Disk / Hyperdisk</td><td>disks for VMs</td></tr>
+    <tr><td>Relational DB</td><td>RDS, Aurora</td><td>Cloud SQL, AlloyDB, Spanner</td><td>managed MySQL/PostgreSQL (Spanner: global SQL)</td></tr>
+    <tr><td>NoSQL</td><td>DynamoDB</td><td>Firestore, Bigtable</td><td>key-value / document / wide-column</td></tr>
+    <tr><td>Cache</td><td>ElastiCache (Redis/Valkey)</td><td>Memorystore</td><td>managed Redis</td></tr>
+    <tr><td>Queues</td><td>SQS</td><td>Pub/Sub, Cloud Tasks</td><td>decouple producers and consumers</td></tr>
+    <tr><td>Pub/sub &amp; events</td><td>SNS, EventBridge</td><td>Pub/Sub, Eventarc</td><td>fan-out, event routing</td></tr>
+    <tr><td>Streaming</td><td>Kinesis, MSK (Kafka)</td><td>Pub/Sub, Managed Kafka</td><td>ordered event streams</td></tr>
+    <tr><td>Load balancing</td><td>ALB, NLB</td><td>Cloud Load Balancing</td><td>spread traffic</td></tr>
+    <tr><td>DNS / CDN</td><td>Route 53 / CloudFront</td><td>Cloud DNS / Cloud CDN</td><td>names, edge caching</td></tr>
+    <tr><td>Networking</td><td>VPC (regional)</td><td>VPC (global, regional subnets)</td><td>private network</td></tr>
+    <tr><td>Identity</td><td>IAM, IAM Identity Center</td><td>Cloud IAM, service accounts</td><td>who can do what</td></tr>
+    <tr><td>Secrets / keys</td><td>Secrets Manager, KMS</td><td>Secret Manager, Cloud KMS</td><td>store secrets, encryption keys</td></tr>
+    <tr><td>Container registry</td><td>ECR</td><td>Artifact Registry</td><td>store images</td></tr>
+    <tr><td>Monitoring &amp; logs</td><td>CloudWatch, X-Ray</td><td>Cloud Monitoring, Logging, Trace</td><td>metrics, logs, traces</td></tr>
+    <tr><td>IaC</td><td>CloudFormation, CDK</td><td>Infrastructure Manager</td><td>Terraform works on both</td></tr>
+    <tr><td>Data warehouse</td><td>Redshift, Athena</td><td>BigQuery</td><td>analytics SQL at scale</td></tr>
+    <tr><td>AI platform</td><td>Bedrock, SageMaker</td><td>Vertex AI</td><td>hosted models, ML ops (see the AI book)</td></tr>
+  </table></div>
+
+  <div class="cards">
+    <div class="card"><h5>AWS strengths</h5><p>Largest service catalogue and market share, mature enterprise features, huge ecosystem and hiring pool.</p></div>
+    <div class="card"><h5>GCP strengths</h5><p>Global VPC and load balancer, GKE (Kubernetes came from Google), BigQuery, Cloud Run's simplicity, strong data/AI tooling.</p></div>
+    <div class="card"><h5>Interview angle</h5><p>Name the category first ("a managed queue"), then the service on the cloud they use. Avoid lock-in where it's cheap to (containers, Terraform, open protocols), accept it where it buys a lot (managed DBs).</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Same facilities, different signboards.</p>
+    <p>EC2 ↔ Compute Engine, S3 ↔ GCS, RDS ↔ Cloud SQL, Lambda ↔ Cloud Run functions, <span class="hl">Fargate ↔ Cloud Run</span>, EKS ↔ GKE, SQS ↔ Pub/Sub.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>A notable networking difference between AWS and GCP?</summary><div class="ans"><p>An AWS VPC is regional; connecting regions needs peering or Transit Gateway. A GCP VPC is global with regional subnets, so VMs in different regions share one private network, and GCP's external HTTP(S) load balancer has a single global anycast IP.</p></div></details>
+  </div>
+  {{done}}
+</section>

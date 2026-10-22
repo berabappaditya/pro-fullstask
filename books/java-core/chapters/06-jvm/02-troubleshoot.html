@@ -1,0 +1,58 @@
+<section class="chapter" id="ch-troubleshoot" data-title="Troubleshooting a production JVM">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Under the hood</div>
+    <h2>Troubleshooting a production JVM</h2>
+    <p class="ch-oneline"><b>High CPU? Take thread dumps. Memory climbing? Take a heap dump. Slow and spiky? Read the GC log.</b> Then fix the code, not the flags.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>When the kitchen slows down, Ramu doesn't guess. He takes a <strong>photo of what every chef is doing right now</strong> (thread dump), a <strong>stock-take of the storeroom</strong> (heap dump), and checks the <strong>cleaner's logbook</strong> (GC log). Three photos a few seconds apart show who is stuck at the same stove.</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Symptom</th><th>Likely cause</th><th>First tool</th></tr>
+    <tr><td><code>OutOfMemoryError: Java heap space</code></td><td>leak or heap too small for the load</td><td>heap dump → Eclipse MAT "dominator tree"</td></tr>
+    <tr><td><code>OutOfMemoryError: GC overhead limit exceeded</code></td><td>heap almost full; GC runs nonstop, frees little</td><td>GC log, heap dump</td></tr>
+    <tr><td><code>OutOfMemoryError: Metaspace</code></td><td>class-loader leak (redeploys), heavy proxies</td><td><code>jcmd VM.metaspace</code></td></tr>
+    <tr><td><code>OutOfMemoryError: unable to create native thread</code></td><td>too many threads (unbounded pool)</td><td>thread dump, count threads</td></tr>
+    <tr><td>100% CPU</td><td>hot loop, regex backtracking, GC thrashing</td><td><code>top -H</code> + thread dump</td></tr>
+    <tr><td>requests hang, CPU low</td><td>deadlock, exhausted DB/HTTP pool, slow downstream</td><td>thread dumps (BLOCKED / WAITING on pool)</td></tr>
+    <tr><td>pod killed with exit 137 (OOMKilled)</td><td>total memory (heap + metaspace + threads + direct buffers) &gt; container limit</td><td>NMT: <code>-XX:NativeMemoryTracking=summary</code></td></tr>
+  </table></div>
+
+  <div class="widget" data-terminal>
+    <div class="widget-head"><span class="live">Live</span>Practice terminal: diagnose a slow Java service</div>
+    <div class="widget-body">
+<script type="application/json">
+{"prompt":"ramu@prod-api:~$","welcome":"Orders API is slow and CPU is high. Try the commands below (or type them).","commands":[
+{"cmd":"jps -l","out":"4242 com.ramu.orders.OrdersApplication\n5120 jdk.jcmd/sun.tools.jps.Jps","note":"List Java processes. Our service is PID 4242."},
+{"cmd":"top -H -p 4242","out":"  PID USER  %CPU  COMMAND\n 4311 app   97.0  http-nio-8080-exec-7\n 4312 app    2.1  http-nio-8080-exec-8\n 4260 app    0.9  GC Thread#0","note":"-H shows threads. Thread 4311 is burning a whole core. In hex: printf '%x' 4311 → 10d7."},
+{"cmd":"jstack 4242 | grep -A 8 nid=0x10d7","out":"\"http-nio-8080-exec-7\" #57 daemon prio=5 nid=0x10d7 runnable\n   java.lang.Thread.State: RUNNABLE\n    at java.util.regex.Pattern$Loop.match(Pattern.java:4785)\n    at com.ramu.orders.CouponValidator.isValid(CouponValidator.java:22)\n    at com.ramu.orders.OrderService.apply(OrderService.java:88)","note":"Match the native id (nid). The hot thread is stuck in a regex: catastrophic backtracking in CouponValidator line 22."},
+{"cmd":"jcmd 4242 Thread.print","out":"Full thread dump OpenJDK 64-Bit Server VM (25+36 mixed mode):\n... 212 threads ...\n\"HikariPool-1 connection adder\" TIMED_WAITING\n48 threads WAITING at com.zaxxer.hikari.pool.HikariPool.getConnection","note":"jcmd is the modern all-in-one tool. 48 threads waiting for a DB connection = the connection pool is exhausted."},
+{"cmd":"jstat -gcutil 4242 1000 3","out":"  S0     S1     E      O      M     YGC   YGCT   FGC  FGCT\n  0.00  41.2  63.5   97.8   92.1   812  9.31    41  38.2\n  0.00  41.2  88.0   98.1   92.1   812  9.31    42  39.4\n 38.7   0.00  12.4   98.3   92.1   813  9.35    43  40.6","note":"Old gen (O) stuck at ~98% and full GCs (FGC) climbing every second: memory pressure or a leak."},
+{"cmd":"jcmd 4242 GC.heap_dump /dumps/orders.hprof","out":"Dumping heap to /dumps/orders.hprof ...\nHeap dump file created [1873452211 bytes in 6.214 secs]","note":"Open it in Eclipse MAT or VisualVM. Look at the dominator tree: the biggest retained objects."},
+{"cmd":"jcmd 4242 JFR.start duration=60s filename=/tmp/rec.jfr","out":"Started recording 1. The result will be written to:\n/tmp/rec.jfr","note":"Java Flight Recorder: low-overhead profiling safe for production. Open in JDK Mission Control."},
+{"cmd":"jcmd 4242 VM.flags","out":"-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError ...","note":"See which flags the running JVM actually uses."}
+]}
+</script>
+    </div>
+  </div>
+
+  <h3>The incident playbook (say this in interviews)</h3>
+  <ol class="steps">
+    <li><b>Stabilise</b>Scale out or roll back first. Protect users before debugging.</li>
+    <li><b>Look at metrics</b>CPU, heap after GC, GC pause time, thread count, pool usage, p99 latency, error rate (Actuator + Micrometer + Grafana).</li>
+    <li><b>Capture evidence</b>3 thread dumps 5–10 s apart; a heap dump if memory is the issue; a 60 s JFR recording.</li>
+    <li><b>Find the culprit</b>Same stack in every dump = stuck or hot code. Dominator tree = what holds memory.</li>
+    <li><b>Fix and prevent</b>Fix the code; add a timeout, bound, or test; add an alert so you see it earlier next time.</li>
+  </ol>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Photo of chefs, stock-take, cleaner's logbook.</p>
+    <p>CPU → <code>top -H</code> + <code>jstack</code>. Memory → <code>jstat</code> + heap dump + MAT. Everything → <span class="hl">jcmd and JFR</span>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Your Spring Boot service's memory keeps growing until it's OOM-killed. How do you investigate?</summary><div class="ans"><p>Check whether it's heap or native: if heap-after-GC keeps rising, it's a heap leak; take two heap dumps some time apart and compare the dominator trees in MAT (common: unbounded caches, static maps, ThreadLocals, huge sessions). If heap is flat but RSS grows, use Native Memory Tracking (threads, direct buffers, metaspace). Make sure <code>MaxRAMPercentage</code> leaves room for non-heap memory in the container.</p></div></details>
+    <details><summary>What's in a thread dump?</summary><div class="ans"><p>For every thread: name, state (RUNNABLE, BLOCKED, WAITING…), the native id, the full stack trace, and the locks it holds or is waiting for. The JVM also reports detected deadlocks at the end.</p></div></details>
+  </div>
+  {{done}}
+</section>

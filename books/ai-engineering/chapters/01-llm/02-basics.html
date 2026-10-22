@@ -1,0 +1,60 @@
+<section class="chapter" id="ch-llm-basics" data-title="How LLMs work: tokens, attention, training">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>LLMs</div>
+    <h2>How LLMs work: tokens, embeddings, attention and training</h2>
+    <p class="ch-oneline"><b>An LLM predicts the next token given all the tokens so far, then repeats.</b> Everything it "knows" comes from patterns learned in training; everything it "sees" now is in its context window.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>Ask the assistant "Masala chai needs tea, milk, sugar and…" and it says "<strong>ginger</strong>" because it has read thousands of recipes, not because it looked anything up. It writes one word, re-reads everything including that word, writes the next, and so on. It only remembers what's on the <strong>desk in front of it</strong> (the context window); yesterday's conversation is gone unless you put it back on the desk.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 270" role="img" aria-label="Text is split into tokens, mapped to embedding vectors, passed through many transformer layers with attention, producing a probability distribution over the next token, which is sampled and appended">
+      <rect x="10" y="20" width="200" height="50" rx="10" class="d-vio"/><text x="110" y="42" text-anchor="middle" class="d-t">"Masala chai needs"</text><text x="110" y="60" text-anchor="middle" class="d-xs">your text</text>
+      <path d="M210 45 H240" class="d-lacc" marker-end="url(#aa)"/>
+      <g class="d-m"><rect x="242" y="26" width="64" height="38" rx="7" class="d-amb"/><text x="274" y="50" text-anchor="middle">Mas</text>
+      <rect x="310" y="26" width="58" height="38" rx="7" class="d-amb"/><text x="339" y="50" text-anchor="middle">ala</text>
+      <rect x="372" y="26" width="62" height="38" rx="7" class="d-amb"/><text x="403" y="50" text-anchor="middle">␣chai</text>
+      <rect x="438" y="26" width="72" height="38" rx="7" class="d-amb"/><text x="474" y="50" text-anchor="middle">␣needs</text></g>
+      <text x="376" y="84" text-anchor="middle" class="d-xs">1. tokens (sub-word pieces; ~4 characters of English each)</text>
+      <path d="M376 92 V112" class="d-line" marker-end="url(#ah)"/>
+      <rect x="196" y="114" width="360" height="38" rx="8" class="d-box"/><text x="376" y="138" text-anchor="middle" class="d-xs">2. each token → an embedding vector (thousands of numbers)</text>
+      <path d="M376 152 V170" class="d-line" marker-end="url(#ah)"/>
+      <rect x="200" y="172" width="352" height="64" rx="12" class="d-acc"/><text x="376" y="196" text-anchor="middle" class="d-t">3. transformer layers × N</text><text x="376" y="214" text-anchor="middle" class="d-xs">attention: each token looks at every earlier token</text><text x="376" y="228" text-anchor="middle" class="d-xs">and decides what matters ("chai" ↔ "Masala")</text>
+      <path d="M552 204 H600" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="602" y="120" width="246" height="130" rx="12" class="d-good"/><text x="725" y="142" text-anchor="middle" class="d-t">4. next-token probabilities</text>
+      <g class="d-xs"><text x="620" y="166">␣ginger</text><rect x="690" y="157" width="120" height="10" rx="3" class="d-good"/><text x="820" y="166">41%</text>
+      <text x="620" y="186">␣milk</text><rect x="690" y="177" width="70" height="10" rx="3" class="d-good"/><text x="770" y="186">24%</text>
+      <text x="620" y="206">␣tea</text><rect x="690" y="197" width="50" height="10" rx="3" class="d-good"/><text x="750" y="206">17%</text>
+      <text x="620" y="226">␣love</text><rect x="690" y="217" width="12" height="10" rx="3" class="d-good"/><text x="710" y="226">3%</text></g>
+      <text x="725" y="244" text-anchor="middle" class="d-xs">5. sample one, append, repeat</text>
+      <path d="M725 120 C725 80,560 40,512 44" class="d-lvio d-dash" marker-end="url(#av)"/>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Generation is a loop: one forward pass per output token. That's why output tokens are slower and pricier than input tokens, and why long answers take longer.</figcaption></figure>
+
+  <h3>How a model gets trained</h3>
+  <ol class="steps">
+    <li><b>Pre-training</b>Predict the next token on trillions of tokens of web text, books and code. The model learns language, facts and reasoning patterns. Months on thousands of GPUs; knowledge freezes at a <em>cutoff date</em>.</li>
+    <li><b>Instruction tuning (SFT)</b>Train on example conversations so it follows instructions and answers helpfully instead of just continuing text.</li>
+    <li><b>Preference training (RLHF / RLAIF / DPO)</b>Humans or AI feedback rank answers; the model is tuned toward preferred, safer, more honest responses. Reasoning models add reinforcement learning on verifiable tasks (maths, code).</li>
+  </ol>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Concept</th><th>What it means for you</th></tr>
+    <tr><td>Context window</td><td>max tokens of input + output per call (from tens of thousands to a million+). Everything the model uses must fit. Cost and latency grow with it; quality can drop in the middle of very long contexts.</td></tr>
+    <tr><td>Stateless</td><td>the API remembers nothing. Chat "memory" is your app re-sending history (or a summary) every call.</td></tr>
+    <tr><td>Knowledge cutoff</td><td>no knowledge of events after training; use RAG or tools for anything current.</td></tr>
+    <tr><td>Non-determinism</td><td>sampling means the same prompt can give different answers; temperature 0 reduces but doesn't fully remove it.</td></tr>
+    <tr><td>Hallucination</td><td>fluent but false output. The model optimises for plausible text, not truth. Mitigate with grounding (RAG), citations, tools, constrained outputs and evaluation.</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Read everything once, then guess the next word, again and again, only looking at the desk.</p>
+    <p>Tokens → embeddings → <span class="hl">attention layers</span> → next-token probabilities → sample → repeat. Pre-train → SFT → preference tuning. Stateless, cutoff-bound, can hallucinate.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Why do LLMs hallucinate?</summary><div class="ans"><p>They're trained to produce likely continuations, not verified facts. When the needed fact is missing, rare in training data, after the cutoff or ambiguous, the most plausible-sounding tokens may be wrong, and the model has no built-in signal of its own uncertainty. Grounding with retrieved sources, asking for citations, allowing "I don't know", tool use for live data, and evaluation reduce it.</p></div></details>
+    <details><summary>What is attention, in one minute?</summary><div class="ans"><p>For each token, the model computes how relevant every other (earlier) token is (query–key similarity) and builds a weighted mix of their information (values). Many attention heads in many layers let it track grammar, references ("it" → "the order") and long-range meaning. Cost grows with the square of sequence length, which is why long contexts are expensive.</p></div></details>
+  </div>
+  {{done}}
+</section>

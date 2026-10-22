@@ -1,0 +1,87 @@
+<section class="chapter" id="ch-generics" data-title="Generics, wildcards and type erasure">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>OOP Java</div>
+    <h2>Generics, wildcards and type erasure</h2>
+    <p class="ch-oneline"><b>Generics let the compiler check what goes into a container</b>, so you get type errors at compile time instead of ClassCastException at runtime.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>A jar labelled "Spices only" (<code>Jar&lt;Spice&gt;</code>) stops anyone from putting sugar in it. A helper who only <strong>takes things out</strong> to taste can accept any jar of any kind of spice (<code>? extends Spice</code>). A helper who only <strong>puts chilli in</strong> can use a jar of chilli, of spices, or of anything at all (<code>? super Chilli</code>).</p></div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before generics (raw types)">
+List orders = new ArrayList();      // raw type: holds Object
+orders.add(new Order(1));
+orders.add("oops");                 // compiles fine!
+Order o = (Order) orders.get(1);    // ClassCastException at RUNTIME
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="With generics">
+List<Order> orders = new ArrayList<>();  // diamond: type inferred
+orders.add(new Order(1));
+orders.add("oops");                      // COMPILE error: caught before running
+Order o = orders.get(0);                 // no cast needed
+</script>
+</div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Generic class, generic method, bounded type">
+public class Box<T> {                                   // T = type parameter
+    private final T value;
+    public Box(T value) { this.value = value; }
+    public T get() { return value; }
+    public <R> Box<R> map(Function<T, R> f) {           // generic METHOD: its own <R>
+        return new Box<>(f.apply(value));
+    }
+}
+
+// Bounded type: T must be Comparable to itself, so we can call compareTo
+public static <T extends Comparable<T>> T max(List<T> items) {
+    T best = items.get(0);
+    for (T t : items) if (t.compareTo(best) > 0) best = t;
+    return best;
+}
+</script>
+
+  <h3>PECS: Producer Extends, Consumer Super</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg viewBox="0 0 660 200" role="img" aria-label="List of extends Number can be read as Number; List of super Integer can accept Integers">
+      <rect x="20" y="20" width="290" height="160" rx="12" class="d-good"/><text x="165" y="46" text-anchor="middle" class="d-tl">? extends Number</text>
+      <text x="165" y="70" text-anchor="middle" class="d-s">PRODUCER: you read from it</text>
+      <text x="40" y="100" class="d-m">accepts List&lt;Integer&gt;, List&lt;Double&gt;</text>
+      <text x="40" y="124" class="d-m">Number n = list.get(0);   ✓</text>
+      <text x="40" y="148" class="d-m">list.add(5);              ✗</text>
+      <text x="40" y="168" class="d-xs">(might be a List&lt;Double&gt;!)</text>
+      <rect x="350" y="20" width="290" height="160" rx="12" class="d-vio"/><text x="495" y="46" text-anchor="middle" class="d-tl">? super Integer</text>
+      <text x="495" y="70" text-anchor="middle" class="d-s">CONSUMER: you write to it</text>
+      <text x="370" y="100" class="d-m">accepts List&lt;Integer&gt;, List&lt;Number&gt;,</text><text x="370" y="116" class="d-m">List&lt;Object&gt;</text>
+      <text x="370" y="140" class="d-m">list.add(5);              ✓</text>
+      <text x="370" y="164" class="d-m">Integer i = list.get(0);  ✗ (Object)</text>
+    </svg></div></figure>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Collections.copy uses PECS">
+public static <T> void copy(List<? super T> dest,      // consumer: we ADD T's into it
+                            List<? extends T> src) {   // producer: we READ T's from it
+    for (T item : src) dest.add(item);
+}
+double total(List<? extends Number> prices) {           // works for Integer, Double, BigDecimal lists
+    return prices.stream().mapToDouble(Number::doubleValue).sum();
+}
+</script>
+
+  <h3>Type erasure</h3>
+  <p>Generics exist only at compile time. The compiler checks types, inserts casts, and then <strong>erases</strong> <code>T</code> to its bound (usually <code>Object</code>). At runtime <code>List&lt;String&gt;</code> and <code>List&lt;Integer&gt;</code> are the same class. Consequences:</p>
+  <div class="cards">
+    <div class="card bad"><h5>No <code>new T()</code></h5><p>T is unknown at runtime. Pass a <code>Supplier&lt;T&gt;</code> or <code>Class&lt;T&gt;</code> instead.</p></div>
+    <div class="card bad"><h5>No <code>instanceof List&lt;String&gt;</code></h5><p>Only <code>instanceof List&lt;?&gt;</code> works.</p></div>
+    <div class="card bad"><h5>No overloads that differ only by type argument</h5><p><code>f(List&lt;String&gt;)</code> and <code>f(List&lt;Integer&gt;)</code> erase to the same signature.</p></div>
+    <div class="card"><h5>No primitives</h5><p><code>List&lt;int&gt;</code> isn't allowed; boxing is needed.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">PECS: Producer Extends, Consumer Super.</p>
+    <p>Generics = <span class="hl">compile-time safety</span>, erased at runtime. Read from <code>? extends</code>, write to <code>? super</code>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Is <code>List&lt;Integer&gt;</code> a subtype of <code>List&lt;Number&gt;</code>?</summary><div class="ans"><p>No. Generics are invariant. If it were, you could add a Double to a list of Integers through the Number reference. Use <code>List&lt;? extends Number&gt;</code> to accept both. (Arrays are covariant, which is why <code>Object[] a = new String[1]; a[0] = 1;</code> throws ArrayStoreException.)</p></div></details>
+    <details><summary>What is type erasure and why did Java choose it?</summary><div class="ans"><p>The compiler removes generic type information after checking it, replacing type parameters with their bounds and adding casts. It was chosen for backward compatibility: generic code from Java 5 runs alongside and on the same JVM as pre-generics code.</p></div></details>
+  </div>
+  {{done}}
+</section>

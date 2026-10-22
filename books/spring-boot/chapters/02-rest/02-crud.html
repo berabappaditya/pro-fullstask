@@ -1,0 +1,176 @@
+<section class="chapter" id="ch-crud" data-title="Your first CRUD API, end to end">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>REST APIs</div>
+    <h2>Your first CRUD API, end to end</h2>
+    <p class="ch-oneline"><b>Project structure → dependencies → entity → repository → service → controller → properties → run → test with curl.</b> Type this once and you'll understand every later chapter.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>Ramu's first digital project: a <strong>student register</strong> for his chai-making school. Add a student, list them, look one up, update, remove. Five endpoints, four classes, one database table.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 300" role="img" aria-label="Project folder structure: controller, service, repository, entity, dto, config, exception packages under the root package with the main class; resources with application.yml; tests mirror main">
+      <rect x="20" y="14" width="420" height="276" rx="14" class="d-paper"/>
+      <text x="40" y="40" class="d-m">src/main/java/com/ramu/school/</text>
+      <text x="60" y="64" class="d-m">SchoolApplication.java</text><text x="290" y="64" class="d-xs">← main class, scan root</text>
+      <text x="60" y="88" class="d-m">controller/</text><text x="290" y="88" class="d-xs">HTTP layer</text>
+      <text x="60" y="110" class="d-m">service/</text><text x="290" y="110" class="d-xs">business logic</text>
+      <text x="60" y="132" class="d-m">repository/</text><text x="290" y="132" class="d-xs">Spring Data</text>
+      <text x="60" y="154" class="d-m">entity/</text><text x="290" y="154" class="d-xs">@Entity tables</text>
+      <text x="60" y="176" class="d-m">dto/</text><text x="290" y="176" class="d-xs">request/response</text>
+      <text x="60" y="198" class="d-m">exception/  config/</text><text x="290" y="198" class="d-xs">handlers, beans</text>
+      <text x="40" y="226" class="d-m">src/main/resources/</text>
+      <text x="60" y="248" class="d-m">application.yml  db/migration/</text>
+      <text x="40" y="276" class="d-m">src/test/java/…  (mirrors main)</text>
+      <rect x="480" y="14" width="360" height="276" rx="14" class="d-good"/><text x="660" y="40" text-anchor="middle" class="d-tl">Endpoints</text>
+      <text x="500" y="72" class="d-m">POST   /api/students</text><text x="820" y="72" text-anchor="end" class="d-xs">create</text>
+      <text x="500" y="104" class="d-m">GET    /api/students</text><text x="820" y="104" text-anchor="end" class="d-xs">list (paged)</text>
+      <text x="500" y="136" class="d-m">GET    /api/students/{id}</text><text x="820" y="136" text-anchor="end" class="d-xs">read</text>
+      <text x="500" y="168" class="d-m">PUT    /api/students/{id}</text><text x="820" y="168" text-anchor="end" class="d-xs">update</text>
+      <text x="500" y="200" class="d-m">DELETE /api/students/{id}</text><text x="820" y="200" text-anchor="end" class="d-xs">delete</text>
+      <text x="660" y="246" text-anchor="middle" class="d-s">Package-by-layer (shown) suits small apps;</text>
+      <text x="660" y="266" text-anchor="middle" class="d-s">package-by-feature scales better.</text>
+    </svg></div></figure>
+
+<script type="text/x-code" data-lang="text" data-variant="plain" data-title="pom.xml dependencies (Spring Boot 4)">
+<parent>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-parent</artifactId>
+  <version>4.1.0</version>               <!-- manages every dependency version below -->
+</parent>
+<dependencies>
+  <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-webmvc</artifactId></dependency>
+  <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>
+  <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-validation</artifactId></dependency>
+  <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><scope>runtime</scope></dependency>
+  <!-- MySQL instead: com.mysql:mysql-connector-j (runtime) -->
+  <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-webmvc-test</artifactId><scope>test</scope></dependency>
+</dependencies>
+<!-- runtime scope: the driver is needed to run, not to compile your code -->
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="1 · Entity and repository">
+@Entity
+@Table(name = "students")
+public class Student {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    @Column(nullable = false, length = 100)
+    private String name;
+    @Column(nullable = false, unique = true)
+    private String email;
+    private int age;
+    protected Student() {}                                   // JPA needs a no-arg constructor
+    public Student(String name, String email, int age) { this.name = name; this.email = email; this.age = age; }
+    // getters; setters only where updates are allowed
+}
+
+public interface StudentRepository extends JpaRepository<Student, Long> {
+    boolean existsByEmail(String email);                     // derived query: SELECT count(*)>0 … WHERE email=?
+}
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="2 · DTOs and service">
+public record StudentRequest(@NotBlank String name, @Email @NotBlank String email, @Min(16) int age) {}
+public record StudentResponse(Long id, String name, String email, int age) {
+    static StudentResponse from(Student s) { return new StudentResponse(s.getId(), s.getName(), s.getEmail(), s.getAge()); }
+}
+
+@Service
+@Transactional(readOnly = true)                              // default for all methods: read-only tx
+public class StudentService {
+    private final StudentRepository repo;
+    public StudentService(StudentRepository repo) { this.repo = repo; }
+
+    public Page<StudentResponse> list(Pageable p) { return repo.findAll(p).map(StudentResponse::from); }
+
+    public StudentResponse get(Long id) {
+        return repo.findById(id).map(StudentResponse::from)
+                   .orElseThrow(() -> new NotFoundException("Student " + id + " not found"));
+    }
+
+    @Transactional                                           // writes need a read-write tx
+    public StudentResponse create(StudentRequest r) {
+        if (repo.existsByEmail(r.email())) throw new ConflictException("Email already registered");
+        return StudentResponse.from(repo.save(new Student(r.name(), r.email(), r.age())));
+    }
+
+    @Transactional
+    public StudentResponse update(Long id, StudentRequest r) {
+        Student s = repo.findById(id).orElseThrow(() -> new NotFoundException("Student " + id + " not found"));
+        s.setName(r.name()); s.setEmail(r.email()); s.setAge(r.age());
+        return StudentResponse.from(s);                      // no save() needed: dirty checking flushes on commit
+    }
+
+    @Transactional
+    public void delete(Long id) { repo.deleteById(id); }
+}
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="3 · Controller">
+@RestController
+@RequestMapping("/api/students")
+public class StudentController {
+    private final StudentService service;
+    public StudentController(StudentService service) { this.service = service; }
+
+    @GetMapping            public Page<StudentResponse> list(Pageable p)          { return service.list(p); }
+    @GetMapping("/{id}")   public StudentResponse get(@PathVariable Long id)      { return service.get(id); }
+
+    @PostMapping
+    public ResponseEntity<StudentResponse> create(@Valid @RequestBody StudentRequest r) {
+        StudentResponse s = service.create(r);
+        return ResponseEntity.created(URI.create("/api/students/" + s.id())).body(s);
+    }
+
+    @PutMapping("/{id}")
+    public StudentResponse update(@PathVariable Long id, @Valid @RequestBody StudentRequest r) { return service.update(id, r); }
+
+    @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) { service.delete(id); }
+}
+</script>
+
+<script type="text/x-code" data-lang="yaml" data-variant="good" data-title="4 · application.yml">
+server:
+  port: 8080
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/school
+    username: ramu
+    password: ${DB_PASSWORD:secret}
+  jpa:
+    hibernate:
+      ddl-auto: update        # dev only. prod: validate + Flyway migrations
+    show-sql: true
+    open-in-view: false       # don't keep the DB session open during JSON rendering
+</script>
+
+  <div class="widget" data-terminal>
+    <div class="widget-head"><span class="live">Live</span>Practice terminal: run the app and call every endpoint</div>
+    <div class="widget-body">
+<script type="application/json">
+{"prompt":"ramu@laptop:~/school$","welcome":"Build, run and test the Student API. Tap a command or type it.","commands":[
+{"cmd":"mvn spring-boot:run","out":"  .   ____          _            __ _ _\n /\\\\ / ___'_ __ _ _(_)_ __  __ _ \\ \\ \\ \\\n( ( )\\___ | '_ | '_| | '_ \\/ _` | \\ \\ \\ \\\n :: Spring Boot ::                (v4.1.0)\nINFO  HikariPool-1 - Start completed.\nINFO  Tomcat started on port 8080 (http) with context path '/'\nINFO  Started SchoolApplication in 2.41 seconds","note":"Compiles and runs without packaging. Other ways: Run in the IDE, ./gradlew bootRun, or java -jar."},
+{"cmd":"curl -i -X POST localhost:8080/api/students -H 'Content-Type: application/json' -d '{\"name\":\"Aman\",\"email\":\"aman@ramu.in\",\"age\":21}'","out":"HTTP/1.1 201 \nLocation: /api/students/1\nContent-Type: application/json\n\n{\"id\":1,\"name\":\"Aman\",\"email\":\"aman@ramu.in\",\"age\":21}","note":"201 Created with a Location header. -i prints the status line and headers."},
+{"cmd":"curl localhost:8080/api/students/1","out":"{\"id\":1,\"name\":\"Aman\",\"email\":\"aman@ramu.in\",\"age\":21}","note":"GET by id: 200 OK."},
+{"cmd":"curl 'localhost:8080/api/students?page=0&size=2&sort=name,asc'","out":"{\"content\":[{\"id\":1,\"name\":\"Aman\",…}],\"page\":{\"size\":2,\"number\":0,\"totalElements\":1,\"totalPages\":1}}","note":"Pageable is bound from page, size and sort query parameters automatically."},
+{"cmd":"curl -i -X POST localhost:8080/api/students -H 'Content-Type: application/json' -d '{\"name\":\"\",\"email\":\"bad\",\"age\":5}'","out":"HTTP/1.1 400 \nContent-Type: application/problem+json\n\n{\"title\":\"Bad Request\",\"status\":400,\"errors\":{\"name\":\"must not be blank\",\"email\":\"must be a well-formed email address\",\"age\":\"must be greater than or equal to 16\"}}","note":"@Valid failed, so the controller never ran. Our @RestControllerAdvice formats the errors."},
+{"cmd":"curl -i localhost:8080/api/students/99","out":"HTTP/1.1 404 \nContent-Type: application/problem+json\n\n{\"title\":\"Not Found\",\"status\":404,\"detail\":\"Student 99 not found\",\"instance\":\"/api/students/99\"}","note":"NotFoundException mapped to 404 ProblemDetail."},
+{"cmd":"curl -i -X DELETE localhost:8080/api/students/1","out":"HTTP/1.1 204 \n","note":"204 No Content: success with an empty body."},
+{"cmd":"mvn clean package && java -jar target/school-0.0.1.jar --server.port=9090","out":"[INFO] BUILD SUCCESS\n…\nINFO  Tomcat started on port 9090 (http)","note":"The fat JAR contains your classes, all dependencies and Tomcat. The command-line arg overrides server.port."}
+]}
+</script>
+    </div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Entity, repository, service, controller, properties, curl.</p>
+    <p>Three core deps: <span class="hl">starter-webmvc, starter-data-jpa, a DB driver</span>. Main class at the root package. Run 4 ways: IDE, <code>mvn spring-boot:run</code>, <code>gradle bootRun</code>, <code>java -jar</code>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Why didn't update() call save()?</summary><div class="ans"><p>Inside a transaction, entities loaded by Hibernate are <em>managed</em>. On commit Hibernate compares them with the snapshot taken at load time (dirty checking) and issues the UPDATE automatically. save() on a managed entity is harmless but redundant.</p></div></details>
+    <details><summary>What is a fat JAR?</summary><div class="ans"><p>An executable JAR built by the Spring Boot Maven/Gradle plugin that nests your classes, all dependency JARs and a launcher, so <code>java -jar app.jar</code> starts the app with its embedded server. For containers, Boot can also extract it into layers for better Docker caching.</p></div></details>
+  </div>
+  {{done}}
+</section>

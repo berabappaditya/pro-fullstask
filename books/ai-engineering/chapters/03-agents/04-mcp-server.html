@@ -1,0 +1,100 @@
+<section class="chapter" id="ch-mcp-server" data-title="Build an MCP server and client in Java">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Tools &amp; agents</div>
+    <h2>Build an MCP server (and client) with Spring AI</h2>
+    <p class="ch-oneline"><b>Annotate methods with @McpTool, add the MCP server starter, and your Spring Boot service becomes an MCP server any AI host can use.</b></p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>Ramu fits his <strong>order system</strong> with the standard plug. Now his IDE assistant, his support chatbot and the head-office analytics agent can all check orders, without three separate integrations.</p></div>
+
+<script type="text/x-code" data-lang="text" data-variant="plain" data-title="pom.xml (Spring AI 2.0 BOM manages versions)">
+<dependency>
+  <groupId>org.springframework.ai</groupId>
+  <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>   <!-- Streamable HTTP on Spring MVC -->
+</dependency>
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="An orders MCP server">
+@Component
+public class OrderMcpTools {
+    private final OrderService orders;
+    public OrderMcpTools(OrderService orders) { this.orders = orders; }
+
+    @McpTool(name = "get_order_status",
+             description = "Get status, items and ETA for one order of the authenticated customer")
+    public OrderStatusDto getOrderStatus(
+            @McpToolParam(description = "Numeric order id", required = true) long orderId) {
+        String user = SecurityContextHolder.getContext().getAuthentication().getName();  // from OAuth token
+        return orders.statusFor(orderId, user);                                         // authorised lookup
+    }
+
+    @McpTool(name = "list_recent_orders", description = "List the customer's 10 most recent orders")
+    public List<OrderSummaryDto> recent() {
+        return orders.recentFor(SecurityContextHolder.getContext().getAuthentication().getName(), 10);
+    }
+
+    @McpResource(uri = "menu://{branch}", name = "Branch menu", description = "Today's menu for a branch")
+    public String menu(String branch) { return orders.menuMarkdown(branch); }
+}
+</script>
+
+<script type="text/x-code" data-lang="yaml" data-variant="good" data-title="application.yml (server) and a client in another Spring AI app">
+# --- server ---
+spring:
+  ai:
+    mcp:
+      server:
+        name: ramu-orders
+        version: 1.0.0
+        protocol: STREAMABLE          # Streamable HTTP endpoint (default /mcp)
+# Secure /mcp with Spring Security as an OAuth2 resource server (MCP authorization).
+
+# --- client app ---
+spring:
+  ai:
+    mcp:
+      client:
+        streamable-http:
+          connections:
+            orders:
+              url: https://orders.ramu.in
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Client: give the model every tool from connected MCP servers">
+@Service
+class SupportAssistant {
+    private final ChatClient chat;
+    SupportAssistant(ChatClient.Builder builder, ToolCallbackProvider mcpTools) {  // auto-configured from MCP clients
+        this.chat = builder
+                .defaultSystem("You are Ramu Chai's support assistant. Use tools for order facts; never guess.")
+                .defaultToolCallbacks(mcpTools)
+                .build();
+    }
+    String answer(String question) { return chat.prompt().user(question).call().content(); }
+}
+</script>
+
+  <div class="widget" data-terminal>
+    <div class="widget-head"><span class="live">Live</span>Practice terminal: test the server like a client would</div>
+    <div class="widget-body">
+<script type="application/json">
+{"prompt":"ramu@laptop:~/orders-mcp$","welcome":"Run the server and talk JSON-RPC to it.","commands":[
+{"cmd":"./mvnw spring-boot:run","out":"INFO  McpServerAutoConfiguration : Registered tools: 2, resources: 1, prompts: 0\nINFO  Tomcat started on port 8080 (http)\nINFO  MCP Streamable HTTP endpoint: /mcp","note":"The starter registers @McpTool/@McpResource beans and exposes the MCP endpoint."},
+{"cmd":"npx @modelcontextprotocol/inspector","out":"MCP Inspector is up at http://localhost:6274\nConnect → Streamable HTTP → http://localhost:8080/mcp","note":"The official Inspector lets you list and call tools interactively: the fastest way to debug a server."},
+{"cmd":"curl -s localhost:8080/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}'","out":"{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"tools\":[{\"name\":\"get_order_status\",\"description\":\"Get status, items and ETA…\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"orderId\":{\"type\":\"integer\",\"description\":\"Numeric order id\"}},\"required\":[\"orderId\"]}}, …]}}","note":"Raw JSON-RPC. (With 2025-11-25 SDKs you'd send initialize first; under 2026-07-28 the version travels in _meta on each request.)"},
+{"cmd":"curl -s localhost:8080/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -H 'Authorization: Bearer eyJ…' -d '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"get_order_status\",\"arguments\":{\"orderId\":7}}}'","out":"{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"status\\\":\\\"OUT_FOR_DELIVERY\\\",\\\"eta\\\":\\\"19:40\\\"}\"}],\"isError\":false}}","note":"A tool call. Errors in the tool are returned as isError: true results the model can read and recover from."}
+]}
+</script>
+    </div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Fit the standard plug once.</p>
+    <p>Server: starter + <span class="hl">@McpTool / @McpResource / @McpPrompt</span> + OAuth. Client: connection config → ToolCallbackProvider → ChatClient. Debug with MCP Inspector.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>stdio vs Streamable HTTP transport?</summary><div class="ans"><p>stdio: the host launches the server as a local subprocess and talks over stdin/stdout; simple, for local tools (filesystem, git), credentials from the local environment. Streamable HTTP: the server is a remote web service (POST requests with optional streamed responses); for shared, multi-user servers, needs OAuth-based authorization, and scales like any HTTP API (especially now that the protocol is stateless).</p></div></details>
+  </div>
+  {{done}}
+</section>

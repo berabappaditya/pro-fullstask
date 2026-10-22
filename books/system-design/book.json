@@ -1,0 +1,16 @@
+{
+  "id": "system-design",
+  "file": "system-design.html",
+  "title": "System Design Blueprints",
+  "short": "System Design",
+  "icon": "blueprint",
+  "tagline": "HLD, LLD, SOLID and design patterns, drawn as pictures.",
+  "description": "A visual study book for High-Level Design, Low-Level Design, SOLID, design patterns and real-world architectures such as Netflix, UPI, Stripe and JioHotstar.",
+  "story": "Ramu's chai stall grows into a national chain",
+  "searchHint": "Find a topic (e.g. cache, LSP, UPI)",
+  "topics": ["Load balancing", "Caching", "Sharding", "CAP", "Kafka", "Microservices", "Rate limiting", "SOLID", "Design patterns", "Netflix", "UPI", "Stripe", "JioHotstar", "Banking LLD", "IAM LLD"],
+  "theme": {
+    "light": { "accent": "#2952C4", "accentInk": "#1C3C98", "accentSoft": "#E2E9FB", "hero": "#2952C4" },
+    "dark":  { "accent": "#86ABFF", "accentInk": "#AFC6FF", "accentSoft": "#182A4D", "hero": "#1D3A8A" }
+  }
+}

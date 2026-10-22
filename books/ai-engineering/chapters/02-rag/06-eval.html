@@ -1,0 +1,61 @@
+<section class="chapter" id="ch-rag-eval" data-title="Evaluating RAG and LLM apps">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>RAG</div>
+    <h2>Evaluating RAG and LLM applications</h2>
+    <p class="ch-oneline"><b>You can't improve what you don't measure.</b> Build a test set of real questions, measure retrieval and generation separately, and run it on every prompt, model or chunking change.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>Ramu keeps a <strong>stack of 200 real customer questions</strong> with the right answers and the handbook pages that contain them. Every time he changes how the assistant works, he runs the whole stack and checks: did it <strong>find the right pages</strong>? Did it <strong>stick to them</strong>? Did it <strong>actually answer</strong>? A senior manager grades the tricky ones (LLM-as-judge, with spot checks by humans).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 200" role="img" aria-label="RAG triad: context relevance between question and retrieved context, groundedness between context and answer, answer relevance between answer and question">
+      <rect x="350" y="16" width="160" height="44" rx="10" class="d-vio"/><text x="430" y="43" text-anchor="middle" class="d-t">Question</text>
+      <rect x="80" y="140" width="180" height="44" rx="10" class="d-amb"/><text x="170" y="167" text-anchor="middle" class="d-t">Retrieved context</text>
+      <rect x="600" y="140" width="180" height="44" rx="10" class="d-good"/><text x="690" y="167" text-anchor="middle" class="d-t">Answer</text>
+      <path d="M380 60 L210 138" class="d-lacc"/><path d="M480 60 L650 138" class="d-lacc"/><path d="M260 162 H598" class="d-lacc"/>
+      <text x="250" y="96" text-anchor="middle" class="d-xs">context relevance /</text><text x="250" y="110" text-anchor="middle" class="d-xs">retrieval recall</text>
+      <text x="610" y="96" text-anchor="middle" class="d-xs">answer relevance /</text><text x="610" y="110" text-anchor="middle" class="d-xs">correctness</text>
+      <text x="430" y="154" text-anchor="middle" class="d-xs">groundedness (faithfulness): every claim supported?</text>
+    </svg></div></figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Layer</th><th>Metric</th><th>How to measure</th></tr>
+    <tr><td>Retrieval</td><td>recall@k, precision@k, MRR, nDCG</td><td>labelled "which chunks/docs answer this" per question</td></tr>
+    <tr><td>Generation</td><td>faithfulness / groundedness</td><td>LLM judge checks each claim against the context</td></tr>
+    <tr><td>Generation</td><td>answer correctness / relevance</td><td>compare with reference answer (LLM judge or semantic similarity)</td></tr>
+    <tr><td>Behaviour</td><td>refusal when unknown, citation accuracy, format validity, safety</td><td>targeted test cases</td></tr>
+    <tr><td>Operations</td><td>latency p95, tokens and cost per answer, error rate</td><td>tracing and metrics</td></tr>
+    <tr><td>Users</td><td>thumbs up/down, escalation rate, task success</td><td>product analytics</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="A minimal evaluation harness (runs in CI like any test)">
+record EvalCase(String question, Set<String> relevantDocIds, String referenceAnswer) {}
+
+@Test
+void ragQualityDoesNotRegress() {
+    List<EvalCase> cases = EvalSet.load("eval/support-questions.jsonl");   // 200 real questions
+    int hits = 0; int grounded = 0;
+    for (EvalCase c : cases) {
+        RagResult r = rag.answer(c.question());
+        if (r.retrievedDocIds().stream().anyMatch(c.relevantDocIds()::contains)) hits++;    // recall@5
+        if (judge.isGrounded(r.answer(), r.context())) grounded++;                           // LLM-as-judge
+    }
+    assertThat(hits / (double) cases.size()).isGreaterThanOrEqualTo(0.90);
+    assertThat(grounded / (double) cases.size()).isGreaterThanOrEqualTo(0.95);
+}
+// Spring AI ships Evaluators (RelevancyEvaluator, FactCheckingEvaluator); tools like RAGAS,
+// DeepEval, promptfoo or LangSmith/Langfuse datasets do the same at larger scale.
+</script>
+
+  <div class="box pitfall"><div class="box-tag">LLM-as-judge caveats</div><p>Judges have biases (prefer longer answers, their own model family, the first option). Use clear rubrics, binary or small-scale scores, a different/stronger judge model, and calibrate against human labels on a sample.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">A stack of real questions, run on every change.</p>
+    <p><span class="hl">Retrieval metrics + groundedness + correctness</span>, plus latency/cost and user feedback. Golden set in CI; production traces feed new test cases.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How would you evaluate a RAG system before launch?</summary><div class="ans"><p>Build a golden set (real or realistic questions, expected answers, relevant docs, including unanswerable and adversarial ones). Measure retrieval recall@k/MRR, then faithfulness and correctness via a calibrated LLM judge plus human review of a sample, plus format/citation checks and latency/cost. Compare variants (chunking, k, reranker, prompt, model) offline; launch to a small group with feedback; keep monitoring and add failures to the set.</p></div></details>
+  </div>
+  {{done}}
+</section>

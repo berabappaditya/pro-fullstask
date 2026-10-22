@@ -1,0 +1,107 @@
+<section class="chapter" id="ch-map" data-title="The big map: HLD vs LLD" data-num="00">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">00</span>Orientation</div>
+    <h2>The big map: what is system design?</h2>
+    <p class="ch-oneline"><b>System design is deciding the parts of a software system and how they talk to each other</b> so that it stays fast, correct and cheap as it grows.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu sells tea from a single cart near Medinipur station. He boils the water, takes the money and remembers who wants less sugar. For 50 customers a day, that's perfect.</p>
+    <p>Then a food blogger posts about his elaichi chai. Next morning, 2,000 people turn up. The kettle is too small, the queue blocks the road, he forgets orders, and the cash box overflows. Nothing about his tea changed. <strong>His system broke because the load changed.</strong> That is exactly the problem system design solves.</p></div>
+
+  <p>System design questions come at two zoom levels. Think of building a city:</p>
+
+  <figure class="figure">
+    <div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 330" role="img" aria-label="Four zoom levels: HLD is the city map, a service is one building, LLD is the floor plan with rooms as classes, SOLID and patterns are the building codes and standard furniture">
+      <rect x="10" y="20" width="200" height="270" rx="14" class="d-acc"/>
+      <text x="110" y="48" text-anchor="middle" class="d-tl">HLD</text><text x="110" y="66" text-anchor="middle" class="d-s">the city map</text>
+      <rect x="30" y="86" width="50" height="34" rx="5" class="d-box"/><rect x="140" y="86" width="50" height="34" rx="5" class="d-box"/>
+      <rect x="30" y="200" width="50" height="34" rx="5" class="d-box"/><rect x="140" y="200" width="50" height="34" rx="5" class="d-good"/>
+      <circle cx="110" cy="160" r="22" class="d-amb"/><text x="110" y="164" text-anchor="middle" class="d-xs">LB</text>
+      <path d="M80 103 L92 146 M140 103 L128 146 M80 217 L92 174 M140 217 L128 174" class="d-line"/>
+      <text x="110" y="262" text-anchor="middle" class="d-s">services, DBs, roads</text><text x="110" y="278" text-anchor="middle" class="d-s">between them</text>
+
+      <path d="M210 155 L250 155" class="d-line" marker-end="url(#ah)"/><text x="230" y="146" text-anchor="middle" class="d-xs">zoom</text>
+
+      <rect x="255" y="20" width="180" height="270" rx="14" class="d-box"/>
+      <text x="345" y="48" text-anchor="middle" class="d-tl">One service</text><text x="345" y="66" text-anchor="middle" class="d-s">one building</text>
+      <rect x="295" y="90" width="100" height="160" rx="4" class="d-paper"/>
+      <path d="M295 130 H395 M295 170 H395 M295 210 H395" class="d-line"/>
+      <rect x="335" y="225" width="20" height="25" class="d-ink2"/>
+      <text x="345" y="276" text-anchor="middle" class="d-s">e.g. Order Service</text>
+
+      <path d="M435 155 L475 155" class="d-line" marker-end="url(#ah)"/>
+
+      <rect x="480" y="20" width="180" height="270" rx="14" class="d-vio"/>
+      <text x="570" y="48" text-anchor="middle" class="d-tl">LLD</text><text x="570" y="66" text-anchor="middle" class="d-s">the floor plan</text>
+      <rect x="500" y="86" width="64" height="56" rx="4" class="d-box"/><text x="532" y="118" text-anchor="middle" class="d-xs">Order</text>
+      <rect x="576" y="86" width="64" height="56" rx="4" class="d-box"/><text x="608" y="118" text-anchor="middle" class="d-xs">Payment</text>
+      <rect x="500" y="154" width="140" height="56" rx="4" class="d-box"/><text x="570" y="186" text-anchor="middle" class="d-xs">OrderRepository</text>
+      <path d="M564 114 H576 M532 142 V154" class="d-line"/>
+      <text x="570" y="240" text-anchor="middle" class="d-s">rooms = classes</text><text x="570" y="256" text-anchor="middle" class="d-s">doors = interfaces</text>
+
+      <path d="M660 155 L700 155" class="d-line" marker-end="url(#ah)"/>
+
+      <rect x="705" y="20" width="145" height="125" rx="14" class="d-teal"/>
+      <text x="777" y="52" text-anchor="middle" class="d-tl">SOLID</text><text x="777" y="72" text-anchor="middle" class="d-s">building codes</text>
+      <text x="777" y="100" text-anchor="middle" class="d-xs">rules so renovations</text><text x="777" y="115" text-anchor="middle" class="d-xs">don't collapse the</text><text x="777" y="130" text-anchor="middle" class="d-xs">building</text>
+      <rect x="705" y="165" width="145" height="125" rx="14" class="d-amb"/>
+      <text x="777" y="197" text-anchor="middle" class="d-tl">Patterns</text><text x="777" y="217" text-anchor="middle" class="d-s">standard furniture</text>
+      <text x="777" y="245" text-anchor="middle" class="d-xs">proven designs you</text><text x="777" y="260" text-anchor="middle" class="d-xs">reuse instead of</text><text x="777" y="275" text-anchor="middle" class="d-xs">inventing</text>
+      <text x="430" y="320" text-anchor="middle" class="d-s">Same system, four zoom levels. Interviews test the first (HLD) and the last three (LLD + principles + patterns).</text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 0.1</b> HLD decides which buildings exist and the roads between them. LLD decides the rooms inside one building. SOLID and design patterns are the rules and ready-made pieces that make the rooms easy to change later.</figcaption>
+  </figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>High-Level Design (HLD)</th><th>Low-Level Design (LLD)</th></tr>
+    <tr><td>Question it answers</td><td>Which components exist and how do they connect?</td><td>Which classes exist and how do they collaborate?</td></tr>
+    <tr><td>Unit of design</td><td>Services, databases, caches, queues, load balancers</td><td>Classes, interfaces, methods, objects</td></tr>
+    <tr><td>Main worries</td><td>Scale, availability, latency, consistency, cost</td><td>Readability, extensibility, testability, correctness</td></tr>
+    <tr><td>Typical output</td><td>Box-and-arrow architecture diagram, API list, data model, capacity estimate</td><td>Class diagram, interfaces, working code</td></tr>
+    <tr><td>Interview example</td><td>"Design WhatsApp", "Design a URL shortener"</td><td>"Design a parking lot", "Design an elevator"</td></tr>
+    <tr><td>Tools of the trade</td><td>Caching, sharding, replication, CAP, queues</td><td>OOP, SOLID, design patterns, UML</td></tr>
+  </table></div>
+
+  <h3>The cast: chai stall ↔ technology</h3>
+  <p>Keep this table in mind. Every chapter adds to it.</p>
+  <div class="table-wrap"><table class="t">
+    <tr><th>At the chai stall</th><th>In a software system</th><th>Chapter</th></tr>
+    <tr><td>A customer asking for tea</td><td>A request from a client</td><td>{{n:ch-request}}</td></tr>
+    <tr><td>Bigger kettle vs more stalls</td><td>Vertical vs horizontal scaling</td><td>{{n:ch-scaling}}</td></tr>
+    <tr><td>The manager pointing customers to free counters</td><td>Load balancer</td><td>{{n:ch-lb}}</td></tr>
+    <tr><td>Flasks of ready tea on the counter</td><td>Cache</td><td>{{n:ch-cache}}</td></tr>
+    <tr><td>The ledger book of all orders and stock</td><td>Database</td><td>{{n:ch-db}}</td></tr>
+    <tr><td>Photocopies of the ledger at each branch</td><td>Replication</td><td>{{n:ch-replication}}</td></tr>
+    <tr><td>Splitting customers by surname across ledgers</td><td>Sharding</td><td>{{n:ch-sharding}}</td></tr>
+    <tr><td>Order slips on a spike for the kitchen</td><td>Message queue</td><td>{{n:ch-queue}}</td></tr>
+    <tr><td>The menu board listing what you can order</td><td>API</td><td>{{n:ch-api}}</td></tr>
+    <tr><td>Separate counters for tea, snacks, billing</td><td>Microservices</td><td>{{n:ch-micro}}</td></tr>
+    <tr><td>"Max 5 cups per person"</td><td>Rate limiting</td><td>{{n:ch-rate}}</td></tr>
+    <tr><td>A backup gas cylinder</td><td>Redundancy and failover</td><td>{{n:ch-reliability}}</td></tr>
+    <tr><td>Flasks kept in every neighbourhood before customers ask</td><td>CDN / Netflix Open Connect</td><td>{{n:ch-netflix}}</td></tr>
+    <tr><td>One central exchange that every bank and app plugs into</td><td>Hub-and-spoke switch (UPI)</td><td>{{n:ch-upi}}</td></tr>
+    <tr><td>Extra stalls opened before the cricket match crowd arrives</td><td>Pre-warming and scheduled scaling</td><td>{{n:ch-hotstar}}</td></tr>
+    <tr><td>Each worker doing one job well</td><td>Single Responsibility Principle</td><td>{{n:ch-srp}}</td></tr>
+  </table></div>
+
+  <h3>The four questions behind every design</h3>
+  <div class="cards">
+    <div class="card"><h5><span class="dot"></span>Scalability</h5><p>Can it handle 10× or 100× more users by adding machines?</p></div>
+    <div class="card"><h5><span class="dot" style="background:var(--good)"></span>Availability</h5><p>Does it keep working when a machine, a disk or a whole data centre dies?</p></div>
+    <div class="card"><h5><span class="dot" style="background:var(--amber-line)"></span>Performance</h5><p>How fast is one request (latency), and how many per second can it serve (throughput)?</p></div>
+    <div class="card"><h5><span class="dot" style="background:var(--violet)"></span>Maintainability</h5><p>Can new developers understand and change it without breaking things? This is where LLD and SOLID live.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">HLD = the city. LLD = the rooms. SOLID = the building code.</p>
+    <p>Every design is a trade-off. There is no "best" architecture, only the best one <em>for these requirements</em>. Saying "it depends, and here is what it depends on" is the most senior sentence in system design.</p></div>
+
+  <div class="qa"><h4>Quick check</h4>
+    <details><summary>What is the difference between HLD and LLD in one sentence each?</summary><div class="ans"><p>HLD describes the major components of a system (services, databases, caches, queues) and how data flows between them. LLD describes the internals of one component: its classes, interfaces, relationships and methods.</p></div></details>
+    <details><summary>Why do systems that work fine on day one break later?</summary><div class="ans"><p>Because load, data size and team size grow. A design that ignores scale, failure and change works only until one of those grows past what a single machine or a single tangled codebase can handle.</p></div></details>
+  </div>
+  {{done}}
+</section>

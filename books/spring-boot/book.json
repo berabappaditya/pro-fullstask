@@ -1,0 +1,39 @@
+{
+  "id": "spring-boot",
+  "file": "spring-boot.html",
+  "title": "Spring Boot, Visualized",
+  "short": "Spring Boot",
+  "icon": "spring",
+  "tagline": "IoC, beans, REST, JPA, transactions, security and testing, as pictures.",
+  "description": "A visual study book for Spring and Spring Boot: IoC and dependency injection, the bean lifecycle, the request flow, REST APIs, auto-configuration, JPA and Spring Data, validation, exceptions, transactions, security with JWT, Actuator, caching, async, testing, microservices and Spring Boot 4.",
+  "story": "the Ramu Chai franchise kit",
+  "searchHint": "Find a topic (e.g. @Transactional, JWT, N+1)",
+  "topics": [
+    "IoC & DI",
+    "Bean lifecycle",
+    "DispatcherServlet",
+    "REST",
+    "Auto-configuration",
+    "JPA & Hibernate",
+    "Transactions",
+    "Security & JWT",
+    "Actuator",
+    "Testing",
+    "Microservices",
+    "Spring Boot 4"
+  ],
+  "theme": {
+    "light": {
+      "accent": "#15803D",
+      "accentInk": "#166534",
+      "accentSoft": "#DCF5E4",
+      "hero": "#15803D"
+    },
+    "dark": {
+      "accent": "#5FD68F",
+      "accentInk": "#8FE6B0",
+      "accentSoft": "#0F2E1D",
+      "hero": "#14532D"
+    }
+  }
+}

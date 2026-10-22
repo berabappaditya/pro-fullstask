@@ -1,0 +1,49 @@
+<section class="chapter" id="ch-advanced-rag" data-title="Advanced RAG techniques">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>RAG</div>
+    <h2>Advanced RAG: hybrid search, reranking, query transformation, GraphRAG and agentic RAG</h2>
+    <p class="ch-oneline"><b>Naive RAG fails on exact terms, vague questions and multi-hop questions.</b> Each advanced technique fixes one specific failure.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>The assistant now checks <strong>both the index at the back of the book</strong> (keywords) and the taste map (vectors), then <strong>re-reads the top 20 pages carefully</strong> to pick the best 5 (reranking). When a customer asks something vague, he first <strong>rephrases it into a clear question</strong> (query rewriting). For "which supplier delivers to the branch that had the most complaints?", he looks things up <strong>in several hops</strong> (agentic / graph RAG).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 220" role="img" aria-label="Advanced retrieval pipeline: query rewriting, hybrid retrieval with BM25 and vector search fused by reciprocal rank fusion, cross-encoder reranking to top 5, then generation">
+      <rect x="10" y="80" width="120" height="60" rx="10" class="d-vio"/><text x="70" y="106" text-anchor="middle" class="d-t">Query</text><text x="70" y="124" text-anchor="middle" class="d-xs">"late refund?"</text>
+      <path d="M130 110 H160" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="162" y="80" width="130" height="60" rx="10" class="d-box"/><text x="227" y="104" text-anchor="middle" class="d-t">Rewrite</text><text x="227" y="122" text-anchor="middle" class="d-xs">expand / multi-query</text>
+      <path d="M292 100 C320 100,320 50,348 50" class="d-lacc" marker-end="url(#aa)"/><path d="M292 120 C320 120,320 170,348 170" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="350" y="24" width="150" height="52" rx="10" class="d-amb"/><text x="425" y="46" text-anchor="middle" class="d-t">Keyword (BM25)</text><text x="425" y="64" text-anchor="middle" class="d-xs">exact terms, IDs</text>
+      <rect x="350" y="144" width="150" height="52" rx="10" class="d-amb"/><text x="425" y="166" text-anchor="middle" class="d-t">Vector search</text><text x="425" y="184" text-anchor="middle" class="d-xs">meaning</text>
+      <path d="M500 50 C530 50,530 100,556 104" class="d-lamb" marker-end="url(#am)"/><path d="M500 170 C530 170,530 120,556 116" class="d-lamb" marker-end="url(#am)"/>
+      <rect x="558" y="80" width="120" height="60" rx="10" class="d-acc"/><text x="618" y="104" text-anchor="middle" class="d-t">Fuse (RRF)</text><text x="618" y="122" text-anchor="middle" class="d-xs">top 20–50</text>
+      <path d="M678 110 H708" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="710" y="80" width="140" height="60" rx="10" class="d-good"/><text x="780" y="104" text-anchor="middle" class="d-t">Rerank</text><text x="780" y="122" text-anchor="middle" class="d-xs">cross-encoder → top 5</text>
+    </svg></div></figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Problem</th><th>Technique</th><th>How it works</th></tr>
+    <tr><td>Misses exact terms (SKU-7781, error E42)</td><td><b>Hybrid search</b></td><td>combine BM25 keyword and vector results, merge with Reciprocal Rank Fusion</td></tr>
+    <tr><td>Top-k contains near-misses</td><td><b>Reranking</b></td><td>a cross-encoder (or LLM) scores each (query, chunk) pair jointly; keep the best few</td></tr>
+    <tr><td>Short / vague / follow-up questions</td><td><b>Query rewriting</b>, multi-query</td><td>LLM rewrites into a standalone query or several variants; union the results</td></tr>
+    <tr><td>Question phrasing ≠ document phrasing</td><td><b>HyDE</b></td><td>generate a hypothetical answer, embed that instead of the question</td></tr>
+    <tr><td>Needs filters ("2025 policies for Pune")</td><td><b>Self-query / metadata extraction</b></td><td>LLM extracts structured filters from the question</td></tr>
+    <tr><td>Multi-hop, relationships across documents</td><td><b>GraphRAG</b></td><td>extract entities and relations into a knowledge graph; traverse it and/or use community summaries</td></tr>
+    <tr><td>Some questions need several lookups or none</td><td><b>Agentic RAG</b></td><td>the model decides when and what to retrieve via a search tool, iterates, then answers</td></tr>
+    <tr><td>Chunks lack context</td><td><b>Contextual retrieval</b>, parent–child</td><td>enrich chunks with document context; return bigger parents</td></tr>
+    <tr><td>Same question asked repeatedly</td><td><b>Semantic cache</b></td><td>return a cached answer if a new question's embedding is very close to a past one</td></tr>
+  </table></div>
+
+  <div class="box tip"><div class="box-tag">Long context vs RAG</div><p>With million-token context windows, "just put everything in the prompt" works for small, static corpora and one-off analysis. RAG still wins for large or changing knowledge, per-user access control, cost and latency per question, and citations. Many systems combine them: retrieve generously, then let a long-context model read more.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Index at the back + taste map, then re-read the top pages.</p>
+    <p><span class="hl">Hybrid + rerank</span> is the highest-value upgrade. Rewrite vague queries; GraphRAG for relationships; agentic RAG for multi-step questions.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What is reranking and why does it help?</summary><div class="ans"><p>Vector search (bi-encoder) embeds query and documents separately: fast but coarse. A reranker (cross-encoder) reads the query and each candidate together and scores relevance much more accurately, but is too slow for millions of docs. So retrieve 20–50 cheaply, rerank, keep the top 3–5: better precision and shorter prompts.</p></div></details>
+    <details><summary>When would you use GraphRAG?</summary><div class="ans"><p>When questions depend on relationships and aggregation across many documents ("which suppliers are linked to complaints in branches managed by X?", "main themes across all reports"). It builds an entity–relationship graph during ingestion (costly) and retrieves by traversal or community summaries. For simple fact lookup, standard hybrid RAG is cheaper and enough.</p></div></details>
+  </div>
+  {{done}}
+</section>

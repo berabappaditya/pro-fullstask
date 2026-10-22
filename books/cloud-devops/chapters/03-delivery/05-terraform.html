@@ -1,0 +1,79 @@
+<section class="chapter" id="ch-terraform" data-title="Infrastructure as code with Terraform">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Delivery</div>
+    <h2>Infrastructure as code with Terraform</h2>
+    <p class="ch-oneline"><b>Describe your infrastructure in code, review it like code, and let the tool work out what to create, change or destroy.</b> plan shows the diff; apply makes it real.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>Instead of telling workers "put a counter here, a fridge there" every time he opens a branch, Ramu keeps a <strong>blueprint in a drawer</strong>. For a new branch, the builders read the blueprint and build exactly that; if someone moved a fridge, the next inspection <strong>spots the drift</strong> and moves it back.</p></div>
+
+<script type="text/x-code" data-lang="hcl" data-variant="good" data-title="main.tf: a bucket and a Postgres database (AWS)">
+terraform {
+  required_providers { aws = { source = "hashicorp/aws", version = "~> 6.0" } }
+  backend "s3" {                                   # shared, locked state: never keep state on a laptop
+    bucket       = "ramu-tf-state"
+    key          = "orders/prod.tfstate"
+    region       = "ap-south-1"
+    use_lockfile = true
+  }
+}
+
+provider "aws" { region = var.region }
+
+variable "region" { default = "ap-south-1" }
+variable "env"    { type = string }
+
+resource "aws_s3_bucket" "receipts" {
+  bucket = "ramu-receipts-${var.env}"
+}
+
+resource "aws_db_instance" "orders" {
+  identifier                  = "orders-${var.env}"
+  engine                      = "postgres"
+  engine_version              = "17"
+  instance_class              = "db.t4g.medium"
+  allocated_storage           = 50
+  multi_az                    = var.env == "prod"           # HA only in prod
+  username                    = "orders_admin"
+  manage_master_user_password = true                         # password generated into Secrets Manager
+  backup_retention_period     = 7
+  deletion_protection         = var.env == "prod"
+  skip_final_snapshot         = var.env != "prod"
+}
+
+output "db_endpoint" { value = aws_db_instance.orders.address }
+</script>
+
+  <div class="widget" data-terminal>
+    <div class="widget-head"><span class="live">Live</span>Practice terminal: the Terraform workflow</div>
+    <div class="widget-body">
+<script type="application/json">
+{"prompt":"ramu@laptop:~/infra$","welcome":"init → plan → apply. Always read the plan.","commands":[
+{"cmd":"terraform init","out":"Initializing the backend...\nSuccessfully configured the backend \"s3\"!\nInitializing provider plugins...\n- Installing hashicorp/aws v6.x...\nTerraform has been successfully initialized!","note":"Downloads providers and connects to the remote state backend."},
+{"cmd":"terraform fmt && terraform validate","out":"main.tf\nSuccess! The configuration is valid.","note":"Format and check syntax. Run both in CI."},
+{"cmd":"terraform plan -var env=prod -out plan.tfplan","out":"Terraform will perform the following actions:\n\n  # aws_db_instance.orders will be created\n  + resource \"aws_db_instance\" \"orders\" {\n      + engine   = \"postgres\"\n      + multi_az = true\n      ...\n    }\n\n  # aws_s3_bucket.receipts will be created\n  + resource \"aws_s3_bucket\" \"receipts\" { ... }\n\nPlan: 2 to add, 0 to change, 0 to destroy.","note":"The diff between code, state and reality. + create, ~ update in place, -/+ replace (watch out!), - destroy."},
+{"cmd":"terraform apply plan.tfplan","out":"aws_s3_bucket.receipts: Creating...\naws_s3_bucket.receipts: Creation complete after 2s\naws_db_instance.orders: Still creating... [5m0s elapsed]\naws_db_instance.orders: Creation complete after 7m12s\n\nApply complete! Resources: 2 added, 0 changed, 0 destroyed.\n\nOutputs:\ndb_endpoint = \"orders-prod.abc123.ap-south-1.rds.amazonaws.com\"","note":"Applies exactly the saved plan. In teams this runs from CI after the plan is reviewed in the PR."},
+{"cmd":"terraform state list","out":"aws_db_instance.orders\naws_s3_bucket.receipts","note":"Resources Terraform tracks in state. State maps code to real resource IDs; it may contain secrets, so protect it."},
+{"cmd":"terraform plan -var env=prod","out":"  # aws_db_instance.orders will be updated in-place\n  ~ resource \"aws_db_instance\" \"orders\" {\n      ~ backup_retention_period = 1 -> 7\n    }\nPlan: 0 to add, 1 to change, 0 to destroy.","note":"Drift: someone changed retention by hand in the console. Terraform will put it back."}
+]}
+</script>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><span class="k">modules</span><h5>Reuse</h5><p>A "service" module (bucket + DB + IAM role) instantiated per environment with different variables.</p></div>
+    <div class="card"><span class="k">state</span><h5>Remote and locked</h5><p>S3/GCS backend with locking; one state per environment/component to limit blast radius.</p></div>
+    <div class="card"><span class="k">alternatives</span><h5>Others</h5><p>OpenTofu (open-source Terraform fork), Pulumi (real programming languages), CloudFormation/CDK (AWS only), Crossplane (Kubernetes-native).</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">A blueprint in a drawer; inspections spot drift.</p>
+    <p>Declarative code → <span class="hl">init, plan (review), apply</span>. Remote locked state, modules, no console clicking in prod, plans reviewed in PRs.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What is Terraform state and why does it matter?</summary><div class="ans"><p>A file mapping resources in code to real infrastructure IDs and attributes. Terraform uses it to compute plans. It must be shared (remote backend) and locked so two applies don't corrupt it, and protected because it can contain secrets. Losing it means Terraform no longer knows what it manages (recover with import).</p></div></details>
+    <details><summary>Declarative vs imperative infrastructure?</summary><div class="ans"><p>Declarative: describe the end state (Terraform, Kubernetes YAML); the tool computes the steps and is idempotent. Imperative: a script of steps (CLI commands); re-running may create duplicates or fail. Declarative tools detect and correct drift.</p></div></details>
+  </div>
+  {{done}}
+</section>

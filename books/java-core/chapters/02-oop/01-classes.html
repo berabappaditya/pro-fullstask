@@ -1,0 +1,99 @@
+<section class="chapter" id="ch-classes" data-title="Classes, objects, static and final">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>OOP Java</div>
+    <h2>Classes, objects, static and final</h2>
+    <p class="ch-oneline"><b>A class is a recipe card; an object is one dish made from it.</b> Instance fields belong to each dish, static fields belong to the recipe card itself.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>The <strong>recipe card</strong> for Masala Chai says: water, milk, tea leaves, sugar level. Each <strong>cup</strong> made from it has its own sugar level (instance field). But "total cups sold today" is written once on the card itself, shared by all cups (static field). "Tea must be boiled at 100°C" is printed in ink and can never change (final).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 760 210" role="img" aria-label="One Chai class with a static counter; three Chai objects each with their own sugar field">
+      <rect x="20" y="40" width="230" height="140" rx="12" class="d-acc"/><text x="135" y="64" text-anchor="middle" class="d-tl">class Chai</text>
+      <line x1="34" y1="76" x2="236" y2="76" class="d-line"/>
+      <text x="40" y="98" class="d-m">static int sold = 3</text><text x="40" y="118" class="d-m">static final int TEMP = 100</text>
+      <line x1="34" y1="130" x2="236" y2="130" class="d-line"/><text x="40" y="152" class="d-m">int sugar;  String size;</text><text x="40" y="170" class="d-xs">template for every object</text>
+      <rect x="350" y="20" width="170" height="50" rx="10" class="d-amb"/><text x="435" y="42" text-anchor="middle" class="d-t">cup1</text><text x="435" y="60" text-anchor="middle" class="d-m">sugar=1 size=S</text>
+      <rect x="350" y="82" width="170" height="50" rx="10" class="d-amb"/><text x="435" y="104" text-anchor="middle" class="d-t">cup2</text><text x="435" y="122" text-anchor="middle" class="d-m">sugar=0 size=L</text>
+      <rect x="350" y="144" width="170" height="50" rx="10" class="d-amb"/><text x="435" y="166" text-anchor="middle" class="d-t">cup3</text><text x="435" y="184" text-anchor="middle" class="d-m">sugar=2 size=M</text>
+      <path d="M250 110 C300 110,300 45,348 45" class="d-lacc d-dash" marker-end="url(#aa)"/><path d="M250 110 L348 107" class="d-lacc d-dash" marker-end="url(#aa)"/><path d="M250 110 C300 110,300 169,348 169" class="d-lacc d-dash" marker-end="url(#aa)"/>
+      <text x="300" y="30" text-anchor="middle" class="d-xs">new Chai(...)</text>
+      <text x="640" y="80" text-anchor="middle" class="d-t">static: one copy</text><text x="640" y="98" text-anchor="middle" class="d-xs">Chai.sold, shared by all</text>
+      <text x="640" y="140" text-anchor="middle" class="d-t">instance: per object</text><text x="640" y="158" text-anchor="middle" class="d-xs">cup2.sugar is only cup2's</text>
+    </svg></div></figure>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Constructors, this(), static and final in one class">
+public class Chai {
+    public static final int BOIL_TEMP = 100;   // constant: static (one copy) + final (never changes)
+    private static int sold = 0;               // shared counter for ALL cups
+
+    private final String size;                 // final field: must be set once, in the constructor
+    private int sugar;                         // normal instance state
+
+    public Chai(String size, int sugar) {      // constructor: same name as class, no return type
+        this.size = size;                      // 'this' = the object being built
+        this.sugar = sugar;
+        sold++;                                // static field changed through any instance
+    }
+
+    public Chai(String size) {                 // overloaded constructor
+        this(size, 1);                         // constructor chaining: must be the FIRST statement
+    }
+
+    public static int sold() { return sold; }  // static method: no 'this', can't touch sugar/size
+
+    public void addSugar() { sugar++; }        // instance method: works on one cup
+}
+
+Chai a = new Chai("L");          // sugar defaults to 1
+Chai b = new Chai("S", 0);
+System.out.println(Chai.sold()); // 2  (call static methods on the CLASS name)
+</script>
+
+  <h3>The four access levels</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Modifier</th><th>Same class</th><th>Same package</th><th>Subclass (other package)</th><th>Everywhere</th></tr>
+    <tr><td><code>private</code></td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+    <tr><td><em>(default / package-private)</em></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
+    <tr><td><code>protected</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td></tr>
+    <tr><td><code>public</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+  </table></div>
+
+  <h3>The three meanings of <code>final</code></h3>
+  <div class="cards">
+    <div class="card"><span class="k">final variable</span><h5>Assign once</h5><p>A final reference can't point elsewhere, but the <em>object</em> can still change: <code>final List&lt;String&gt; l</code> still allows <code>l.add()</code>.</p></div>
+    <div class="card"><span class="k">final method</span><h5>Can't override</h5><p>Subclasses must use it as is. Used for security-critical or template steps.</p></div>
+    <div class="card"><span class="k">final class</span><h5>Can't extend</h5><p><code>String</code>, <code>Integer</code> and records are final, so nobody can subclass and break their guarantees.</p></div>
+  </div>
+
+  <h3>Initialisation order (a favourite tricky question)</h3>
+  <ol class="steps">
+    <li><b>Class loads, once</b>Static fields and <code>static { }</code> blocks run in source order (parent class first).</li>
+    <li><b>Each <code>new</code></b>Memory is zeroed, then the parent constructor runs (via <code>super()</code>), then instance field initialisers and <code>{ }</code> blocks, then the rest of the constructor body.</li>
+  </ol>
+<script type="text/x-code" data-lang="java" data-variant="plain" data-title="Predict the output">
+class Base {
+    static { System.out.println("1 Base static"); }
+    { System.out.println("3 Base instance block"); }
+    Base() { System.out.println("4 Base constructor"); }
+}
+class Child extends Base {
+    static { System.out.println("2 Child static"); }
+    { System.out.println("5 Child instance block"); }
+    Child() { super(); System.out.println("6 Child constructor"); }
+}
+new Child();  // prints 1 2 3 4 5 6.  A second new Child() prints only 3 4 5 6.
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Static = the recipe card. Instance = the cup.</p>
+    <p>Static members are per class, instance members per object. Constructors chain with <code>this(...)</code>/<code>super(...)</code> as the first line. <span class="hl">Statics first, parents first</span>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Can a static method access instance variables?</summary><div class="ans"><p>Not directly: there's no <code>this</code> in a static context. It can access them through an object reference passed in or created inside it.</p></div></details>
+    <details><summary>Can we override a static method?</summary><div class="ans"><p>No. A static method with the same signature in a subclass <em>hides</em> the parent's; which one runs depends on the reference's declared type at compile time, not the object type. Overriding (runtime polymorphism) applies only to instance methods.</p></div></details>
+    <details><summary>What's the difference between overloading and overriding?</summary><div class="ans"><p>Overloading: same method name, different parameter list, in the same class; resolved at compile time. Overriding: subclass provides a new body for an inherited instance method with the same signature; resolved at runtime by the object's actual type.</p></div></details>
+  </div>
+  {{done}}
+</section>

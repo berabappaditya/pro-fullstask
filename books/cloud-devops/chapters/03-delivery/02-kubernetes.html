@@ -1,0 +1,137 @@
+<section class="chapter" id="ch-kubernetes" data-title="Kubernetes essentials">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Delivery</div>
+    <h2>Kubernetes essentials</h2>
+    <p class="ch-oneline"><b>You declare the desired state in YAML ("3 copies of orders:1.4.0, healthy, behind a stable address"); Kubernetes' control loops keep reality matching it.</b></p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>Ramu hands the <strong>floor manager</strong> a card: "always have 3 counters serving masala chai from recipe v1.4". The manager places counters where there's space (scheduling), replaces any counter that collapses (self-healing), puts up <strong>one signboard</strong> that sends customers to whichever counters exist right now (Service), and when the card changes to v1.5, swaps counters one at a time so serving never stops (rolling update).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 300" role="img" aria-label="Kubernetes cluster: control plane with API server, etcd, scheduler and controller manager; worker nodes run kubelet and pods; an Ingress routes to a Service which load balances to pods of a Deployment">
+      <rect x="10" y="14" width="250" height="272" rx="14" class="d-acc"/><text x="135" y="38" text-anchor="middle" class="d-tl">Control plane</text>
+      <rect x="28" y="54" width="214" height="40" rx="8" class="d-box"/><text x="135" y="79" text-anchor="middle" class="d-t">API server</text>
+      <rect x="28" y="104" width="214" height="40" rx="8" class="d-box"/><text x="135" y="122" text-anchor="middle" class="d-t">etcd</text><text x="135" y="137" text-anchor="middle" class="d-xs">desired + current state</text>
+      <rect x="28" y="154" width="214" height="40" rx="8" class="d-box"/><text x="135" y="179" text-anchor="middle" class="d-t">scheduler</text>
+      <rect x="28" y="204" width="214" height="56" rx="8" class="d-box"/><text x="135" y="226" text-anchor="middle" class="d-t">controller manager</text><text x="135" y="244" text-anchor="middle" class="d-xs">reconcile loops</text>
+      <text x="135" y="278" text-anchor="middle" class="d-xs">managed for you by EKS / GKE</text>
+      <rect x="290" y="14" width="560" height="56" rx="12" class="d-vio"/><text x="400" y="38" text-anchor="middle" class="d-t">Ingress / Gateway</text><text x="400" y="56" text-anchor="middle" class="d-xs">api.ramuchai.in/orders</text>
+      <rect x="560" y="22" width="270" height="40" rx="8" class="d-amb"/><text x="695" y="40" text-anchor="middle" class="d-t">Service "orders"</text><text x="695" y="55" text-anchor="middle" class="d-xs">stable IP + DNS, load balances</text>
+      <path d="M510 42 H558" class="d-lvio" marker-end="url(#av)"/>
+      <rect x="290" y="86" width="270" height="200" rx="12" class="d-paper"/><text x="425" y="108" text-anchor="middle" class="d-t">Node 1 (VM)</text><text x="425" y="124" text-anchor="middle" class="d-xs">kubelet · container runtime · kube-proxy</text>
+      <rect x="306" y="140" width="112" height="60" rx="10" class="d-good"/><text x="362" y="164" text-anchor="middle" class="d-t">pod</text><text x="362" y="182" text-anchor="middle" class="d-xs">orders:1.4.0</text>
+      <rect x="432" y="140" width="112" height="60" rx="10" class="d-good"/><text x="488" y="164" text-anchor="middle" class="d-t">pod</text><text x="488" y="182" text-anchor="middle" class="d-xs">orders:1.4.0</text>
+      <rect x="306" y="214" width="238" height="56" rx="10" class="d-box"/><text x="425" y="238" text-anchor="middle" class="d-xs">other pods (payments, kitchen…)</text><text x="425" y="254" text-anchor="middle" class="d-xs">packed by CPU/memory requests</text>
+      <rect x="580" y="86" width="270" height="200" rx="12" class="d-paper"/><text x="715" y="108" text-anchor="middle" class="d-t">Node 2 (other AZ)</text>
+      <rect x="596" y="140" width="112" height="60" rx="10" class="d-good"/><text x="652" y="164" text-anchor="middle" class="d-t">pod</text><text x="652" y="182" text-anchor="middle" class="d-xs">orders:1.4.0</text>
+      <rect x="722" y="140" width="112" height="60" rx="10" class="d-bad"/><text x="778" y="164" text-anchor="middle" class="d-t">crashed</text><text x="778" y="182" text-anchor="middle" class="d-xs">→ replaced</text>
+      <path d="M640 62 C640 100,370 110,362 138 M695 62 L652 138" class="d-lamb d-dash"/>
+      <path d="M700 62 C720 100,500 110,488 138" class="d-lamb d-dash"/>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> You talk only to the API server (kubectl, CI, GitOps). Controllers keep comparing desired and actual state and fix any difference.</figcaption></figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Object</th><th>What it is</th><th>Food-court picture</th></tr>
+    <tr><td>Pod</td><td>1+ containers sharing network and volumes; the unit of scheduling; disposable</td><td>one serving counter</td></tr>
+    <tr><td>Deployment</td><td>keeps N identical pods of a version; rolling updates and rollbacks (via ReplicaSets)</td><td>"always 3 counters of v1.4"</td></tr>
+    <tr><td>Service</td><td>stable virtual IP + DNS name load-balancing to matching pods (ClusterIP, NodePort, LoadBalancer)</td><td>the signboard</td></tr>
+    <tr><td>Ingress / Gateway API</td><td>HTTP routing from outside to services by host/path, TLS</td><td>the food court's main entrance</td></tr>
+    <tr><td>ConfigMap / Secret</td><td>configuration and sensitive values as env vars or files</td><td>the recipe card / the safe</td></tr>
+    <tr><td>HPA</td><td>scales replicas by CPU, memory or custom metrics</td><td>"more counters at rush hour"</td></tr>
+    <tr><td>StatefulSet + PVC</td><td>stable identity and storage per pod (databases, Kafka)</td><td>counters with their own fridge</td></tr>
+    <tr><td>Job / CronJob</td><td>run-to-completion and scheduled tasks</td><td>the nightly stock count</td></tr>
+    <tr><td>Namespace</td><td>a scope for names, quotas and access</td><td>a floor of the food court</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="yaml" data-variant="good" data-title="deployment.yaml: a production-shaped Spring Boot deployment">
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders
+  labels: { app: orders }
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: orders }
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }    # add one new pod before removing an old one
+  template:
+    metadata:
+      labels: { app: orders }
+    spec:
+      serviceAccountName: orders                          # mapped to a cloud IAM role (no keys)
+      containers:
+        - name: app
+          image: 123456789012.dkr.ecr.ap-south-1.amazonaws.com/orders:1.4.0
+          ports: [{ containerPort: 8080 }]
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: prod }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom: { secretKeyRef: { name: orders-db, key: password } }
+          resources:
+            requests: { cpu: 500m, memory: 768Mi }        # what the scheduler reserves
+            limits:   { memory: 768Mi }                   # exceeding memory → OOMKilled
+          startupProbe:                                   # give the JVM time to boot
+            httpGet: { path: /actuator/health/liveness, port: 8081 }
+            failureThreshold: 30
+            periodSeconds: 3
+          readinessProbe:                                 # ready for traffic?
+            httpGet: { path: /actuator/health/readiness, port: 8081 }
+          livenessProbe:                                  # should it be restarted?
+            httpGet: { path: /actuator/health/liveness, port: 8081 }
+          lifecycle:
+            preStop: { sleep: { seconds: 10 } }          # let the LB stop sending traffic first
+---
+apiVersion: v1
+kind: Service
+metadata: { name: orders }
+spec:
+  selector: { app: orders }
+  ports: [{ port: 80, targetPort: 8080 }]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: orders }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: orders }
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 60 } }
+</script>
+
+  <div class="widget" data-terminal>
+    <div class="widget-head"><span class="live">Live</span>Practice terminal: kubectl for day-to-day work and debugging</div>
+    <div class="widget-body">
+<script type="application/json">
+{"prompt":"ramu@laptop:~/k8s$","welcome":"Deploy orders, check it, and debug a failing pod.","commands":[
+{"cmd":"kubectl apply -f deployment.yaml","out":"deployment.apps/orders created\nservice/orders created\nhorizontalpodautoscaler.autoscaling/orders created","note":"Declarative: send the desired state. Running it again only applies differences."},
+{"cmd":"kubectl get pods -l app=orders -o wide","out":"NAME                      READY   STATUS             RESTARTS   NODE\norders-7d9c6b5f4-2kq8x    1/1     Running            0          ip-10-0-11-23\norders-7d9c6b5f4-9vt4m    1/1     Running            0          ip-10-0-12-87\norders-7d9c6b5f4-xr2lp    0/1     CrashLoopBackOff   4          ip-10-0-11-23","note":"One pod keeps crashing and being restarted with growing back-off delays."},
+{"cmd":"kubectl describe pod orders-7d9c6b5f4-xr2lp","out":"State:          Waiting (CrashLoopBackOff)\nLast State:     Terminated\n  Reason:       OOMKilled\n  Exit Code:    137\nLimits:  memory: 768Mi\nEvents:\n  Warning  BackOff  kubelet  Back-off restarting failed container","note":"describe shows events and the last termination reason. OOMKilled (exit 137): the container used more memory than its limit."},
+{"cmd":"kubectl logs orders-7d9c6b5f4-xr2lp --previous","out":"INFO  Starting OrdersApplication using Java 25\n…\n(no error: the kernel killed the process)","note":"--previous shows logs of the crashed container. Fix: lower -XX:MaxRAMPercentage or raise the memory limit."},
+{"cmd":"kubectl set image deployment/orders app=…/orders:1.4.1","out":"deployment.apps/orders image updated","note":"Triggers a rolling update (in GitOps setups you'd change the YAML in Git instead)."},
+{"cmd":"kubectl rollout status deployment/orders","out":"Waiting for deployment \"orders\" rollout to finish: 1 of 3 updated replicas are available...\ndeployment \"orders\" successfully rolled out","note":"Watches the rollout. New pods must pass readiness before old ones are removed."},
+{"cmd":"kubectl rollout undo deployment/orders","out":"deployment.apps/orders rolled back","note":"Instant rollback to the previous ReplicaSet."},
+{"cmd":"kubectl port-forward svc/orders 8080:80","out":"Forwarding from 127.0.0.1:8080 -> 8080","note":"Reach a cluster-internal service from your laptop for debugging."},
+{"cmd":"kubectl top pods -l app=orders","out":"NAME                     CPU(cores)   MEMORY(bytes)\norders-7d9c6b5f4-2kq8x   212m         598Mi\norders-7d9c6b5f4-9vt4m   187m         611Mi","note":"Current CPU/memory per pod (needs metrics-server). 1000m = 1 CPU core."},
+{"cmd":"kubectl get events --sort-by=.lastTimestamp","out":"LAST SEEN   TYPE      REASON             OBJECT\n2m          Normal    ScalingReplicaSet  deployment/orders\n1m          Warning   FailedScheduling   pod/orders-…  0/3 nodes are available: insufficient memory","note":"Cluster events: scheduling failures, image pull errors, probe failures."}
+]}
+</script>
+    </div>
+  </div>
+
+  <div class="box pitfall"><div class="box-tag">Common failures and their meaning</div><p><code>ImagePullBackOff</code>: wrong image name/tag or no registry permission. <code>CrashLoopBackOff</code>: the app exits on start (config, missing secret, OOM). <code>Pending</code>: no node has the requested CPU/memory. Pod running but no traffic: readiness probe failing or Service selector doesn't match labels. Restarts under load: liveness probe too strict (checking the DB from liveness is a classic mistake).</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">A card for the floor manager; he keeps the counters matching it.</p>
+    <p>Pod → Deployment → Service → Ingress. <span class="hl">Requests/limits, startup/readiness/liveness probes, HPA, graceful shutdown</span>. Declarative YAML in Git.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What happens when you run kubectl apply for a Deployment?</summary><div class="ans"><p>The API server authenticates/authorises and validates the object and stores it in etcd. The Deployment controller creates/updates a ReplicaSet; the ReplicaSet controller creates Pod objects; the scheduler assigns each pod to a node with enough resources; that node's kubelet pulls the image and starts containers; probes mark them ready; endpoints are updated so the Service routes traffic to them.</p></div></details>
+    <details><summary>Liveness vs readiness vs startup probes?</summary><div class="ans"><p>Startup: holds off the other probes until the app has booted (slow JVM start). Readiness: whether the pod should receive traffic; failing removes it from Service endpoints without restart. Liveness: whether the container is stuck and must be restarted; keep it to the process's own health.</p></div></details>
+    <details><summary>Requests vs limits?</summary><div class="ans"><p>Requests are what the scheduler reserves and guarantees (placement and HPA utilisation are based on them). Limits are hard caps: CPU over the limit is throttled; memory over the limit gets the container OOMKilled. A common practice is memory request = limit, CPU limit unset or generous.</p></div></details>
+  </div>
+  {{done}}
+</section>

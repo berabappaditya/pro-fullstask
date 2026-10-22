@@ -1,0 +1,40 @@
+{
+  "id": "java-core",
+  "file": "java-core.html",
+  "title": "Java Core, Explained",
+  "short": "Java Core",
+  "icon": "java",
+  "tagline": "The JVM, OOP, collections, streams and concurrency, from first principles.",
+  "description": "A visual study book for core Java: how the JVM runs your code, OOP in Java, strings, exceptions, generics, collections internals, lambdas and streams, multithreading, memory and garbage collection, and modern Java up to Java 25.",
+  "story": "Ramu's kitchen, where chefs are threads",
+  "searchHint": "Find a topic (e.g. HashMap, volatile, streams)",
+  "topics": [
+    "JVM & memory",
+    "Strings",
+    "OOP in Java",
+    "Exceptions",
+    "Generics",
+    "HashMap internals",
+    "Streams",
+    "Threads",
+    "Locks",
+    "Executors",
+    "CompletableFuture",
+    "Garbage collection",
+    "Java 25"
+  ],
+  "theme": {
+    "light": {
+      "accent": "#C25708",
+      "accentInk": "#9A4304",
+      "accentSoft": "#FCEBDC",
+      "hero": "#B4500A"
+    },
+    "dark": {
+      "accent": "#FFB070",
+      "accentInk": "#FFCB99",
+      "accentSoft": "#3A2410",
+      "hero": "#7A3406"
+    }
+  }
+}

@@ -1,0 +1,64 @@
+<section class="chapter" id="ch-agents" data-title="Agents and agentic patterns">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Tools &amp; agents</div>
+    <h2>Agents: models that loop toward a goal</h2>
+    <p class="ch-oneline"><b>An agent is an LLM using tools in a loop: think, act, observe, repeat, until the goal is reached or a limit is hit.</b> Start with simple workflows; add autonomy only where it pays.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>"Find out why Pune's orders dropped this week and draft a note to the manager." The assistant <strong>plans</strong>, checks the sales dashboard, sees deliveries were late, checks the delivery partner's status page, finds an outage, and drafts the note. Each step depends on what he just learned. Ramu sets rules: <strong>at most 10 steps</strong>, no emails sent without his OK.</p></div>
+
+  <div class="widget" data-sequence>
+    <div class="widget-head"><span class="live">Live</span>An agent loop (ReAct: reason → act → observe)</div>
+    <div class="widget-body">
+<script type="application/json">
+{"actors":[
+ {"id":"u","label":"User","sub":"ops manager","cls":"d-vio"},
+ {"id":"a","label":"Agent runtime","sub":"your code","cls":"d-acc"},
+ {"id":"l","label":"LLM","sub":"planner","cls":"d-good"},
+ {"id":"t","label":"Tools","sub":"SQL, HTTP, docs","cls":"d-amb"}],
+ "steps":[
+ {"from":"u","to":"a","msg":"Why did Pune orders drop this week?","text":"The runtime starts a loop with a step budget (e.g. 10), the available tools and the conversation."},
+ {"from":"a","to":"l","msg":"goal + tools + history","text":"The model reasons about what it needs first."},
+ {"from":"l","to":"a","msg":"call salesByDay(city=Pune)","ret":true,"text":"Thought: compare daily orders. Action: a read-only analytics tool."},
+ {"from":"a","to":"t","msg":"run query","text":"Your code executes the tool with the user's permissions."},
+ {"from":"t","to":"a","msg":"orders −38% since Tue","ret":true,"text":"Observation goes back into the context."},
+ {"from":"a","to":"l","msg":"observation","text":"Loop iteration 2."},
+ {"from":"l","to":"a","msg":"call deliveryMetrics(city=Pune)","ret":true,"text":"Thought: is it demand or fulfilment? Check delivery times."},
+ {"from":"a","to":"t","msg":"run","text":"Tool call 2."},
+ {"from":"t","to":"a","msg":"avg delivery 52 min (was 24)","ret":true,"text":"Fulfilment problem found."},
+ {"from":"a","to":"l","msg":"observation","text":"Loop iteration 3."},
+ {"from":"l","to":"a","msg":"final answer + draft note","ret":true,"text":"The model decides it has enough and returns the explanation plus a drafted message. Sending the email is a separate, human-approved step."},
+ {"from":"a","to":"u","msg":"report (3 steps, 4.2k tokens)","ret":true,"text":"The runtime logs every step (trace) for debugging and evaluation."}]}
+</script>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Pattern</th><th>Who controls the flow</th><th>Use when</th></tr>
+    <tr><td>Prompt chaining</td><td>your code: fixed steps</td><td>predictable multi-step tasks (extract → validate → summarise)</td></tr>
+    <tr><td>Routing</td><td>a classifier picks a path/model</td><td>different request types need different handling</td></tr>
+    <tr><td>Parallelisation</td><td>your code fans out, then aggregates</td><td>independent sub-tasks, voting for reliability</td></tr>
+    <tr><td>Orchestrator–workers</td><td>an LLM splits work, workers execute</td><td>sub-tasks not known in advance</td></tr>
+    <tr><td>Evaluator–optimizer</td><td>one LLM drafts, another critiques, loop</td><td>clear quality criteria (code passing tests, translations)</td></tr>
+    <tr><td>Autonomous agent</td><td>the LLM decides steps and tools until done</td><td>open-ended tasks; needs guardrails, budgets and sandboxing</td></tr>
+  </table></div>
+
+  <div class="cards">
+    <div class="card"><span class="k">memory</span><h5>Short- and long-term</h5><p>Conversation history (trimmed/summarised to fit the window) and long-term facts stored in a DB or vector store and retrieved when relevant.</p></div>
+    <div class="card"><span class="k">guardrails</span><h5>Keep it safe</h5><p>Step and token budgets, timeouts, allow-listed tools, least-privilege credentials, human approval for side effects, sandboxed code execution, output validation.</p></div>
+    <div class="card"><span class="k">multi-agent</span><h5>Specialists</h5><p>Several agents with narrow roles (researcher, coder, reviewer) coordinate; agent-to-agent protocols such as A2A standardise how they talk. More power, more cost and debugging effort.</p></div>
+  </div>
+
+  <div class="box pitfall"><div class="box-tag">Why agents fail</div><p>Errors compound over steps (95% per step ≈ 60% over 10 steps), loops that never finish, tool misuse, context filling with noise, cost blow-ups, and prompt injection from tool outputs. Prefer the simplest workflow that works, and evaluate end-to-end task success, not single replies.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Plan, act, look, repeat, within a budget, with permission for anything irreversible.</p>
+    <p>Agent = <span class="hl">LLM + tools + loop + memory + guardrails</span>. Workflows first, autonomy when needed. Trace every step.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Agent vs workflow?</summary><div class="ans"><p>A workflow follows code-defined steps where LLMs fill in specific parts: predictable, testable, cheaper. An agent lets the model choose the next step and tools dynamically: flexible for open-ended tasks but less predictable. Use workflows by default; agents where the path can't be known in advance.</p></div></details>
+    <details><summary>How do you make an agent production-safe?</summary><div class="ans"><p>Narrow, well-described tools with least-privilege credentials scoped to the end user; validation and authorisation inside each tool; human approval for irreversible actions; step/token/time budgets; sandboxing for code execution; treat tool outputs as untrusted (prompt injection); full tracing; evaluation on realistic tasks; kill switches.</p></div></details>
+  </div>
+  {{done}}
+</section>

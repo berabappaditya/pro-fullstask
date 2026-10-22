@@ -1,0 +1,69 @@
+<section class="chapter" id="ch-architecture" data-title="Architecture and the request journey">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Foundations</div>
+    <h2>Architecture: the life of an HTTP request</h2>
+    <p class="ch-oneline"><b>Filters → DispatcherServlet → handler mapping → controller → service → repository → database, and back through message converters as JSON.</b> Each layer has one job.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>A customer walks in. The <strong>guard</strong> checks them (filters). The <strong>host</strong> at the front desk reads their order and sends them to the right counter (DispatcherServlet). The <strong>counter clerk</strong> takes the order (controller), the <strong>chef</strong> decides how to make it (service), the <strong>storekeeper</strong> fetches ingredients (repository) from the <strong>storeroom</strong> (database). The finished cup goes back along the same path.</p></div>
+
+  <div class="widget" data-sequence>
+    <div class="widget-head"><span class="live">Live</span>Follow GET /api/orders/7 through Spring MVC</div>
+    <div class="widget-body">
+<script type="application/json">
+{"actors":[
+ {"id":"c","label":"Client","sub":"browser / app","cls":"d-vio"},
+ {"id":"f","label":"Filters","sub":"security, CORS","cls":"d-bad"},
+ {"id":"d","label":"Dispatcher","sub":"Servlet","cls":"d-acc"},
+ {"id":"ctl","label":"Controller","sub":"@RestController","cls":"d-box"},
+ {"id":"s","label":"Service","sub":"@Service","cls":"d-amb"},
+ {"id":"r","label":"Repository","sub":"JPA","cls":"d-teal"}],
+ "steps":[
+ {"from":"c","to":"f","msg":"GET /api/orders/7","text":"Tomcat accepts the connection and assigns a worker thread (one per request: http-nio-8080-exec-N, or a virtual thread). The request first passes through the servlet filter chain: Spring Security, CORS, logging filters."},
+ {"from":"f","to":"d","msg":"authenticated","text":"The JWT filter validated the token and stored the user in the SecurityContext (a ThreadLocal). The request reaches the DispatcherServlet, Spring MVC's single front controller."},
+ {"from":"d","to":"d","msg":"HandlerMapping","text":"DispatcherServlet asks the HandlerMappings which method handles GET /api/orders/{id}. It finds OrderController.get(Long id). HandlerInterceptors' preHandle run now."},
+ {"from":"d","to":"ctl","msg":"get(7)","text":"The HandlerAdapter calls the method. Argument resolvers convert the path variable '7' to Long, bind @RequestBody JSON with Jackson, and run @Valid validation."},
+ {"from":"ctl","to":"s","msg":"findOrder(7)","text":"The controller stays thin: it delegates to the service. The service bean is actually a proxy that starts a read-only transaction (@Transactional(readOnly = true))."},
+ {"from":"s","to":"r","msg":"findById(7)","text":"Business logic lives in the service. It calls the repository, an interface Spring Data implemented for you at startup."},
+ {"from":"r","to":"s","msg":"Order entity","ret":true,"text":"Hibernate runs SELECT … WHERE id = 7 using a pooled connection from HikariCP and maps the row to an Order entity."},
+ {"from":"s","to":"ctl","msg":"OrderDto","ret":true,"text":"The service maps the entity to a DTO (never expose entities) and the proxy commits the transaction."},
+ {"from":"ctl","to":"d","msg":"ResponseEntity 200","ret":true,"text":"The return value goes to an HttpMessageConverter: Jackson serialises the DTO to JSON. If an exception had been thrown, @RestControllerAdvice would turn it into an error response here."},
+ {"from":"d","to":"c","msg":"200 OK {json}","ret":true,"text":"Interceptors' postHandle/afterCompletion run, filters finish, and Tomcat writes the response. The thread returns to the pool."}]}
+</script>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Layer</th><th>Annotation</th><th>Responsibility</th><th>Must not</th></tr>
+    <tr><td>Controller</td><td><code>@RestController</code></td><td>HTTP: map URLs, bind/validate input, choose status codes</td><td>contain business rules or SQL</td></tr>
+    <tr><td>Service</td><td><code>@Service</code></td><td>business logic, transactions, orchestration</td><td>know about HTTP (no HttpServletRequest)</td></tr>
+    <tr><td>Repository</td><td><code>@Repository</code></td><td>data access; translates SQL exceptions to Spring's DataAccessException</td><td>contain business decisions</td></tr>
+    <tr><td>Entity / DTO</td><td><code>@Entity</code> / record</td><td>table mapping / API shape</td><td>be mixed up (separate types)</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Thin controller, constructor injection, ResponseEntity">
+@RestController
+@RequestMapping("/api/orders")                     // base path for every method here
+public class OrderController {
+    private final OrderService orders;             // final: set once, never null
+    public OrderController(OrderService orders) {  // constructor injection (no @Autowired needed)
+        this.orders = orders;
+    }
+    @GetMapping("/{id}")
+    public ResponseEntity<OrderDto> get(@PathVariable Long id) {
+        return ResponseEntity.ok(orders.findOrder(id));   // 200 + JSON body
+    }
+}
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Guard, host, clerk, chef, storekeeper.</p>
+    <p>Filters → <span class="hl">DispatcherServlet (front controller)</span> → HandlerMapping → controller → service → repository. Keep controllers thin.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What is the DispatcherServlet and why is it called the front controller?</summary><div class="ans"><p>It's the single servlet that receives every request to Spring MVC. It looks up the handler through HandlerMappings, invokes it through a HandlerAdapter (resolving arguments), handles exceptions via HandlerExceptionResolvers, and writes the result with message converters or view resolvers. One entry point that delegates is the Front Controller pattern.</p></div></details>
+    <details><summary>Filter vs HandlerInterceptor?</summary><div class="ans"><p>Filters are servlet-level and run before the DispatcherServlet for every request (security, CORS, compression). Interceptors are Spring MVC-level, run around controller methods, and know which handler was chosen (auditing, per-endpoint timing, locale).</p></div></details>
+  </div>
+  {{done}}
+</section>

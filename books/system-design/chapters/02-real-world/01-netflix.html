@@ -1,0 +1,202 @@
+<section class="chapter" id="ch-netflix" data-title="How Netflix works">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Real-world · Video at planet scale</div>
+    <h2>How Netflix works</h2>
+    <p class="ch-oneline"><b>Netflix splits itself in two:</b> a "brain" in the AWS cloud that decides what you can watch and from where, and its own delivery network, placed inside internet providers, that sends the actual video bytes.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><b>325M+</b><span>paid memberships at the end of 2025</span></div>
+    <div class="stat"><b>190+</b><span>countries served</span></div>
+    <div class="stat"><b>2 planes</b><span>control plane on AWS, data plane on Open Connect</span></div>
+    <div class="stat"><b>~65M</b><span>concurrent streams at its biggest live event (Nov 2024)</span></div>
+  </div>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu now sells bottled chai all over India. If every bottle had to travel from his Medinipur factory when someone ordered it, deliveries to Chennai would take two days. So every night, while the roads are empty, his trucks <strong>pre-stock small fridges inside local kirana shops</strong> with the flavours each neighbourhood usually buys. When you order, the app (run from Ramu's head office) checks your account, takes payment, and tells you <em>which nearby shop's fridge</em> to collect from. Head office never touches the bottle itself.</p>
+    <p>Head office is Netflix's <strong>control plane on AWS</strong>. The fridges in kirana shops are <strong>Open Connect Appliances</strong> sitting inside your internet provider. Night-time restocking is the <strong>fill window</strong>.</p></div>
+
+  <h3>Requirements, as an interviewer would set them</h3>
+  <div class="cards">
+    <div class="card"><h5>Functional</h5><ul><li>Browse, search and get personalised rows</li><li>Press Play and start within ~2 seconds</li><li>Smooth playback on any device and network</li><li>Resume where you stopped, on any device</li></ul></div>
+    <div class="card"><h5>Non-functional</h5><ul><li>Hundreds of millions of members, evening peaks</li><li>Video is enormous: bandwidth dominates cost</li><li>Browsing may degrade; playback must not</li><li>Survive the loss of a whole cloud region</li></ul></div>
+  </div>
+
+  <h3>The big picture: two planes</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 880 380" role="img" aria-label="Netflix architecture: devices talk to the AWS control plane for browsing, login and playback decisions, and stream video from Open Connect appliances inside internet providers">
+      <rect x="10" y="20" width="380" height="340" rx="16" class="d-acc"/>
+      <text x="200" y="46" text-anchor="middle" class="d-tl">Control plane · AWS cloud</text>
+      <text x="200" y="64" text-anchor="middle" class="d-xs">everything that happens BEFORE video bytes flow</text>
+      <rect x="30" y="80" width="340" height="40" rx="9" class="d-amb"/><text x="200" y="105" text-anchor="middle" class="d-t">Zuul API gateway · auth, routing, rate limits</text>
+      <g>
+        <rect x="30" y="138" width="105" height="44" rx="8" class="d-box"/><text x="82" y="164" text-anchor="middle" class="d-s">Sign-in &amp; profiles</text>
+        <rect x="147" y="138" width="105" height="44" rx="8" class="d-box"/><text x="199" y="158" text-anchor="middle" class="d-s">Browse &amp;</text><text x="199" y="172" text-anchor="middle" class="d-s">search</text>
+        <rect x="264" y="138" width="105" height="44" rx="8" class="d-box"/><text x="316" y="158" text-anchor="middle" class="d-s">Recommend-</text><text x="316" y="172" text-anchor="middle" class="d-s">ations</text>
+        <rect x="30" y="196" width="160" height="44" rx="8" class="d-vio"/><text x="110" y="216" text-anchor="middle" class="d-t">Playback service</text><text x="110" y="232" text-anchor="middle" class="d-xs">entitlement, DRM licence</text>
+        <rect x="205" y="196" width="165" height="44" rx="8" class="d-vio"/><text x="287" y="216" text-anchor="middle" class="d-t">Steering service</text><text x="287" y="232" text-anchor="middle" class="d-xs">which OCAs should serve you</text>
+        <rect x="30" y="256" width="105" height="40" rx="8" class="d-good"/><text x="82" y="281" text-anchor="middle" class="d-s">Cassandra</text>
+        <rect x="147" y="256" width="105" height="40" rx="8" class="d-good"/><text x="199" y="281" text-anchor="middle" class="d-s">EVCache</text>
+        <rect x="264" y="256" width="105" height="40" rx="8" class="d-good"/><text x="316" y="281" text-anchor="middle" class="d-s">Kafka events</text>
+      </g>
+      <text x="200" y="320" text-anchor="middle" class="d-xs">~1,000+ microservices, several AWS regions,</text>
+      <text x="200" y="336" text-anchor="middle" class="d-xs">failover between regions if one goes down</text>
+
+      <rect x="400" y="140" width="110" height="90" rx="14" class="d-box"/><text x="455" y="170" text-anchor="middle" class="d-tl">Your TV</text><text x="455" y="190" text-anchor="middle" class="d-xs">phone · laptop</text><text x="455" y="206" text-anchor="middle" class="d-xs">Netflix app</text>
+      <path d="M420 138 C410 118,400 108,392 104" class="d-lacc" marker-end="url(#aa)"/><text x="455" y="126" text-anchor="middle" class="d-ta">① API calls</text>
+      <path d="M392 218 C400 222,404 224,408 226" class="d-lvio d-dash" marker-end="url(#av)"/><text x="455" y="250" text-anchor="middle" class="d-tv">② "use these OCAs"</text>
+
+      <rect x="560" y="20" width="310" height="340" rx="16" class="d-teal"/>
+      <text x="715" y="46" text-anchor="middle" class="d-tl">Data plane · Open Connect</text>
+      <text x="715" y="64" text-anchor="middle" class="d-xs">Netflix's own CDN, inside or next to your ISP</text>
+      <rect x="580" y="90" width="270" height="110" rx="12" class="d-box"/>
+      <text x="715" y="112" text-anchor="middle" class="d-t">Your ISP (Jio, Airtel, ACT…)</text>
+      <rect x="600" y="125" width="70" height="56" rx="6" class="d-good"/><text x="635" y="150" text-anchor="middle" class="d-xs">OCA</text><text x="635" y="164" text-anchor="middle" class="d-xs">server</text>
+      <rect x="680" y="125" width="70" height="56" rx="6" class="d-good"/><text x="715" y="150" text-anchor="middle" class="d-xs">OCA</text><text x="715" y="164" text-anchor="middle" class="d-xs">server</text>
+      <rect x="760" y="125" width="70" height="56" rx="6" class="d-good"/><text x="795" y="150" text-anchor="middle" class="d-xs">OCA</text><text x="795" y="164" text-anchor="middle" class="d-xs">server</text>
+      <rect x="580" y="230" width="270" height="56" rx="12" class="d-box"/><text x="715" y="254" text-anchor="middle" class="d-t">Internet exchange (IXP) OCAs</text><text x="715" y="272" text-anchor="middle" class="d-xs">bigger, hold more of the catalogue</text>
+      <text x="715" y="318" text-anchor="middle" class="d-xs">filled every night during off-peak hours</text>
+      <text x="715" y="334" text-anchor="middle" class="d-xs">with what each region is predicted to watch</text>
+      <path d="M512 190 C540 190,560 168,598 160" class="d-lgood" style="stroke-width:5" marker-end="url(#ag)"/>
+      <text x="540" y="226" text-anchor="middle" class="d-tg">③ video bytes</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Small API messages go to AWS; the enormous video traffic never touches AWS. It comes from appliances a few network hops from your home, which is why playback starts fast and Netflix's bandwidth bill stays sane.</figcaption>
+  </figure>
+
+  <div class="box layman"><div class="box-tag">In plain words</div>
+    <p>Netflix is two companies glued together: a software company that runs a giant website/app in the cloud, and a "postal service" for video that has put its own post-office boxes inside your internet provider's building. The app decides; the box delivers.</p></div>
+
+  <h3>What happens when you press Play</h3>
+  <ol class="steps">
+    <li><b>Request</b>Your app calls the playback API through the Zuul gateway with the title, your device type and its capabilities (codecs, resolution, HDR, DRM type).</li>
+    <li><b>Checks</b>The playback service confirms your plan allows it (entitlement: number of screens, 4K or not) and prepares a DRM licence so only your device can decrypt the video.</li>
+    <li><b>Steering</b>The steering service looks at your IP and network, finds which Open Connect appliances near you hold this title in the formats your device supports, checks their health and load, and returns a ranked list of URLs.</li>
+    <li><b>Stream</b>The app downloads the video in small chunks (a few seconds each) straight from the best OCA, choosing a quality for each chunk based on your current bandwidth (adaptive bitrate, below). If one OCA is slow, it switches to the next on the list.</li>
+    <li><b>Report</b>While you watch, the app sends events (playing, buffering, quality changes, position) back to the cloud via Kafka-based pipelines. That powers "Continue watching", quality monitoring and recommendations.</li>
+  </ol>
+
+  <h3>Getting the video ready: the encoding pipeline</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 230" role="img" aria-label="Encoding pipeline: studio master file is split into chunks, encoded in parallel into many qualities and codecs, packaged with DRM, and pushed to Open Connect during the nightly fill window">
+      <rect x="10" y="80" width="110" height="70" rx="10" class="d-vio"/><text x="65" y="108" text-anchor="middle" class="d-t">Studio</text><text x="65" y="126" text-anchor="middle" class="d-xs">master file</text><text x="65" y="140" text-anchor="middle" class="d-xs">(hundreds of GB)</text>
+      <rect x="160" y="80" width="110" height="70" rx="10" class="d-box"/><text x="215" y="108" text-anchor="middle" class="d-t">Split</text><text x="215" y="126" text-anchor="middle" class="d-xs">into scenes /</text><text x="215" y="140" text-anchor="middle" class="d-xs">chunks</text>
+      <g>
+        <rect x="310" y="20" width="60" height="36" rx="6" class="d-amb"/><rect x="380" y="20" width="60" height="36" rx="6" class="d-amb"/>
+        <rect x="310" y="66" width="60" height="36" rx="6" class="d-amb"/><rect x="380" y="66" width="60" height="36" rx="6" class="d-amb"/>
+        <rect x="310" y="112" width="60" height="36" rx="6" class="d-amb"/><rect x="380" y="112" width="60" height="36" rx="6" class="d-amb"/>
+        <rect x="310" y="158" width="60" height="36" rx="6" class="d-amb"/><rect x="380" y="158" width="60" height="36" rx="6" class="d-amb"/>
+        <text x="375" y="214" text-anchor="middle" class="d-xs">thousands of encoders in parallel</text>
+      </g>
+      <rect x="480" y="30" width="150" height="160" rx="10" class="d-acc"/>
+      <text x="555" y="52" text-anchor="middle" class="d-t">Bitrate ladder</text>
+      <text x="555" y="76" text-anchor="middle" class="d-m">4K · 15 Mbps</text><text x="555" y="96" text-anchor="middle" class="d-m">1080p · 5 Mbps</text><text x="555" y="116" text-anchor="middle" class="d-m">720p · 3 Mbps</text><text x="555" y="136" text-anchor="middle" class="d-m">480p · 1.5 Mbps</text><text x="555" y="156" text-anchor="middle" class="d-m">240p · 0.3 Mbps</text>
+      <text x="555" y="178" text-anchor="middle" class="d-xs">× codecs (AVC, HEVC, AV1)</text>
+      <rect x="670" y="40" width="80" height="60" rx="10" class="d-box"/><text x="710" y="66" text-anchor="middle" class="d-t">Package</text><text x="710" y="84" text-anchor="middle" class="d-xs">+ DRM</text>
+      <rect x="670" y="130" width="180" height="60" rx="10" class="d-teal"/><text x="760" y="156" text-anchor="middle" class="d-t">Open Connect fill</text><text x="760" y="174" text-anchor="middle" class="d-xs">nightly, off-peak</text>
+      <path d="M120 115 H158 M270 115 H306" class="d-line" marker-end="url(#ah)"/>
+      <path d="M444 110 H478" class="d-line" marker-end="url(#ah)"/>
+      <path d="M630 80 H668" class="d-line" marker-end="url(#ah)"/>
+      <path d="M710 100 V128" class="d-lgood" marker-end="url(#ag)"/>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.2</b> One film becomes hundreds of files: many resolutions × bitrates × codecs × audio and subtitle tracks. Netflix tunes the ladder <em>per title</em> (and even per shot): a cartoon needs far fewer bits than a rain-soaked action scene for the same visual quality.</figcaption>
+  </figure>
+  <p>This is a classic <strong>batch, embarrassingly parallel</strong> job: split the work into independent pieces, process thousands at once, then stitch. It's the same idea as MapReduce, applied to video.</p>
+
+  <h3>Adaptive bitrate: why the picture gets blurry instead of freezing</h3>
+  <p>The app keeps a <strong>buffer</strong> of a few seconds of video ahead of what you're watching. For every next chunk it decides which quality to download. If your bandwidth drops (someone starts a big download, your train enters a tunnel), it switches to a lower quality <em>before</em> the buffer runs dry. A slightly blurry picture is better than a spinning wheel.</p>
+
+  <div class="widget" id="w-abr">
+    <div class="widget-head"><span class="live">Live</span>Adaptive bitrate player</div>
+    <div class="widget-body">
+      <div class="controls">
+        <span class="small">Network:</span>
+        <button class="btn" data-net="50">Home fibre 50 Mbps</button>
+        <button class="btn" data-net="8">4G 8 Mbps</button>
+        <button class="btn" data-net="2">Crowded 3G 2 Mbps</button>
+        <button class="btn" data-net="0.4">Train tunnel 0.4 Mbps</button>
+      </div>
+      <div class="controls">
+        <button class="btn primary" id="abrPlay">Play</button>
+        <button class="btn" id="abrMode">Mode: adaptive</button>
+        <button class="btn" id="abrReset">Reset</button>
+      </div>
+      <div class="abr-player">
+        <div class="abr-screen" id="abrScreen"><span id="abrQuality">—</span><small id="abrState">press Play</small></div>
+        <div class="abr-side">
+          <div class="lru-label">Buffer (seconds of video ready)</div>
+          <div class="abr-buffer"><i id="abrBuffer"></i></div>
+          <div class="statrow" id="abrStats"></div>
+        </div>
+      </div>
+      <div class="svgwrap" style="overflow-x:auto"><svg id="abrChart" viewBox="0 0 640 170" style="min-width:520px" role="img" aria-label="Chart of available bandwidth and chosen bitrate over time"></svg></div>
+      <p class="small">Switch networks while it plays. In <b>adaptive</b> mode the quality follows your bandwidth and the buffer stays healthy. Switch to <b>fixed 1080p</b> and drop to 3G: the buffer drains and playback stalls ("rebuffering"), which is exactly what ABR exists to prevent.</p>
+    </div>
+  </div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: always request the same quality">
+public Rendition nextChunk(PlayerState s) {
+    // 1080p is "the best", so always ask for it.
+    // On a 2 Mbps connection each 4-second chunk takes ~10 s to download:
+    // the buffer drains, the video freezes every few seconds.
+    return ladder.get("1080p");
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: pick per chunk from bandwidth and buffer health">
+public Rendition nextChunk(PlayerState s) {
+    // 1. Estimate bandwidth from recent downloads (smoothed so one blip doesn't panic us)
+    double safeKbps = s.ewmaThroughputKbps() * 0.8;      // keep a 20% safety margin
+
+    // 2. Low buffer = danger zone: be conservative, refill quickly
+    if (s.bufferSeconds() < 5) safeKbps *= 0.5;
+
+    // 3. Highest rung of the ladder that fits, never above what the screen can show
+    return ladder.stream()                                // sorted high -> low
+        .filter(r -> r.kbps() <= safeKbps)
+        .filter(r -> r.height() <= s.device().maxHeight())
+        .findFirst()
+        .orElse(ladder.lowest());                         // worst case: lowest rung, keep playing
+}
+</script>
+</div>
+
+  <h3>The cloud side: built to survive failure</h3>
+  <div class="cards">
+    <div class="card"><span class="k">gateway</span><h5>Zuul</h5><p>Every API call enters here: authentication, routing to the right service, rate limiting, canary routing of a slice of traffic to new versions. ({{ref:ch-micro}})</p></div>
+    <div class="card"><span class="k">discovery</span><h5>Eureka</h5><p>Services register themselves and find each other by name, not IP, so instances can come and go freely.</p></div>
+    <div class="card"><span class="k">resilience</span><h5>Hystrix → Resilience4j</h5><p>Netflix popularised circuit breakers and fallbacks: if recommendations fail, show a generic "Trending" row instead of an error page. ({{ref:ch-reliability}})</p></div>
+    <div class="card"><span class="k">cache</span><h5>EVCache</h5><p>A Memcached-based, replicated cache in front of almost everything; most reads never touch a database. ({{ref:ch-cache}})</p></div>
+    <div class="card"><span class="k">data</span><h5>Cassandra</h5><p>Viewing history and other huge, write-heavy, always-available data. An AP choice: a few seconds of staleness in "Continue watching" is fine. ({{ref:ch-cap}})</p></div>
+    <div class="card"><span class="k">events</span><h5>Kafka pipelines</h5><p>Trillions of events (plays, pauses, errors) stream to analytics and recommendation systems. ({{ref:ch-queue}})</p></div>
+    <div class="card"><span class="k">testing</span><h5>Chaos engineering</h5><p>Chaos Monkey randomly kills production instances during work hours, so teams must build services that shrug it off. Bigger tools fail entire regions on purpose.</p></div>
+    <div class="card"><span class="k">regions</span><h5>Active-active regions</h5><p>Several AWS regions serve traffic at once; if one degrades, traffic is shifted to the others within minutes.</p></div>
+  </div>
+
+  <h3>Recommendations: the reason you keep watching</h3>
+  <p>Most of what members watch is found through recommendations. Heavy models train <strong>offline</strong> (batch jobs over viewing history), <strong>nearline</strong> jobs update your profile minutes after you watch something, and an <strong>online</strong> layer assembles your home page in milliseconds from precomputed results in EVCache. Even the artwork shown for a title is personalised: a romance fan and an action fan may see different thumbnails for the same film.</p>
+
+  <div class="box pitfall"><div class="box-tag">Real-world lesson: live is different</div>
+    <p>Netflix's whole delivery model is built on <em>predicting</em> demand and pre-positioning files overnight. Live events break that model: the content doesn't exist until the second it happens, and everyone wants the same seconds at once. During the Jake Paul vs Mike Tyson fight in November 2024 (around 65 million concurrent streams), many viewers saw buffering and errors. Live needs the techniques from the JioHotstar chapter ({{ref:ch-hotstar}}): massive pre-scaling, short cacheable segments and graceful degradation.</p></div>
+
+  <h3>What to take into your own designs</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Netflix idea</th><th>General principle</th><th>Where you learned it</th></tr>
+    <tr><td>Control plane vs data plane</td><td>Separate "deciding" traffic from "heavy bytes" traffic and scale them differently</td><td>{{ref:ch-toolbox}} (object storage + CDN)</td></tr>
+    <tr><td>Open Connect inside ISPs</td><td>Move data close to users; pre-position predictable content</td><td>{{ref:ch-cache}}</td></tr>
+    <tr><td>Adaptive bitrate</td><td>Graceful degradation: lower quality beats total failure</td><td>{{ref:ch-reliability}}</td></tr>
+    <tr><td>Parallel encoding</td><td>Split big batch work into independent chunks</td><td>{{ref:ch-toolbox}} (batch processing)</td></tr>
+    <tr><td>Fallback rows, chaos testing</td><td>Expect failure; design every dependency with a fallback</td><td>{{ref:ch-reliability}}</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">The brain is in the cloud; the bytes are in the neighbourhood.</p>
+    <p>Control plane (AWS): login, browse, recommend, decide which server. Data plane (Open Connect): video chunks from inside your ISP, filled overnight. The player adapts quality chunk by chunk so <span class="hl">the video keeps playing</span>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>"Design Netflix." Where do you start?</summary><div class="ans"><p>Clarify scope (browse + play, not billing). Split into control plane and data plane immediately: video bandwidth dwarfs everything else, so the core decision is a CDN strategy (pre-positioned caches near users), encoding into an ABR ladder, and a playback API that returns signed URLs to the best nearby servers. Then cover metadata (titles in a cached DB), user data (watch history in Cassandra), recommendations (offline + online), and resilience (fallbacks, multi-region).</p></div></details>
+    <details><summary>Why doesn't Netflix just use a commercial CDN?</summary><div class="ans"><p>At its volume, owning the delivery network is cheaper and gives control over hardware, placement and software. Placing appliances inside ISPs also helps the ISPs (less traffic over their expensive upstream links), so they host the boxes for free. Smaller companies should simply use CloudFront, Akamai or Cloudflare.</p></div></details>
+    <details><summary>How would you store "Continue watching" for 300M users?</summary><div class="ans"><p>A wide-column store like Cassandra partitioned by profile ID, with rows per title holding the last position and timestamp. Writes come every few seconds during playback, so it must be write-optimised and highly available; eventual consistency across regions is acceptable. Cache the top rows of each profile's home page.</p></div></details>
+  </div>
+  <p class="sources">Sources: Netflix Q4 2025 shareholder letter (via <a href="https://www.comingsoon.net/?p=2086513">ComingSoon</a>), the Netflix Tech Blog and Open Connect documentation. Concurrent-stream figure as reported by Netflix for the November 2024 live fight.</p>
+  {{done}}
+</section>

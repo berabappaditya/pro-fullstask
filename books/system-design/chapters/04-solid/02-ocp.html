@@ -1,0 +1,91 @@
+<section class="chapter" id="ch-ocp" data-title="O · Open/Closed">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>SOLID · O</div>
+    <h2>Open/Closed Principle</h2>
+    <p class="ch-oneline"><b>Software should be open for extension but closed for modification.</b> Add new behaviour by adding new code, not by editing code that already works.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu's first menu was painted directly on the wall. Every time he added a drink (cold coffee in summer, kadha in winter) a painter had to repaint the wall, and twice he smudged existing prices. So Ramu switched to a board with <strong>slots</strong>: each item is a card that slides in. The board itself never changes; it's <strong>closed</strong>. But it's <strong>open</strong>: any number of new cards can be added.</p></div>
+
+  <div class="box def"><div class="box-tag">Definition</div>
+    <p>A module should allow its behaviour to be extended without changing its source code. In Java you achieve it with <strong>abstractions</strong> (interfaces / abstract classes) plus <strong>polymorphism</strong>: the stable code depends on the interface, and new behaviour arrives as new implementations.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 220" role="img" aria-label="A closed checkout class depends on a DiscountPolicy interface; new policies plug in as new classes">
+      <rect x="40" y="80" width="190" height="64" rx="10" class="d-acc"/><text x="135" y="106" text-anchor="middle" class="d-t">CheckoutService</text><text x="135" y="124" text-anchor="middle" class="d-xs">closed: never edited again</text>
+      <rect x="330" y="80" width="170" height="64" rx="10" class="d-box"/><text x="415" y="102" text-anchor="middle" class="d-xs">«interface»</text><text x="415" y="120" text-anchor="middle" class="d-t">DiscountPolicy</text>
+      <path d="M230 112 H328" class="d-lacc" marker-end="url(#aa)"/><text x="279" y="104" text-anchor="middle" class="d-xs">depends on</text>
+      <rect x="600" y="15" width="200" height="38" rx="8" class="d-good"/><text x="700" y="39" text-anchor="middle" class="d-s">StudentDiscount (10%)</text>
+      <rect x="600" y="65" width="200" height="38" rx="8" class="d-good"/><text x="700" y="89" text-anchor="middle" class="d-s">LoyaltyDiscount (5%)</text>
+      <rect x="600" y="115" width="200" height="38" rx="8" class="d-good"/><text x="700" y="139" text-anchor="middle" class="d-s">HappyHourDiscount</text>
+      <rect x="600" y="165" width="200" height="38" rx="8" class="d-paper" style="stroke-dasharray:4 3"/><text x="700" y="189" text-anchor="middle" class="d-s">DiwaliDiscount (just add it)</text>
+      <path d="M598 34 L502 100 M598 84 L502 108 M598 134 L502 118 M598 184 L502 126" class="d-line" marker-end="url(#tri)"/>
+      <text x="550" y="212" text-anchor="middle" class="d-tg">open: extend by adding classes</text>
+    </svg></div>
+  </figure>
+
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: every new discount edits this method">
+public class DiscountCalculator {
+    public BigDecimal discount(Customer c, BigDecimal amount) {
+        switch (c.getType()) {
+            case "STUDENT":  return amount.multiply(new BigDecimal("0.10"));
+            case "LOYAL":    return amount.multiply(new BigDecimal("0.05"));
+            case "EMPLOYEE": return amount.multiply(new BigDecimal("0.20"));
+            // Marketing wants a Diwali offer -> open this file, add a case,
+            // redeploy, re-test ALL the other cases you might have broken.
+            default:         return BigDecimal.ZERO;
+        }
+    }
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: new discounts are new classes; the calculator never changes">
+public interface DiscountPolicy {
+    boolean appliesTo(Customer c, BigDecimal amount);   // is this policy relevant?
+    BigDecimal discount(Customer c, BigDecimal amount); // how much off?
+}
+
+@Component
+public class StudentDiscount implements DiscountPolicy {
+    public boolean appliesTo(Customer c, BigDecimal a) { return c.isStudent(); }
+    public BigDecimal discount(Customer c, BigDecimal a) { return a.multiply(new BigDecimal("0.10")); }
+}
+
+@Component
+public class DiwaliDiscount implements DiscountPolicy {   // NEW: added, nothing edited
+    public boolean appliesTo(Customer c, BigDecimal a) { return Festivals.isDiwaliWeek(); }
+    public BigDecimal discount(Customer c, BigDecimal a) { return new BigDecimal("20"); }
+}
+
+@Service
+public class DiscountCalculator {                         // CLOSED for modification
+    private final List<DiscountPolicy> policies;          // Spring injects every
+    public DiscountCalculator(List<DiscountPolicy> policies) { // @Component that
+        this.policies = policies;                         // implements the interface
+    }
+
+    public BigDecimal bestDiscount(Customer c, BigDecimal amount) {
+        return policies.stream()
+            .filter(p -> p.appliesTo(c, amount))
+            .map(p -> p.discount(c, amount))
+            .max(Comparator.naturalOrder())               // give the customer the best one
+            .orElse(BigDecimal.ZERO);
+    }
+}
+</script>
+
+  <div class="box tip"><div class="box-tag">Interview tip</div>
+    <p>OCP is what the <strong>Strategy</strong>, <strong>Decorator</strong>, <strong>Template Method</strong> and <strong>Observer</strong> patterns are for. When you see a growing <code>switch</code> or <code>if-else</code> on a type, say: "I'd replace this conditional with polymorphism so new types are additions, not edits."</p></div>
+  <div class="box pitfall"><div class="box-tag">Common trap</div>
+    <p>Making everything pluggable "just in case". OCP is applied where change is <em>likely</em> (pricing rules, payment methods, notification channels). Abstracting things that never vary adds indirection for nothing (see YAGNI, {{ref:ch-beyond}}).</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Slide in a new card; don't repaint the wall.</p>
+    <p>Stable code depends on an <strong>interface</strong>; new behaviour = <strong>new class</strong>. A growing <code>switch</code> on type is the classic OCP smell.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Where does the JDK or Spring itself follow OCP?</summary><div class="ans"><p><code>Collections.sort(list, comparator)</code>: the sort algorithm is closed, and you extend the ordering with any <code>Comparator</code>. In Spring: add a <code>HandlerInterceptor</code>, a <code>Filter</code>, a new <code>@Bean</code> implementing an interface, or a <code>BeanPostProcessor</code>, and the framework picks it up without its code changing.</p></div></details>
+    <details><summary>Is it ever OK to modify existing code?</summary><div class="ans"><p>Of course: to fix bugs, and to refactor towards an abstraction the first time a second variant appears ("rule of three"). OCP is a goal for the parts of the system that change for predictable reasons, not a ban on editing.</p></div></details>
+  </div>
+  {{done}}
+</section>

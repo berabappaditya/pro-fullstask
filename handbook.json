@@ -1,0 +1,6 @@
+{
+  "title": "Full-Stack SDE-2 Handbook",
+  "short": "SDE-2 Handbook",
+  "tagline": "Five visual study books for the Java, Spring Boot, system design, cloud and AI interview rounds.",
+  "books": ["java-core", "spring-boot", "system-design", "cloud-devops", "ai-engineering"]
+}

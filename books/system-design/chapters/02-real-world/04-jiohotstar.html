@@ -1,0 +1,164 @@
+<section class="chapter" id="ch-hotstar" data-title="How JioHotstar survives the IPL rush">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Real-world · Live streaming spikes</div>
+    <h2>How JioHotstar survives the IPL rush</h2>
+    <p class="ch-oneline"><b>Live cricket creates the worst traffic shape in the internet:</b> crores of people arriving within minutes, all wanting the same seconds of video, and leaving and returning together when a wicket falls. You can't react to that; you have to be ready before it happens.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><b>3.4 crore</b><span>peak concurrent viewers on JioHotstar, IPL 2025 opening weekend</span></div>
+    <div class="stat"><b>~6 crore</b><span>concurrent users the platform was prepared for in the 2023 Cricket World Cup</span></div>
+    <div class="stat"><b>1M+/min</b><span>how fast viewers can arrive, faster than servers boot</span></div>
+    <div class="stat"><b>10+ Tbps</b><span>video bandwidth at the 2019 record (25.3 million concurrent)</span></div>
+  </div>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu's stall is next to the stadium. On match days, nobody comes for hours, then 20,000 people arrive in the 15 minutes before the toss. When the home captain walks out to bat, the crowd doubles. When he's out, half of them rush out for chai at the same moment. If Ramu waits to see the crowd before lighting extra stoves, the stoves are still heating when the crowd is already angry.</p>
+    <p>So on match days he <strong>lights every stove an hour before the toss</strong> (pre-warming), keeps a <strong>timetable of when crowds come</strong> (scheduled scaling), rehearses with fake crowds (load testing), and if things still get out of hand he <strong>stops selling samosas and serves only chai</strong> (panic mode: drop everything except the core product).</p></div>
+
+  <h3>Why live sport is harder than Netflix</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Video on demand (Netflix)</th><th>Live sport (JioHotstar)</th></tr>
+    <tr><td>When people watch</td><td>Spread through the evening</td><td>Everyone at the same moment</td></tr>
+    <tr><td>Content availability</td><td>Known in advance; pre-copied overnight</td><td>Created live, seconds before it's watched</td></tr>
+    <tr><td>Traffic shape</td><td>Smooth daily curve</td><td>Cliffs and spikes driven by match events</td></tr>
+    <tr><td>Tolerance for delay</td><td>A few seconds of start-up is fine</td><td>Lag behind TV or a friend's phone feels broken</td></tr>
+    <tr><td>Failure cost</td><td>Watch later</td><td>The moment is gone forever</td></tr>
+  </table></div>
+
+  <h3>The live pipeline</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 880 300" role="img" aria-label="Live streaming pipeline from stadium cameras through encoders, packagers, origin and CDN edges to players, with a separate API path for login, scorecards and ads">
+      <rect x="10" y="40" width="110" height="64" rx="10" class="d-vio"/><text x="65" y="66" text-anchor="middle" class="d-t">Stadium</text><text x="65" y="84" text-anchor="middle" class="d-xs">camera feeds</text>
+      <rect x="150" y="40" width="120" height="64" rx="10" class="d-box"/><text x="210" y="66" text-anchor="middle" class="d-t">Encoders</text><text x="210" y="84" text-anchor="middle" class="d-xs">many qualities, live</text>
+      <rect x="300" y="40" width="120" height="64" rx="10" class="d-box"/><text x="360" y="62" text-anchor="middle" class="d-t">Packager</text><text x="360" y="80" text-anchor="middle" class="d-xs">few-second segments</text><text x="360" y="94" text-anchor="middle" class="d-xs">HLS / DASH + DRM</text>
+      <rect x="450" y="40" width="110" height="64" rx="10" class="d-amb"/><text x="505" y="66" text-anchor="middle" class="d-t">Origin</text><text x="505" y="84" text-anchor="middle" class="d-xs">+ origin shield</text>
+      <rect x="600" y="20" width="270" height="110" rx="12" class="d-teal"/><text x="735" y="42" text-anchor="middle" class="d-t">Multiple CDNs, edges across India</text>
+      <rect x="615" y="56" width="74" height="54" rx="6" class="d-good"/><text x="652" y="88" text-anchor="middle" class="d-xs">edge</text>
+      <rect x="698" y="56" width="74" height="54" rx="6" class="d-good"/><text x="735" y="88" text-anchor="middle" class="d-xs">edge</text>
+      <rect x="781" y="56" width="74" height="54" rx="6" class="d-good"/><text x="818" y="88" text-anchor="middle" class="d-xs">edge</text>
+      <path d="M120 72 H148 M270 72 H298 M420 72 H448 M560 72 H598" class="d-line d-flow"/>
+      <rect x="600" y="200" width="270" height="70" rx="12" class="d-box"/><text x="735" y="226" text-anchor="middle" class="d-t">Crores of phones and TVs</text><text x="735" y="244" text-anchor="middle" class="d-xs">fetch the newest segment every few seconds,</text><text x="735" y="258" text-anchor="middle" class="d-xs">pick quality per segment (ABR)</text>
+      <path d="M735 130 V198" class="d-lgood" style="stroke-width:5" marker-end="url(#ag)"/><text x="745" y="170" class="d-tg">video</text>
+      <rect x="150" y="170" width="380" height="110" rx="12" class="d-acc"/><text x="340" y="194" text-anchor="middle" class="d-tl">API plane (AWS, Kubernetes)</text>
+      <rect x="165" y="208" width="110" height="56" rx="8" class="d-box"/><text x="220" y="232" text-anchor="middle" class="d-xs">cacheable APIs</text><text x="220" y="248" text-anchor="middle" class="d-xs">scorecard, menu</text>
+      <rect x="285" y="208" width="110" height="56" rx="8" class="d-box"/><text x="340" y="232" text-anchor="middle" class="d-xs">login, entitlement</text><text x="340" y="248" text-anchor="middle" class="d-xs">playback token</text>
+      <rect x="405" y="208" width="110" height="56" rx="8" class="d-box"/><text x="460" y="232" text-anchor="middle" class="d-xs">ads, recos,</text><text x="460" y="248" text-anchor="middle" class="d-xs">chat, polls</text>
+      <path d="M598 235 H532" class="d-lacc" marker-end="url(#aa)"/><text x="565" y="226" text-anchor="middle" class="d-ta">API</text>
+      <text x="340" y="296" text-anchor="middle" class="d-xs">served through a CDN wherever possible; the rest scales on Kubernetes</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> The video path is a chain of caches: one copy of each segment at the origin, fanned out by CDN edges to crores of players. Every player asking the origin directly would melt it in seconds.</figcaption>
+  </figure>
+
+  <h3>The traffic shape, and why autoscaling alone fails</h3>
+  <p>Normal autoscaling watches CPU, notices it's high, and adds servers. That takes minutes: metrics need to be collected, new machines booted, apps started and warmed. Hotstar's engineers have described traffic growing by <strong>more than a million users a minute</strong> with roughly a <strong>90-second window</strong> to react. By the time reactive scaling catches up, the spike has already hit.</p>
+
+  <div class="widget" id="w-ipl">
+    <div class="widget-head"><span class="live">Live</span>An illustrative IPL match night: demand vs capacity</div>
+    <div class="widget-body">
+      <div class="controls">
+        <span class="small">Strategy:</span>
+        <button class="btn on" data-strat="reactive">Reactive autoscaling</button>
+        <button class="btn" data-strat="prewarm">Pre-warm + ladder</button>
+        <button class="btn" data-strat="panic">Pre-warm + panic mode</button>
+      </div>
+      <div class="controls">
+        <button class="btn primary" id="iplPlay">Play match</button>
+        <button class="btn" id="iplReset">Reset</button>
+      </div>
+      <div class="svgwrap" style="overflow-x:auto"><svg id="iplChart" viewBox="0 0 680 290" style="min-width:560px" role="img" aria-label="Chart of concurrent viewers and server capacity during a match"></svg></div>
+      <div class="statrow" id="iplStats"></div>
+      <p class="small">The blue area is viewers, the line is capacity. Red marks moments when viewers couldn't be served. Try all three strategies: reactive scaling always arrives late; pre-warming covers the known spikes; panic mode switches off non-essential features so each server can carry more viewers during surprises.</p>
+    </div>
+  </div>
+
+  <h3>The playbook</h3>
+  <div class="cards">
+    <div class="card"><span class="k">before the match</span><h5>Pre-warm and scale on a schedule</h5><p>Match times are known. Capacity is raised in big steps well before the toss, instead of waiting for CPU alarms. Machine images are fully baked so new servers start fast.</p></div>
+    <div class="card"><span class="k">during</span><h5>Scale on concurrency, not CPU</h5><p>The signal that predicts load is "how many people are watching and how fast that's growing". Scaling keys off that business metric, in steps (a "ladder").</p></div>
+    <div class="card"><span class="k">rehearsal</span><h5>Load test at full size</h5><p>For 2019, the "Project Hulk" load tests used about 108,000 CPUs across 8 regions generating around 200 Gbps, including sudden "tsunami" surges and chaos experiments.</p></div>
+    <div class="card"><span class="k">emergency</span><h5>Panic mode: the video must play on</h5><p>Every service is ranked. Under pressure, non-critical features (recommendations, personalisation, some widgets) are switched off so streaming, login and payments keep their capacity.</p></div>
+    <div class="card"><span class="k">edge</span><h5>Push APIs to the CDN</h5><p>For 2023, frequently hit but cacheable APIs (scorecards, highlights) moved to a separate CDN domain with lighter rules, and refresh intervals were made longer, cutting origin calls.</p></div>
+    <div class="card"><span class="k">clients</span><h5>Polite clients</h5><p>Apps retry with backoff and jitter, and push notifications go out in batches so they don't summon everyone in the same second. ({{ref:ch-reliability}})</p></div>
+  </div>
+
+  <h3>Wickets and the "tsunami"</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 220" role="img" aria-label="When a star batter is out, viewers drop from the stream and many return to the home page at once, causing a burst of API calls">
+      <path d="M40 170 C120 168,170 70,260 60 C320 55,360 58,390 62 L410 150 C440 150,470 100,560 92 C640 86,700 80,780 76" class="d-lacc" style="stroke-width:3"/>
+      <text x="330" y="44" text-anchor="middle" class="d-ta">star batter at the crease: viewers pile in</text>
+      <circle cx="400" cy="105" r="10" class="d-badf d-pulse"/><text x="400" y="200" text-anchor="middle" class="d-tb">WICKET</text>
+      <path d="M400 190 V120" class="d-lbad d-dash"/>
+      <rect x="430" y="150" width="210" height="50" rx="10" class="d-bad"/><text x="535" y="172" text-anchor="middle" class="d-t">"Tsunami" on home-page APIs</text><text x="535" y="188" text-anchor="middle" class="d-xs">everyone backs out and browses at once</text>
+      <path d="M410 150 C415 160,420 170,428 172" class="d-lbad" marker-end="url(#ab)"/>
+      <text x="40" y="200" class="d-xs">viewers ↑</text><text x="780" y="200" text-anchor="end" class="d-xs">time →</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.2</b> A drop in viewers is not a drop in load: the people who stop watching hit different, often uncached APIs (home page, other matches, scores) all at the same instant, then rush back when the next batter walks in.</figcaption>
+  </figure>
+
+  <h3>Infrastructure lessons from the 2023 World Cup rebuild</h3>
+  <p>Disney+ Hotstar's engineers have written about hitting walls that only appear at this scale. Each is a lesson about hidden single points of contention:</p>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Wall they hit</th><th>Fix</th><th>General lesson</th></tr>
+    <tr><td>One NAT gateway per availability zone used 50% of its bandwidth at only 10% of expected load</td><td>One NAT gateway per subnet</td><td>Find shared chokepoints before the real event, with measurement</td></tr>
+    <tr><td>Several API gateway pods on one node saturated its network (8–9 Gbps)</td><td>Bigger network nodes, and topology rules allowing one gateway pod per node</td><td>Spread hot components; CPU isn't the only resource</td></tr>
+    <tr><td>Hundreds of per-service load balancers to pre-warm by hand; NodePort ports running out</td><td>A shared Envoy-based gateway layer and direct pod routing (ClusterIP)</td><td>Centralise cross-cutting concerns (routing, auth, rate limits, load shedding)</td></tr>
+    <tr><td>Adding 400+ nodes at once throttled the Kubernetes control plane</td><td>Step-wise scaling, 100–300 nodes per step</td><td>Even the scaler has limits; scale in controlled steps</td></tr>
+    <tr><td>Latency-critical video services competing with heavy ads/personalisation workloads</td><td>Separate clusters per workload type; one critical (P0) stack per cluster for headroom</td><td>Bulkheads at the infrastructure level ({{ref:ch-reliability}})</td></tr>
+  </table></div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="yaml" data-variant="bad" data-title="Before: reactive CPU-based autoscaling only">
+# Kubernetes HorizontalPodAutoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+spec:
+  minReplicas: 20
+  maxReplicas: 4000
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 70 }
+# CPU only rises AFTER viewers arrive. New nodes + pods take minutes.
+# A 1M-users-per-minute surge is over before this reacts.
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: schedule-driven pre-warming + concurrency ladder + panic switch">
+@Component
+public class MatchCapacityPlanner {
+    private static final long USERS_PER_POD = 4_000;      // measured in load tests
+
+    @Scheduled(fixedRate = 30_000)                        // every 30 seconds
+    public void plan() {
+        long live = concurrency.currentViewers();          // business metric, not CPU
+        long growthPerMin = concurrency.growthPerMinute();
+        long fromSchedule = schedule.expectedPeakWithin(Duration.ofMinutes(45)); // toss, start, chase
+
+        // Plan for whichever is bigger: the timetable, or where today's curve is heading
+        long projected = Math.max(fromSchedule, live + growthPerMin * 10);
+        long target = ladder.roundUpToStep((long) (projected * 1.3 / USERS_PER_POD)); // 30% headroom
+        cluster.scaleTo("playback-api", target);           // ladder steps, never one giant jump
+
+        double utilisation = (double) live / (cluster.ready("playback-api") * USERS_PER_POD);
+        if (utilisation > 0.90) {                          // still overrunning? protect the core
+            features.disable("recommendations", "personalised-trays", "live-polls");
+        } else if (utilisation < 0.60) {
+            features.enableAll();                          // calm again: restore extras
+        }
+    }
+}
+</script>
+</div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Light the stoves before the toss. Serve only chai when the crowd overflows.</p>
+    <p>Spikes faster than boot time need <strong>pre-warming</strong> and <strong>scheduled, step-wise scaling on concurrency</strong>. Rehearse with <strong>full-size load tests</strong>, push everything cacheable to the <strong>CDN</strong>, and keep a <span class="hl">panic mode</span> that sheds non-essential features so the video keeps playing.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Design a live-streaming platform for 5 crore concurrent viewers.</summary><div class="ans"><p>Video: ingest → live transcoding into an ABR ladder → packaging into short HLS/DASH segments → origin with a shield layer → multiple CDNs, with players fetching segments and adapting quality. APIs: stateless services on Kubernetes behind a gateway, cacheable responses on the CDN, sessions and entitlement in fast stores. Scale: pre-warm by schedule, scale on concurrency in steps, keep headroom, priority-based load shedding and feature kill switches. Prove it with full-size load and chaos tests. Clients: retries with jitter, batched notifications.</p></div></details>
+    <details><summary>Why is scaling on CPU a poor fit for live events?</summary><div class="ans"><p>CPU is a lagging signal: it rises only after users arrive, and new capacity takes minutes to become ready, while viewers can arrive at over a million a minute. A leading signal (match schedule, concurrency and its growth rate) lets you scale before the load lands.</p></div></details>
+    <details><summary>What would you switch off first in panic mode, and why?</summary><div class="ans"><p>Anything that isn't on the critical path to watching: personalised recommendations, social features, non-essential widgets, analytics with high fan-out. Keep login, entitlement, playback tokens, video delivery and payments. Decide this ranking before the event, wire kill switches into the services, and rehearse flipping them.</p></div></details>
+  </div>
+  <p class="sources">Sources: <a href="https://www.socialsamosa.com/industry-updates/ipl-2025-digital-viewership-jumps-40-with-peak-concurrency-of-34-crore-8899644">Social Samosa on IPL 2025 opening weekend</a>; <a href="https://blog.bytebytego.com/p/how-disney-hotstar-now-jiohotstar">ByteByteGo on Hotstar's 2023 scaling</a>; <a href="https://blog.hotstar.com/scaling-the-hotstar-platform-for-50m-a7f96a019add">Hotstar engineering blog</a>; <a href="https://dev.classmethod.jp/articles/reinvent-2019-cmy302/">summary of Hotstar's AWS re:Invent 2019 talk</a>. The match in the simulator is illustrative, not real data.</p>
+  {{done}}
+</section>

@@ -1,0 +1,58 @@
+<section class="chapter" id="ch-cheat" data-title="The cheat sheet" data-num="R1">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">R1</span>Revision</div>
+    <h2>The cheat sheet</h2>
+    <p class="ch-oneline"><b>Every concept in one or two lines</b>, with the kitchen picture that helps you remember it.</p>
+  </header>
+
+  <h3>The platform</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-jvm}} · JVM</span><h5>How Java runs</h5><p>javac → bytecode → class loader → interpreter + JIT. JDK ⊃ JRE ⊃ JVM. Universal recipe language.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-memory}} · memory</span><h5>Stack vs heap</h5><p>Notepad per chef, shelves for all. Stack: frames, locals, per thread. Heap: objects, shared. Always pass-by-value.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-types}} · types</span><h5>Wrappers</h5><p>Integer cache −128..127: compare with equals. Never unbox a possible null. BigDecimal for money.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-strings}} · String</span><h5>Strings</h5><p>Laminated card. Immutable, literals pooled, hash cached. StringBuilder in loops.</p></div>
+  </div>
+
+  <h3>Object-oriented Java</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-classes}} · static</span><h5>static and final</h5><p>Recipe card vs cup. Static per class, instance per object. Final = no reassign / override / extend.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-classes}} · init</span><h5>Init order</h5><p>Parent static → child static → parent instance + constructor → child instance + constructor.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-inherit}} · types</span><h5>Interface vs abstract</h5><p>Can-do contract vs half-built is-a. Records = data, enum = fixed set, sealed = closed family.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-equals}} · equals</span><h5>equals and hashCode</h5><p>Same label, same rack. Override together, same fields. Keys immutable. Comparator for extra orders.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-exceptions}} · errors</span><h5>Exceptions</h5><p>Plan for checked, fix unchecked, flee Error. try-with-resources. Wrap with cause.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-generics}} · generics</span><h5>Generics</h5><p>Compile-time safety, erased at runtime. PECS: Producer Extends, Consumer Super. Invariant.</p></div>
+  </div>
+
+  <h3>Collections</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-collections}} · choose</span><h5>Which collection</h5><p>Rail = List, guest list = Set, spice rack = Map, VIP bell = PriorityQueue. Default ArrayList, HashMap, ArrayDeque.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-hashmap}} · HashMap</span><h5>HashMap internals</h5><p>16 slots, 0.75 load, treeify at 8 (table ≥ 64), double on resize. hash ^ (h&gt;&gt;&gt;16), index = h &amp; (n−1).</p></div>
+    <div class="card"><span class="k">ch {{n:ch-lists-trees}} · iterate</span><h5>Iterators and friends</h5><p>Fail-fast CME → removeIf. TreeMap for ranges. LinkedHashMap(access order) = LRU. Size-k heap for top-K.</p></div>
+  </div>
+
+  <h3>Functional Java</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-lambdas}} · lambda</span><h5>Lambdas</h5><p>Sticky-note instruction. Implements the single abstract method. Supplier, Consumer, Function, Predicate.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-streams}} · streams</span><h5>Streams</h5><p>Assembly line. Lazy, single-use, never mutates source. groupingBy, toMap with merge, flatMap flattens.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-modern}} · versions</span><h5>Modern Java</h5><p>8 lambdas · 11 var/HttpClient · 17 records/sealed · 21 virtual threads/patterns · 25 scoped values.</p></div>
+  </div>
+
+  <h3>Concurrency</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-threads}} · threads</span><h5>Thread lifecycle</h5><p>NEW → RUNNABLE → BLOCKED / WAITING / TIMED_WAITING → TERMINATED. sleep keeps locks, wait releases.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-create}} · create</span><h5>Creating threads</h5><p>Recipe on a card: Runnable/Callable on a pool. start() creates a thread, run() doesn't.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-sync}} · sync</span><h5>Synchronization</h5><p>counter++ = read, add, write. synchronized = atomic + visible; volatile = visible; Atomic = CAS.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-deadlock}} · deadlock</span><h5>Deadlock</h5><p>Pan before spatula. Four Coffman conditions; break circular wait with lock order or tryLock.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-executors}} · pools</span><h5>Thread pools</h5><p>Core → queue → max → reject. Bounded queue, named threads, CallerRunsPolicy. Size to cores or I/O wait.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-cf}} · async</span><h5>CompletableFuture</h5><p>Apply transforms, Compose chains, Combine joins, allOf waits. Own executor, timeout, fallback.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-juc}} · JUC</span><h5>Concurrency toolbox</h5><p>CHM merge/compute, BlockingQueue, CountDownLatch, Semaphore, ReadWriteLock. Virtual threads for I/O.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-bulk-insert}} · Spring</span><h5>10,000-row insert</h5><p>Trays of 500, five waiters. @Async worker bean, own @Transactional, allOf.join, batch_size, Hikari ≥ threads.</p></div>
+  </div>
+
+  <h3>Under the hood</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-gc}} · GC</span><h5>Garbage collection</h5><p>Mark from roots, sweep the rest. Young often, old rarely. G1 default, ZGC sub-ms pauses.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-troubleshoot}} · prod</span><h5>Troubleshooting</h5><p>CPU → top -H + jstack. Memory → jstat + heap dump + MAT. jcmd + JFR for everything.</p></div>
+  </div>
+  {{done}}
+</section>

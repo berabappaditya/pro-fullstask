@@ -1,0 +1,140 @@
+<section class="chapter" id="ch-sync" data-title="Race conditions, synchronized, volatile, atomics">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Concurrency</div>
+    <h2>Race conditions, synchronized, volatile and atomics</h2>
+    <p class="ch-oneline"><b>When threads read and write shared data without coordination, updates get lost.</b> Locks give one-at-a-time access; volatile gives visibility; atomics give lock-free single-variable updates.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>Two chefs read the order board: "3 pizzas left to make". Both grab ingredients, both make a pizza, and both walk back and write "2 pizzas left", because both did the maths from the old number they saw. Two pizzas were made but the board only dropped by one. That's a <strong>race condition</strong>.</p>
+    <p>The fix: the board now has a <strong>marker with a key attached</strong>. You may only update the board while holding the marker, and only one chef can hold it. Updates can no longer overlap.</p></div>
+
+  <div class="widget" id="w-race">
+    <div class="widget-head"><span class="live">Live</span>Race condition simulator: two threads, counter++ step by step</div>
+    <div class="widget-body">
+      <div class="controls" id="raceControls"></div>
+      <div class="race-grid" id="raceGrid"></div>
+      <div class="statrow" id="raceStats"></div>
+      <div class="wlog" id="raceLog" aria-live="polite"></div>
+    </div>
+  </div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Broken: the count comes out below 20,000">
+public class RaceConditionDemo {
+    private static int counter = 0;                     // shared by BOTH threads
+
+    public static void main(String[] args) throws Exception {
+        Runnable job = () -> {
+            for (int i = 0; i < 10_000; i++) counter++; // read → add → write: THREE steps
+        };
+        Thread a = new Thread(job), b = new Thread(job);
+        a.start(); b.start();
+        a.join();  b.join();                            // wait for both
+        System.out.println(counter);                    // expected 20000, prints e.g. 13472
+    }
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Fixed: only one thread inside at a time">
+public class SynchronizedDemo {
+    private static int counter = 0;
+
+    private static synchronized void increment() {      // lock = SynchronizedDemo.class monitor
+        counter++;                                      // only ONE thread here at any moment
+    }                                                   // lock released on exit, even on exception
+
+    public static void main(String[] args) throws Exception {
+        Runnable job = () -> { for (int i = 0; i < 10_000; i++) increment(); };
+        Thread a = new Thread(job), b = new Thread(job);
+        a.start(); b.start(); a.join(); b.join();
+        System.out.println(counter);                    // always 20000
+    }
+}
+</script>
+</div>
+
+  <h3>Synchronized method vs synchronized block</h3>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Lock only the lines that touch shared data">
+public class OrderBoard {
+    private final Object boardLock = new Object();     // a private lock object: the "marker with a key"
+    private int ordersDone = 0;                        // shared data we protect
+
+    public void completeOrder(String dish) {
+        String plated = dish.toUpperCase() + " plated";  // private prep: no lock needed, runs in parallel
+        synchronized (boardLock) {                     // only one thread enters this block
+            ordersDone++;
+            System.out.println(plated + " → total: " + ordersDone);
+        }                                              // released the instant we exit
+    }
+}
+// synchronized instance method  → locks 'this'
+// synchronized static method    → locks the Class object (OrderBoard.class)
+// synchronized(x) block         → locks x. Prefer a PRIVATE final lock so outsiders can't grab it.
+</script>
+  <div class="box tip"><div class="box-tag">Rule of thumb</div><p>Lock the smallest section that touches shared data, and always use the <strong>same lock object for the same data</strong>. Locks only work if everyone agrees to use the same marker. Java monitors are <em>reentrant</em>: a thread holding a lock can enter another synchronized method on the same object without deadlocking itself.</p></div>
+
+  <h3>The Java Memory Model in one picture: visibility</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 800 220" role="img" aria-label="Each core has a cache; without volatile, one thread's write may stay in its cache and not be seen by another thread">
+      <rect x="40" y="20" width="200" height="70" rx="10" class="d-vio"/><text x="140" y="46" text-anchor="middle" class="d-t">Thread A (core 1)</text><text x="140" y="68" text-anchor="middle" class="d-m">running = false</text>
+      <rect x="560" y="20" width="200" height="70" rx="10" class="d-vio"/><text x="660" y="46" text-anchor="middle" class="d-t">Thread B (core 2)</text><text x="660" y="68" text-anchor="middle" class="d-m">while (running) {…}</text>
+      <rect x="60" y="110" width="160" height="40" rx="8" class="d-amb"/><text x="140" y="135" text-anchor="middle" class="d-m">cache: false</text>
+      <rect x="580" y="110" width="160" height="40" rx="8" class="d-amb"/><text x="660" y="135" text-anchor="middle" class="d-m">cache: true (stale!)</text>
+      <rect x="300" y="170" width="200" height="40" rx="8" class="d-paper"/><text x="400" y="195" text-anchor="middle" class="d-m">main memory</text>
+      <path d="M140 90 V108" class="d-line" marker-end="url(#ah)"/><path d="M660 90 V108" class="d-line" marker-end="url(#ah)"/>
+      <path d="M220 140 C260 160,280 185,298 188" class="d-lgood d-dash" marker-end="url(#ag)"/>
+      <path d="M580 140 C540 160,520 185,502 188" class="d-lbad d-dash" marker-end="url(#ab)"/>
+      <text x="400" y="110" text-anchor="middle" class="d-s">B may spin forever: it never re-reads</text><text x="400" y="128" text-anchor="middle" class="d-s">the flag from main memory</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Caches, registers and compiler reordering mean a write in one thread is not guaranteed to be seen by another unless there is a <em>happens-before</em> relationship: synchronized, volatile, Thread.start/join, or java.util.concurrent tools.</figcaption></figure>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="May never stop">
+class Poller implements Runnable {
+    private boolean running = true;        // plain field: the reader may cache it forever
+    public void stop() { running = false; }
+    public void run() { while (running) { poll(); } }
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="volatile: every read sees the latest write">
+class Poller implements Runnable {
+    private volatile boolean running = true;  // reads/writes go to main memory; no reordering around it
+    public void stop() { running = false; }
+    public void run() { while (running) { poll(); } }
+}
+// volatile gives VISIBILITY, not ATOMICITY: volatile int count; count++ is STILL a race.
+</script>
+</div>
+
+  <h3>Atomics: lock-free counters</h3>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="AtomicInteger and LongAdder">
+private final AtomicInteger orders = new AtomicInteger();
+orders.incrementAndGet();                          // atomic read-modify-write using CPU compare-and-swap (CAS)
+orders.updateAndGet(v -> Math.min(v + 5, 100));    // atomic custom update (retries on contention)
+orders.compareAndSet(10, 0);                       // "if it's still 10, set to 0": the CAS primitive itself
+
+private final LongAdder hits = new LongAdder();    // many threads incrementing a counter: much faster under
+hits.increment();                                  // heavy contention (spreads updates over cells)
+long total = hits.sum();
+</script>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Tool</th><th>Atomicity</th><th>Visibility</th><th>Blocks?</th><th>Use for</th></tr>
+    <tr><td><code>synchronized</code></td><td class="yes">✓</td><td class="yes">✓</td><td>yes</td><td>compound actions on several fields</td></tr>
+    <tr><td><code>volatile</code></td><td class="no">✗ (single read/write only)</td><td class="yes">✓</td><td>no</td><td>flags, publish a reference once</td></tr>
+    <tr><td><code>AtomicX</code></td><td class="yes">✓ one variable</td><td class="yes">✓</td><td>no (CAS)</td><td>counters, sequence numbers</td></tr>
+    <tr><td><code>ReentrantLock</code></td><td class="yes">✓</td><td class="yes">✓</td><td>yes, with tryLock/timeout</td><td>when you need fairness, timeouts, conditions</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">counter++ is read, add, write. Three steps, so two chefs can collide.</p>
+    <p><strong>synchronized</strong> = one at a time + visibility. <strong>volatile</strong> = visibility only. <strong>Atomic</strong> = lock-free single variable. Best of all: <span class="hl">don't share mutable state</span> (immutable objects, confinement).</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What is a race condition?</summary><div class="ans"><p>When the correctness of a result depends on the timing of threads accessing shared mutable data, e.g. two threads doing check-then-act (<code>if (!map.containsKey(k)) map.put(k, v)</code>) or read-modify-write (<code>count++</code>) without synchronization.</p></div></details>
+    <details><summary>Does volatile make count++ thread-safe?</summary><div class="ans"><p>No. volatile guarantees each read sees the latest write, but count++ is still three separate operations, so two threads can read the same value and both write value+1. Use AtomicInteger or a lock.</p></div></details>
+    <details><summary>What is CAS?</summary><div class="ans"><p>Compare-and-swap: a single CPU instruction that sets a memory location to a new value only if it still holds the expected old value, returning whether it succeeded. Atomic classes loop on CAS until it succeeds. It avoids blocking but can suffer the ABA problem (solved with AtomicStampedReference).</p></div></details>
+    <details><summary>Why is double-checked locking broken without volatile?</summary><div class="ans"><p>The write of the singleton reference can be reordered before the constructor finishes, so another thread could see a non-null but half-built object. Declaring the field volatile forbids that reordering. (Simpler: use an enum or a holder class.)</p></div></details>
+  </div>
+  {{done}}
+</section>

@@ -1,0 +1,51 @@
+<section class="chapter" id="ch-ai-sd" data-title="AI system design: a RAG support assistant">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Production AI</div>
+    <h2>AI system design interview: an AI support assistant over company knowledge</h2>
+    <p class="ch-oneline"><b>Same framework as any system design: requirements, numbers, high-level design, deep dives, trade-offs</b>, plus the AI-specific parts: retrieval quality, evaluation, safety and cost.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">The question</div>
+    <p>"Design an AI assistant for Ramu Chai's 2,000 support agents and customers that answers questions from policies, FAQs and past tickets, can look up order status, and hands over to a human when needed."</p></div>
+
+  <ol class="steps">
+    <li><b>Requirements</b>Functional: answer with citations, multi-turn chat, order lookup tool, human handoff, multilingual (English/Hindi/Hinglish), admin can upload docs. Non-functional: p95 first token &lt; 2 s, answers grounded (no invented policies), per-tenant data isolation, PII protection, cost ceiling per conversation, 99.9% availability (degrade to search if the LLM is down).</li>
+    <li><b>Numbers</b>50k conversations/day × 4 turns = 200k LLM calls/day ≈ 2.3/s average, ~20/s peak. 30k documents → ~600k chunks × 1,536 dims ≈ 3.7 GB of vectors: fits pgvector on one beefy instance with replicas. Tokens: ~3k in / 300 out per call → budget with prompt caching ({{n:ch-sampling}}).</li>
+    <li><b>High-level design</b>See the figure: ingestion pipeline (async), chat service (stateless, Spring AI), retrieval (hybrid + rerank), LLM gateway (routing, fallback, quotas), tools via MCP, conversation store, evaluation and observability.</li>
+    <li><b>Deep dives</b>Retrieval quality (chunking, hybrid, rerank, metadata filters for tenant/ACL), groundedness (prompt rules, citations verified, "I don't know"), safety (injection from ticket text, PII redaction, tool permissions per user), cost and latency (caching, routing, streaming), evaluation (golden set in CI, LLM judge + human review, online feedback).</li>
+    <li><b>Trade-offs</b>pgvector vs dedicated vector DB, hosted vs self-hosted model (data residency), long context vs RAG, agentic multi-step vs fixed workflow, freshness vs ingestion cost.</li>
+  </ol>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 330" role="img" aria-label="Architecture: web and app clients call an API gateway; the chat service uses a conversation store, a retrieval service with hybrid search over pgvector and keyword index plus reranker, an LLM gateway to multiple providers, MCP order tools, and a guardrails layer; an ingestion pipeline processes uploaded documents via a queue; traces flow to observability and an evaluation pipeline">
+      <rect x="10" y="130" width="100" height="60" rx="10" class="d-vio"/><text x="60" y="156" text-anchor="middle" class="d-t">Clients</text><text x="60" y="174" text-anchor="middle" class="d-xs">web · app · agents</text>
+      <path d="M110 160 H140" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="142" y="130" width="100" height="60" rx="10" class="d-acc"/><text x="192" y="156" text-anchor="middle" class="d-t">Gateway</text><text x="192" y="174" text-anchor="middle" class="d-xs">auth, rate limit</text>
+      <path d="M242 160 H272" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="274" y="96" width="170" height="128" rx="12" class="d-good"/><text x="359" y="120" text-anchor="middle" class="d-t">Chat service</text><text x="359" y="140" text-anchor="middle" class="d-xs">Spring AI ChatClient</text><text x="359" y="158" text-anchor="middle" class="d-xs">guardrails in/out</text><text x="359" y="176" text-anchor="middle" class="d-xs">query rewrite</text><text x="359" y="194" text-anchor="middle" class="d-xs">streams answer (SSE)</text><text x="359" y="212" text-anchor="middle" class="d-xs">stateless, autoscaled</text>
+      <rect x="490" y="16" width="170" height="64" rx="10" class="d-amb"/><text x="575" y="40" text-anchor="middle" class="d-t">Retrieval service</text><text x="575" y="58" text-anchor="middle" class="d-xs">hybrid search + rerank</text><text x="575" y="72" text-anchor="middle" class="d-xs">tenant/ACL filters</text>
+      <rect x="490" y="96" width="170" height="56" rx="10" class="d-teal"/><text x="575" y="120" text-anchor="middle" class="d-t">LLM gateway</text><text x="575" y="138" text-anchor="middle" class="d-xs">routing, fallback, quotas, cache</text>
+      <rect x="490" y="168" width="170" height="56" rx="10" class="d-box"/><text x="575" y="192" text-anchor="middle" class="d-t">MCP order tools</text><text x="575" y="210" text-anchor="middle" class="d-xs">per-user OAuth</text>
+      <rect x="490" y="240" width="170" height="44" rx="10" class="d-box"/><text x="575" y="267" text-anchor="middle" class="d-t">Conversation store</text>
+      <path d="M444 120 C470 120,470 50,488 48 M444 130 H488 M444 190 H488 M444 210 C470 210,470 262,488 262" class="d-line"/>
+      <rect x="700" y="16" width="150" height="64" rx="10" class="d-amb"/><text x="775" y="40" text-anchor="middle" class="d-t">pgvector + BM25</text><text x="775" y="58" text-anchor="middle" class="d-xs">chunks, metadata</text>
+      <rect x="700" y="96" width="150" height="56" rx="10" class="d-vio"/><text x="775" y="120" text-anchor="middle" class="d-t">Model providers</text><text x="775" y="138" text-anchor="middle" class="d-xs">primary + fallback</text>
+      <path d="M660 48 H698 M660 124 H698" class="d-line"/>
+      <rect x="700" y="176" width="150" height="70" rx="10" class="d-paper"/><text x="775" y="200" text-anchor="middle" class="d-t">Ingestion</text><text x="775" y="218" text-anchor="middle" class="d-xs">upload → queue → parse,</text><text x="775" y="234" text-anchor="middle" class="d-xs">chunk, embed, index</text>
+      <path d="M775 176 V82" class="d-lamb d-dash" marker-end="url(#am)"/>
+      <rect x="274" y="250" width="170" height="70" rx="10" class="d-bad"/><text x="359" y="274" text-anchor="middle" class="d-t">Observability + eval</text><text x="359" y="292" text-anchor="middle" class="d-xs">traces, cost, feedback,</text><text x="359" y="308" text-anchor="middle" class="d-xs">golden set in CI</text>
+      <path d="M359 224 V248" class="d-lbad d-dash" marker-end="url(#ab)"/>
+    </svg></div></figure>
+
+  <div class="box tip"><div class="box-tag">What makes this an SDE-2 answer</div><p>You quantify (calls/s, tokens, vector size, cost), you separate retrieval from generation and say how you'll measure each, you put security in code (tenant filters, per-user tool tokens, injection handling) rather than in the prompt, you design for provider failure and cost, and you describe how the system improves after launch (feedback → evaluation set → changes behind CI).</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Requirements, numbers, boxes, deep dives, trade-offs, plus retrieval, evaluation, safety, cost.</p>
+    <p>Ingestion (async) · <span class="hl">retrieval (hybrid + rerank + ACL)</span> · chat service (stateless, streaming) · LLM gateway (fallback, quotas, cache) · tools via MCP · eval + observability.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How do you keep answers fresh when policies change?</summary><div class="ans"><p>Event-driven ingestion: document upload/update events trigger re-chunking and re-embedding of that document only (delete old chunks by doc id, insert new), with version and effective-date metadata; filter out expired versions at query time; invalidate semantic-cache entries citing that document; monitor ingestion lag.</p></div></details>
+    <details><summary>How do you guarantee tenant isolation in a multi-tenant RAG system?</summary><div class="ans"><p>Every chunk carries tenant (and ACL) metadata; the retrieval service applies the filter from the authenticated identity, never from model output; optionally separate indexes/schemas per large tenant; tools receive per-user tokens; caches are keyed by tenant; tests assert cross-tenant queries return nothing.</p></div></details>
+  </div>
+  {{done}}
+</section>

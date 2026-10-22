@@ -1,0 +1,106 @@
+<section class="chapter" id="ch-replication" data-title="Replication">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Data</div>
+    <h2>Replication: copies of the same data</h2>
+    <p class="ch-oneline"><b>Replication keeps the same data on several machines</b> so that reads scale, and a dead machine doesn't lose data or stop the service.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu now has branches in Kharagpur and Kolkata. Only the head office ledger can be written to (new orders, price changes). Every evening a clerk photocopies the changes and sends them to each branch, so branches can <em>look up</em> prices and loyalty points locally without calling head office.</p>
+    <p>One day a customer pays at head office and immediately walks into the Kolkata branch asking for his points. The photocopy hasn't arrived yet, so the branch shows his old balance. That's <strong>replication lag</strong>.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 240" role="img" aria-label="Leader-follower replication: all writes go to the leader, which streams changes to followers; reads can go to followers">
+      <rect x="20" y="95" width="120" height="50" rx="10" class="d-box"/><text x="80" y="125" text-anchor="middle" class="d-t">App servers</text>
+      <rect x="320" y="85" width="170" height="70" rx="12" class="d-good"/><text x="405" y="115" text-anchor="middle" class="d-t">Leader (primary)</text><text x="405" y="134" text-anchor="middle" class="d-xs">accepts writes</text>
+      <rect x="620" y="20" width="170" height="50" rx="10" class="d-acc"/><text x="705" y="50" text-anchor="middle" class="d-t">Follower 1 (replica)</text>
+      <rect x="620" y="95" width="170" height="50" rx="10" class="d-acc"/><text x="705" y="125" text-anchor="middle" class="d-t">Follower 2 (replica)</text>
+      <rect x="620" y="170" width="170" height="50" rx="10" class="d-acc"/><text x="705" y="200" text-anchor="middle" class="d-t">Follower 3 (replica)</text>
+      <path d="M140 112 L318 112" class="d-lgood" marker-end="url(#ag)"/><text x="230" y="104" text-anchor="middle" class="d-tg">writes</text>
+      <path d="M490 110 C560 100,570 50,618 45 M490 120 L618 120 M490 130 C560 140,570 190,618 195" class="d-line d-flow"/>
+      <text x="555" y="80" text-anchor="middle" class="d-xs">change log</text><text x="555" y="92" text-anchor="middle" class="d-xs">(binlog / WAL)</text>
+      <path d="M140 132 C250 230,500 235,618 205" class="d-lacc d-dash" marker-end="url(#aa)"/><text x="330" y="222" text-anchor="middle" class="d-ta">reads (most traffic)</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Leader–follower (primary–replica). Writes go to one leader; followers apply its change log and serve reads. Most apps read 10–100× more than they write, so this scales reads cheaply.</figcaption>
+  </figure>
+
+  <h3>Synchronous vs asynchronous</h3>
+  <div class="cards">
+    <div class="card"><h5>Synchronous</h5><p>The leader waits until a follower confirms before saying "committed". No data loss on failover, but every write is as slow as the slowest replica, and a dead replica blocks writes.</p></div>
+    <div class="card"><h5>Asynchronous</h5><p>The leader commits immediately and ships changes later. Fast writes, but followers lag, and if the leader dies, the last few writes may be lost.</p></div>
+    <div class="card"><h5>Semi-synchronous</h5><p>Wait for at least one follower, the rest async. The common middle ground (MySQL semi-sync, Postgres synchronous_standby_names).</p></div>
+  </div>
+
+  <h3>Problems caused by lag, and their fixes</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Problem</th><th>What the user sees</th><th>Fix</th></tr>
+    <tr><td>Read-your-own-writes</td><td>"I updated my profile but it still shows the old one"</td><td>Read your own data from the leader for a short window after writing, or track the write's position and read from a replica that has caught up</td></tr>
+    <tr><td>Monotonic reads</td><td>Refresh shows a comment, refresh again and it disappears (hit a more-lagged replica)</td><td>Pin each user to one replica (hash of user ID)</td></tr>
+    <tr><td>Consistent prefix</td><td>See an answer before the question it replies to</td><td>Write causally related data to the same partition</td></tr>
+  </table></div>
+
+  <h3>Three replication topologies</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 840 210" role="img" aria-label="Single leader, multi-leader and leaderless replication topologies compared">
+      <text x="135" y="22" text-anchor="middle" class="d-tl">Single-leader</text>
+      <circle cx="135" cy="80" r="26" class="d-good"/><text x="135" y="84" text-anchor="middle" class="d-xs">L</text>
+      <circle cx="70" cy="160" r="22" class="d-acc"/><circle cx="135" cy="170" r="22" class="d-acc"/><circle cx="200" cy="160" r="22" class="d-acc"/>
+      <path d="M118 100 L84 142 M135 106 L135 148 M152 100 L186 142" class="d-line" marker-end="url(#ah)"/>
+      <text x="135" y="205" text-anchor="middle" class="d-s">MySQL, Postgres, Mongo</text>
+      <text x="420" y="22" text-anchor="middle" class="d-tl">Multi-leader</text>
+      <circle cx="360" cy="90" r="26" class="d-good"/><text x="360" y="94" text-anchor="middle" class="d-xs">L · India</text>
+      <circle cx="480" cy="90" r="26" class="d-good"/><text x="480" y="94" text-anchor="middle" class="d-xs">L · US</text>
+      <path d="M388 82 H452 M452 98 H388" class="d-lbad" marker-end="url(#ab)"/>
+      <text x="420" y="140" text-anchor="middle" class="d-tb">write conflicts!</text>
+      <text x="420" y="160" text-anchor="middle" class="d-xs">resolve: last-write-wins, merge, CRDTs</text>
+      <text x="420" y="205" text-anchor="middle" class="d-s">multi-region apps, offline-first apps</text>
+      <text x="705" y="22" text-anchor="middle" class="d-tl">Leaderless (Dynamo)</text>
+      <circle cx="640" cy="75" r="20" class="d-acc"/><circle cx="770" cy="75" r="20" class="d-acc"/><circle cx="640" cy="150" r="20" class="d-acc"/><circle cx="770" cy="150" r="20" class="d-acc"/><circle cx="705" cy="112" r="20" class="d-vio"/>
+      <text x="705" y="116" text-anchor="middle" class="d-xs">client</text>
+      <path d="M688 102 L656 85 M722 102 L754 85 M688 122 L656 140" class="d-lvio" marker-end="url(#av)"/>
+      <text x="705" y="190" text-anchor="middle" class="d-s">write to W of N, read from R of N</text>
+      <text x="705" y="205" text-anchor="middle" class="d-s">Cassandra, DynamoDB, Riak</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.2</b> Single-leader is simplest. Multi-leader lets each region write locally but creates conflicts. Leaderless lets any node accept writes and uses quorums.</figcaption>
+  </figure>
+
+  <div class="box def"><div class="box-tag">Quorum formula</div>
+    <p>With <strong>N</strong> replicas, a write waits for <strong>W</strong> acks and a read asks <strong>R</strong> replicas. If <code>R + W &gt; N</code>, at least one replica in every read has the latest write. Typical: N=3, W=2, R=2. Tune for speed: W=1 (fast writes, risky) or R=1 (fast reads).</p></div>
+
+  <h3>Failover: when the leader dies</h3>
+  <ol class="steps">
+    <li><b>Detect</b>Followers or a monitor (Orchestrator, Patroni, cloud RDS) notice missed heartbeats, typically after 10–30 seconds.</li>
+    <li><b>Elect</b>Pick the most up-to-date follower as the new leader (consensus such as Raft, or a coordinator like ZooKeeper/etcd).</li>
+    <li><b>Reconfigure</b>Point writes at the new leader (DNS/virtual IP/proxy update); other followers now follow it.</li>
+    <li><b>Fence the old leader</b>If the old leader comes back thinking it's still in charge, you get <strong>split brain</strong>: two leaders accepting writes. Fencing tokens or STONITH ("shoot the other node in the head") prevent it.</li>
+  </ol>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Spring: send read-only transactions to a replica">
+public class ReplicaRoutingDataSource extends AbstractRoutingDataSource {
+    @Override
+    protected Object determineCurrentLookupKey() {
+        // Spring marks the transaction read-only when the method says so
+        return TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                ? "replica"     // SELECT-only work -> a follower
+                : "primary";    // anything that writes -> the leader
+    }
+}
+
+@Service
+public class MenuQueryService {
+    @Transactional(readOnly = true)     // routed to the replica pool
+    public List<Item> listItems(long stallId) { return itemRepo.findByStall(stallId); }
+}
+// Watch out: right after a write, the replica may not have it yet (lag).
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">One pen, many photocopies.</p>
+    <p>Replication = <strong>same data, many machines</strong> (for availability and read scale). Sharding = <strong>different data, many machines</strong> (for write and storage scale). Async replication is fast but laggy; quorum rule <span class="hl">R + W &gt; N</span>; beware split brain on failover.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Replication vs backup: why do you need both?</summary><div class="ans"><p>Replication copies every change immediately, including mistakes: a <code>DELETE</code> without a <code>WHERE</code> is replicated to every follower in milliseconds. Backups (and point-in-time recovery from logs) let you go back in time. Replication protects against machine failure; backups protect against human and software error.</p></div></details>
+    <details><summary>A user updates their name and immediately sees the old one. Why, and how do you fix it?</summary><div class="ans"><p>The write went to the leader but the read was served by a lagging replica. Fixes: read the user's own profile from the leader for a few seconds after an edit; or record the leader's log position after the write and only read from replicas that have reached it; or update the UI optimistically on the client.</p></div></details>
+  </div>
+  {{done}}
+</section>

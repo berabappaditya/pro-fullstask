@@ -1,0 +1,50 @@
+<section class="chapter" id="ch-compute" data-title="Compute and autoscaling">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Running code</div>
+    <h2>Compute and autoscaling: VMs that grow and shrink with demand</h2>
+    <p class="ch-oneline"><b>Pick an instance type for the workload, run several copies behind a load balancer, and let an autoscaling group keep a metric (like CPU) near a target.</b></p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>On weekday afternoons Ramu runs 2 stoves; at 8 pm on Fridays, 10. He tells the food court: "keep each stove about <strong>60% busy</strong>; light another if they're hotter, turn one off if they're idle; never fewer than 2, never more than 12." That rule is target-tracking autoscaling.</p></div>
+
+  <div class="widget" id="w-autoscale">
+    <div class="widget-head"><span class="live">Live</span>Target-tracking autoscaling: drag the traffic and watch instances follow</div>
+    <div class="widget-body">
+      <div class="controls" id="asControls"></div>
+      <div class="as-stage" id="asStage"></div>
+      <div class="statrow" id="asStats"></div>
+      <div class="wlog" id="asLog" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Instance family (AWS / GCP)</th><th>Balance</th><th>Good for</th></tr>
+    <tr><td>General purpose (m7g, m7i / e2, n2, n4)</td><td>CPU ≈ memory</td><td>most web services</td></tr>
+    <tr><td>Compute optimised (c7g / c3)</td><td>more CPU</td><td>CPU-heavy APIs, encoding</td></tr>
+    <tr><td>Memory optimised (r7g / m3)</td><td>more RAM</td><td>caches, large JVM heaps, analytics</td></tr>
+    <tr><td>Burstable (t4g / e2-micro)</td><td>CPU credits</td><td>low, spiky traffic, dev</td></tr>
+    <tr><td>ARM (Graviton "g" / Axion, Tau T2A)</td><td>better price/performance</td><td>Java runs fine on ARM: often 20%+ cheaper</td></tr>
+    <tr><td>GPU (g5, p5 / a3, g2)</td><td>accelerators</td><td>ML training/inference</td></tr>
+  </table></div>
+
+  <h3>Scaling policies</h3>
+  <div class="cards">
+    <div class="card good"><span class="k">target tracking</span><h5>Keep a metric near a value</h5><p>"Average CPU 60%" or "1,000 requests per instance". Simplest and usually best.</p></div>
+    <div class="card"><span class="k">step scaling</span><h5>Bigger alarm, bigger step</h5><p>+1 at 70% CPU, +3 at 90%.</p></div>
+    <div class="card"><span class="k">scheduled</span><h5>Known peaks</h5><p>Scale up at 7:45 pm before the IPL match, down at midnight.</p></div>
+    <div class="card"><span class="k">predictive</span><h5>Learn from history</h5><p>Forecast daily patterns and scale ahead of them.</p></div>
+  </div>
+
+  <div class="box pitfall"><div class="box-tag">Things that bite</div><p><strong>Warm-up time</strong>: a JVM instance takes 30–90 s to boot and get fast; scale on leading metrics and keep headroom. <strong>Statefulness</strong>: instances must be stateless (sessions in Redis, files in S3) or scale-in loses data. <strong>Health checks</strong>: the load balancer must stop sending traffic before an instance is terminated (connection draining / deregistration delay). <strong>Downstream limits</strong>: 10× instances = 10× DB connections.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Keep each stove 60% busy, between 2 and 12 stoves.</p>
+    <p>Launch template + ASG/MIG + LB health checks + <span class="hl">target tracking</span>. Min ≥ 2 across AZs. Stateless instances. Spot for interruptible work.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Vertical vs horizontal scaling in the cloud?</summary><div class="ans"><p>Vertical: a bigger instance type (needs a restart, has a ceiling, single point of failure). Horizontal: more instances behind a load balancer with autoscaling (needs stateless design, gives availability). Databases often scale vertically first, then with read replicas and sharding.</p></div></details>
+    <details><summary>How would you handle a known traffic spike, like a sale at 8 pm?</summary><div class="ans"><p>Scheduled scale-out ahead of time (instances warm, caches primed), raise max capacity, pre-warm or request LB capacity if needed, load-test beforehand, put a queue in front of non-urgent work, rate-limit and have a degraded mode. See the JioHotstar case study in the System Design book.</p></div></details>
+  </div>
+  {{done}}
+</section>

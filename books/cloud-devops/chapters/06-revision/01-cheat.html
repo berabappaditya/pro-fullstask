@@ -1,0 +1,42 @@
+<section class="chapter" id="ch-cheat" data-title="The cheat sheet" data-num="R1">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">R1</span>Revision</div>
+    <h2>The cheat sheet</h2>
+    <p class="ch-oneline"><b>Every concept in one or two lines</b>, with the food-court picture that helps you remember it.</p>
+  </header>
+  <h3>Foundations and running code</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-cloud-basics}}</span><h5>Service models</h5><p>Empty shell (IaaS) → equipped kitchen (PaaS) → self-lighting stove (serverless) → order in (SaaS).</p></div>
+    <div class="card"><span class="k">ch {{n:ch-cloud-basics}}</span><h5>Regions and AZs</h5><p>Region = city, AZ = separate building. Deploy across 2+ AZs; second region for DR.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-cloud-basics}}</span><h5>Shared responsibility</h5><p>Provider secures the cloud; you secure what's in it (IAM, network, data, code).</p></div>
+    <div class="card"><span class="k">ch {{n:ch-aws-gcp}}</span><h5>Name map</h5><p>EC2/GCE, S3/GCS, RDS/Cloud SQL, Lambda/Cloud Run functions, Fargate/Cloud Run, EKS/GKE, SQS/Pub/Sub.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-iam}}</span><h5>IAM</h5><p>Principal + action + resource + condition. Explicit deny wins. Roles/service accounts, no keys, least privilege.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-networking}}</span><h5>VPC</h5><p>Public subnet → IGW; private → NAT. Only the LB is public. SGs stateful, NACLs stateless.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-compute}}</span><h5>Autoscaling</h5><p>Keep CPU ~60%, min 2 across AZs, stateless instances, warm-up time, spot for interruptible work.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-storage-db}}</span><h5>Storage</h5><p>S3 objects (presigned URLs, lifecycle), EBS disks, RDS Multi-AZ for HA + replicas for reads + PITR.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-lb-dns-cdn}}</span><h5>Traffic</h5><p>DNS (TTL, alias) → CDN (edge cache, TLS, WAF) → L7 LB (health checks, draining) → app.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-serverless}}</span><h5>Serverless and messaging</h5><p>Pay per use, cold starts. Queue = one consumer, topic = fan-out. Idempotent consumers + DLQ.</p></div>
+  </div>
+  <h3>Delivery and operations</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-docker}}</span><h5>Docker</h5><p>Tiffin box. Multi-stage, JRE base, layered jar, non-root, SHA tags, logs to stdout.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-kubernetes}}</span><h5>Kubernetes</h5><p>Floor manager reconciling desired state. Pod → Deployment → Service → Ingress; probes, requests/limits, HPA.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-kubernetes}}</span><h5>Pod failures</h5><p>ImagePullBackOff (image/permission), CrashLoopBackOff (app exits / OOM 137), Pending (no capacity).</p></div>
+    <div class="card"><span class="k">ch {{n:ch-managed-containers}}</span><h5>Where to run</h5><p>Cloud Run ≈ Fargate &lt; GKE Autopilot &lt; EKS/GKE Standard in control and effort.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-cicd}}</span><h5>CI/CD</h5><p>Test every commit, immutable images, OIDC not keys, GitOps, canary/blue-green with auto-rollback.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-cicd}}</span><h5>DB migrations</h5><p>Expand → migrate → contract; never break the running version.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-terraform}}</span><h5>Terraform</h5><p>Blueprint in a drawer. init → plan (review) → apply. Remote locked state, modules, drift detection.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-observability-cloud}}</span><h5>Observability</h5><p>Metrics → traces → logs. RED + USE. SLO 99.9% = 43 min/month. Alert on burn rate.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-cloud-security}}</span><h5>Security</h5><p>Defence in depth: WAF, private network, least privilege, KMS encryption, secrets manager, audit logs.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-cost}}</span><h5>Cost</h5><p>Tag → kill idle → right-size → Savings Plans → spot. Watch NAT, egress and log volume.</p></div>
+  </div>
+  <h3>Linux</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-linux-basics}}</span><h5>Files</h5><p><code>pwd ls -lah cd cat less tail -f cp mv rm -r mkdir -p find grep -rin</code></p></div>
+    <div class="card"><span class="k">ch {{n:ch-linux-basics}}</span><h5>Permissions</h5><p>r=4 w=2 x=1 for owner/group/others: 644 files, 755 dirs/scripts, 600 keys. chown user:group.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-linux-basics}}</span><h5>Pipes</h5><p><code>cut | sort | uniq -c | sort -rn | head</code>, <code>awk '{print $1}'</code>, <code>sed -i 's/a/b/'</code>, <code>wc -l</code>.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-linux-ops}}</span><h5>Slow server</h5><p><code>uptime top free ps</code> → <code>journalctl -u</code> → <code>ss curl dig nc</code> → <code>df du lsof +L1</code>.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-linux-ops}}</span><h5>Services and signals</h5><p><code>systemctl status|restart|enable</code>; SIGTERM (15) graceful, SIGKILL (9) last resort.</p></div>
+  </div>
+  {{done}}
+</section>

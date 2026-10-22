@@ -1,0 +1,76 @@
+<section class="chapter" id="ch-prompting" data-title="Prompt engineering and structured output">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>LLMs</div>
+    <h2>Prompt engineering and structured output</h2>
+    <p class="ch-oneline"><b>Treat the model like a brilliant new colleague with zero context:</b> state the role, the task, the context, the constraints and the exact output format, with examples.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>"Handle the complaints" gets random results. A proper <strong>job card</strong> works: "You are the customer-care lead at Ramu Chai. For each complaint, classify it as LATE, WRONG_ITEM, QUALITY or OTHER, decide whether to refund, and reply politely in the customer's language. If unsure, say so. Here are two examples…"</p></div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="text" data-variant="bad" data-title="Vague prompt">
+Summarise this complaint and tell me what to do.
+
+{complaint}
+</script>
+<script type="text/x-code" data-lang="text" data-variant="good" data-title="Structured prompt">
+SYSTEM:
+You are the customer-care lead for Ramu Chai, a tea chain in India.
+Goal: classify a complaint and draft a reply the agent can send.
+Rules:
+- Use only the order data provided in <order>. Never invent order details.
+- Refund only if category is LATE (> 30 min) or WRONG_ITEM.
+- Reply in the customer's language, under 80 words, polite and specific.
+- If information is missing, set needs_human = true.
+
+USER:
+<order>{"id": 7, "placed": "19:02", "delivered": "19:51", "items": ["masala chai x2"]}</order>
+<complaint>chai bahut der se aayi aur thandi thi</complaint>
+
+Return JSON matching: {"category": "...", "refund": true|false, "needs_human": true|false, "reply": "..."}
+
+Example:
+<complaint>I ordered samosa but got kachori</complaint>
+→ {"category": "WRONG_ITEM", "refund": true, "needs_human": false, "reply": "Sorry! …"}
+</script>
+</div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Technique</th><th>What it does</th><th>When</th></tr>
+    <tr><td>System prompt / role</td><td>sets persona, rules and boundaries for the whole conversation</td><td>always</td></tr>
+    <tr><td>Clear structure + delimiters</td><td>XML-ish tags or headings separate instructions from data</td><td>whenever you insert documents or user text</td></tr>
+    <tr><td>Few-shot examples</td><td>shows the exact style and edge cases</td><td>classification, extraction, formatting</td></tr>
+    <tr><td>Ask for reasoning / use a reasoning model</td><td>"think step by step", or let the model think before answering</td><td>multi-step logic, maths, planning</td></tr>
+    <tr><td>Structured output</td><td>JSON schema / native structured outputs so code can parse results</td><td>anything consumed by a program</td></tr>
+    <tr><td>Prompt chaining</td><td>split a big task into steps, each with its own prompt</td><td>complex workflows; easier to test</td></tr>
+    <tr><td>Allow "I don't know"</td><td>gives the model a safe exit instead of guessing</td><td>factual Q&amp;A, RAG</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Structured output with Spring AI: JSON → Java record">
+record Triage(Category category, boolean refund, boolean needsHuman, String reply) {}
+enum Category { LATE, WRONG_ITEM, QUALITY, OTHER }
+
+Triage t = chatClient.prompt()
+        .system(sys -> sys.text(TRIAGE_RULES))                    // the job card
+        .user(u -> u.text("<order>{order}</order>\n<complaint>{c}</complaint>")
+                    .param("order", orderJson).param("c", complaintText))
+        .options(ChatOptions.builder().temperature(0.0).build())  // predictable for classification
+        .call()
+        .entity(Triage.class);   // Spring AI adds the JSON schema to the request (or uses the
+                                 // provider's native structured output) and maps the reply to the record
+if (t.needsHuman()) escalate(t);
+</script>
+
+  <div class="box pitfall"><div class="box-tag">Common traps</div><p>Mixing user text into instructions without delimiters (invites prompt injection, {{n:ch-mcp-security}}). Asking for JSON without validation (always parse, validate, retry on failure). Huge prompts full of irrelevant context (worse answers, more cost). Changing prompts without an evaluation set ({{n:ch-rag-eval}}): you won't know what you broke.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">A job card for a brilliant colleague with no context.</p>
+    <p><span class="hl">Role, task, context, rules, output format, examples.</span> Delimit data. Structured output for code. Version prompts and test them like code.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How do you get reliable JSON from an LLM?</summary><div class="ans"><p>Use the provider's structured-output / JSON-schema mode or tool-calling with a schema; keep the schema simple with enums; low temperature; validate against the schema in code (Bean Validation on the record) and retry with the error message on failure; keep a fallback path (human review) for repeated failures.</p></div></details>
+    <details><summary>Zero-shot vs few-shot vs chain-of-thought?</summary><div class="ans"><p>Zero-shot: instructions only. Few-shot: plus a handful of input→output examples to pin down format and edge cases. Chain-of-thought: ask the model to reason step by step (or use a reasoning model) before the final answer, improving multi-step problems at the cost of tokens and latency.</p></div></details>
+  </div>
+  {{done}}
+</section>

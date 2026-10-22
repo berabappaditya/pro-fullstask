@@ -1,0 +1,131 @@
+<section class="chapter" id="ch-srp" data-title="S · Single Responsibility">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>SOLID · S</div>
+    <h2>Single Responsibility Principle</h2>
+    <p class="ch-oneline"><b>A class should have one, and only one, reason to change.</b> One job, one owner.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu's first employee, Gopal, did everything: brewed tea, took cash, kept the accounts, cleaned up and handled deliveries. One April the GST rules changed. While Gopal was busy redoing the accounts, he forgot the milk on the stove and it boiled over. A change in <strong>tax rules</strong> broke <strong>tea making</strong>, two things that had nothing to do with each other except that one person did both.</p>
+    <p>Ramu hired a cook, a cashier and an accountant. Now a tax change only touches the accountant.</p></div>
+
+  <div class="box def"><div class="box-tag">Definition</div>
+    <p>"A module should be responsible to one, and only one, actor." An <strong>actor</strong> is a group of people who would ask for changes: the finance team, the marketing team, the DBA. If two different groups can ask you to change the same class for different reasons, it has two responsibilities.</p></div>
+  <div class="box layman"><div class="box-tag">In plain words</div>
+    <p>A Swiss Army knife is handy, but if the scissors break you have to send the whole knife away, losing the blade too. Separate tools can be fixed, replaced and tested one at a time.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 230" role="img" aria-label="A God class OrderManager with five responsibilities is split into five focused classes orchestrated by a small OrderService">
+      <rect x="20" y="30" width="230" height="180" rx="10" class="d-bad"/>
+      <text x="135" y="56" text-anchor="middle" class="d-tl">OrderManager</text><text x="135" y="74" text-anchor="middle" class="d-xs">1,800 lines · 5 reasons to change</text>
+      <text x="40" y="100" class="d-s">validate input ← product team</text>
+      <text x="40" y="122" class="d-s">calculate tax ← finance</text>
+      <text x="40" y="144" class="d-s">SQL persistence ← DBA</text>
+      <text x="40" y="166" class="d-s">send email ← marketing</text>
+      <text x="40" y="188" class="d-s">make PDF invoice ← legal</text>
+      <path d="M260 120 H320" class="d-line" marker-end="url(#ah)"/><text x="290" y="110" text-anchor="middle" class="d-xs">split</text>
+      <rect x="340" y="95" width="140" height="50" rx="10" class="d-acc"/><text x="410" y="118" text-anchor="middle" class="d-t">OrderService</text><text x="410" y="134" text-anchor="middle" class="d-xs">orchestrates only</text>
+      <g>
+        <rect x="560" y="10" width="160" height="34" rx="7" class="d-good"/><text x="640" y="32" text-anchor="middle" class="d-s">OrderValidator</text>
+        <rect x="560" y="54" width="160" height="34" rx="7" class="d-good"/><text x="640" y="76" text-anchor="middle" class="d-s">TaxCalculator</text>
+        <rect x="560" y="98" width="160" height="34" rx="7" class="d-good"/><text x="640" y="120" text-anchor="middle" class="d-s">OrderRepository</text>
+        <rect x="560" y="142" width="160" height="34" rx="7" class="d-good"/><text x="640" y="164" text-anchor="middle" class="d-s">OrderNotifier</text>
+        <rect x="560" y="186" width="160" height="34" rx="7" class="d-good"/><text x="640" y="208" text-anchor="middle" class="d-s">InvoiceGenerator</text>
+      </g>
+      <path d="M480 110 L558 27 M480 115 L558 71 M480 120 L558 115 M480 125 L558 159 M480 130 L558 203" class="d-lgood" marker-end="url(#ag)"/>
+      <text x="770" y="120" class="d-xs" text-anchor="middle" transform="rotate(90 770 120)">each changes for one reason</text>
+    </svg></div>
+  </figure>
+
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: one class, five jobs (a &quot;God class&quot;)">
+public class OrderManager {
+
+    public void placeOrder(Order order) {
+        // 1. Validation (product rules)
+        if (order.getItems().isEmpty()) throw new IllegalArgumentException("empty");
+
+        // 2. Pricing and tax (finance rules)
+        double total = 0;
+        for (Item i : order.getItems()) total += i.getPrice() * i.getQty();
+        total += total * 0.18;                       // GST hard-coded here
+
+        // 3. Persistence (DB details)
+        try (Connection c = DriverManager.getConnection(DB_URL)) {
+            PreparedStatement ps = c.prepareStatement("INSERT INTO orders ...");
+            ps.setDouble(1, total); ps.executeUpdate();
+        } catch (SQLException e) { throw new RuntimeException(e); }
+
+        // 4. Notification (marketing wording, SMTP config)
+        Transport.send(buildEmail(order.getCustomerEmail(), "Thanks! Total: " + total));
+
+        // 5. Invoice PDF (legal format)
+        PdfWriter.write("/invoices/" + order.getId() + ".pdf", renderInvoice(order, total));
+    }
+    // Change the GST rate -> retest emails and PDFs. Change the email template ->
+    // risk breaking tax. Unit testing needs a real DB and SMTP server.
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: one responsibility per class, a thin coordinator">
+public class OrderValidator {                         // reason to change: product rules
+    public void validate(Order o) {
+        if (o.items().isEmpty()) throw new InvalidOrderException("Order has no items");
+    }
+}
+
+public class TaxCalculator {                          // reason to change: finance/GST
+    private static final BigDecimal GST = new BigDecimal("0.18");
+    public BigDecimal totalWithTax(Order o) {
+        BigDecimal subtotal = o.items().stream()
+            .map(i -> i.price().multiply(BigDecimal.valueOf(i.qty())))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return subtotal.add(subtotal.multiply(GST));
+    }
+}
+
+public interface OrderRepository { void save(Order o, BigDecimal total); } // DBA's concern
+public interface OrderNotifier   { void orderPlaced(Order o, BigDecimal total); } // marketing
+public interface InvoiceGenerator { void generate(Order o, BigDecimal total); }   // legal
+
+@Service
+public class OrderService {                           // reason to change: the workflow
+    private final OrderValidator validator;
+    private final TaxCalculator tax;
+    private final OrderRepository repo;
+    private final OrderNotifier notifier;
+    private final InvoiceGenerator invoices;
+
+    public OrderService(OrderValidator v, TaxCalculator t, OrderRepository r,
+                        OrderNotifier n, InvoiceGenerator i) {
+        this.validator = v; this.tax = t; this.repo = r; this.notifier = n; this.invoices = i;
+    }
+
+    public void placeOrder(Order order) {
+        validator.validate(order);                    // each line delegates to an expert
+        BigDecimal total = tax.totalWithTax(order);
+        repo.save(order, total);
+        invoices.generate(order, total);
+        notifier.orderPlaced(order, total);
+    }
+}
+// Each class is small, testable alone (TaxCalculator needs no DB), and owned by one team.
+</script>
+
+  <h3>How to spot an SRP violation</h3>
+  <div class="cards">
+    <div class="card bad"><h5>The name has "And" or "Manager"</h5><p><code>UserAndOrderManager</code>, <code>Utils</code>, <code>Helper</code>.</p></div>
+    <div class="card bad"><h5>Unrelated imports</h5><p><code>java.sql</code>, <code>javax.mail</code> and a PDF library in one file.</p></div>
+    <div class="card bad"><h5>The "describe it" test</h5><p>You can't say what it does without using "and".</p></div>
+    <div class="card bad"><h5>Merge conflicts</h5><p>Several teams keep editing the same file for different reasons.</p></div>
+  </div>
+  <div class="box pitfall"><div class="box-tag">Common trap</div><p>SRP does <strong>not</strong> mean "one method per class" or "tiny classes everywhere". A <code>TaxCalculator</code> with ten tax methods is fine: they all change for the same reason. Splitting too far scatters one idea across many files and lowers cohesion.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">One cook, one stove. One class, one reason to change.</p>
+    <p>Ask: <strong>"Who would ask me to change this?"</strong> If the answer is more than one team, split it. In Spring, the Controller → Service → Repository layering is SRP at the architecture level.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How do you explain SRP to a junior developer?</summary><div class="ans"><p>Group together the things that change for the same reason, and separate the things that change for different reasons. If the tax team, the email team and the database team could each ask you to edit the same class, that class is doing three jobs and a change for one can break the others.</p></div></details>
+    <details><summary>Does a Spring <code>@RestController</code> that validates input, calls a service and maps the response violate SRP?</summary><div class="ans"><p>Not necessarily. Its single responsibility is HTTP adaptation: turning requests into service calls and results into responses. Bean validation annotations and a mapper keep it thin. It violates SRP when business rules, SQL or transaction logic creep into the controller.</p></div></details>
+  </div>
+  {{done}}
+</section>

@@ -1,0 +1,269 @@
+<section class="chapter" id="ch-banking" data-title="LLD project: banking system">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>LLD · Project</div>
+    <h2>LLD project: a banking system</h2>
+    <p class="ch-oneline"><b>Accounts, deposits, withdrawals and transfers that are correct under concurrency, auditable to the paisa, and safe to retry.</b> The favourite LLD question for fintech and payments interviews.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu's chain now runs a small staff savings scheme. Two cashiers, at the same second, process "Bablu sends ₹500 to Gopal" and "Gopal sends ₹200 to Bablu". Each cashier grabs one passbook and waits for the other's. Neither lets go. The queue stops. That's a <strong>deadlock</strong>. Ramu's rule from then on: <strong>always pick up the passbook with the smaller account number first</strong>. Nobody can ever end up holding one while waiting for the other in a circle.</p></div>
+
+  <h3>Step 1 · Requirements</h3>
+  <div class="cards">
+    <div class="card"><h5>Functional</h5><ul><li>Customers open savings, current and fixed-deposit accounts</li><li>Deposit, withdraw, transfer between accounts</li><li>Statement: full history of every movement</li><li>Account states: active, frozen, closed</li><li>Monthly interest for savings accounts</li><li>SMS/email alert on every debit</li></ul></div>
+    <div class="card"><h5>Rules and guarantees</h5><ul><li>Balance never goes below zero (or below the overdraft limit for current accounts)</li><li>Daily withdrawal/transfer limit per account</li><li>A retried transfer never moves money twice</li><li>Concurrent transfers never deadlock or lose updates</li><li>Money is never created or destroyed: every debit has a matching credit</li></ul></div>
+  </div>
+
+  <h3>Step 2 · Key design decisions</h3>
+  <div class="cards">
+    <div class="card"><span class="k">value object</span><h5>Money, not double</h5><p><code>BigDecimal</code> with currency, immutable. <code>0.1 + 0.2 != 0.3</code> in floating point; banks can't round randomly.</p></div>
+    <div class="card"><span class="k">audit</span><h5>Double-entry ledger</h5><p>Every transfer writes two ledger entries (debit A, credit B) that sum to zero. The balance is a cached total of the ledger; the ledger is the truth.</p></div>
+    <div class="card"><span class="k">LSP</span><h5>Not every account can be debited</h5><p>Fixed deposits can't be withdrawn from, so only <code>TransactionalAccount</code> has <code>debit()</code> ({{ref:ch-lsp}}).</p></div>
+    <div class="card"><span class="k">concurrency</span><h5>Lock in a global order</h5><p>Always lock the lower account ID first, with a timeout. No circular wait, no deadlock.</p></div>
+    <div class="card"><span class="k">idempotency</span><h5>Every transfer has a key</h5><p>Same key → same result; the transfer runs at most once ({{ref:ch-stripe}}).</p></div>
+    <div class="card"><span class="k">OCP</span><h5>Rules and interest are pluggable</h5><p>Transfer rules form a chain; interest calculation is a strategy; alerts are observers.</p></div>
+  </div>
+
+  <h3>Step 3 · Class diagram</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 880 460" role="img" aria-label="Banking class diagram: Customer owns accounts; Account is extended by TransactionalAccount (savings, current) and FixedDeposit; TransferService uses rules, repositories, a ledger and event listeners">
+      <rect x="20" y="20" width="170" height="70" rx="4" class="d-box"/><line x1="20" y1="44" x2="190" y2="44" class="d-line"/>
+      <text x="105" y="37" text-anchor="middle" class="d-t">Customer</text><text x="30" y="62" class="d-m">- id, name, kycStatus</text><text x="30" y="80" class="d-m">- accounts: List</text>
+
+      <rect x="260" y="20" width="230" height="96" rx="4" class="d-acc"/><line x1="260" y1="44" x2="490" y2="44" class="d-line"/><line x1="260" y1="82" x2="490" y2="82" class="d-line"/>
+      <text x="375" y="37" text-anchor="middle" class="d-t" font-style="italic">Account «abstract»</text>
+      <text x="270" y="60" class="d-m">- id, status: AccountStatus</text><text x="270" y="76" class="d-m">- balance: Money, lock</text>
+      <text x="270" y="100" class="d-m">+ credit(Money)</text>
+      <path d="M190 55 H258" class="d-line" marker-start="url(#diao)"/><text x="200" y="48" class="d-m">1</text><text x="236" y="48" class="d-m">1..*</text>
+
+      <rect x="150" y="170" width="250" height="80" rx="4" class="d-acc"/><line x1="150" y1="194" x2="400" y2="194" class="d-line"/>
+      <text x="275" y="187" text-anchor="middle" class="d-t" font-style="italic">TransactionalAccount</text>
+      <text x="160" y="212" class="d-m">+ debit(Money)</text><text x="160" y="228" class="d-m"># available(): Money</text><text x="160" y="244" class="d-m">- dailyLimit</text>
+      <rect x="440" y="170" width="160" height="56" rx="4" class="d-box"/><text x="520" y="194" text-anchor="middle" class="d-t">FixedDeposit</text><text x="520" y="212" text-anchor="middle" class="d-m">maturityDate</text>
+      <path d="M275 168 L340 118 M520 168 L420 118" class="d-line" marker-end="url(#tri)"/>
+      <rect x="40" y="300" width="150" height="56" rx="4" class="d-good"/><text x="115" y="324" text-anchor="middle" class="d-t">SavingsAccount</text><text x="115" y="342" text-anchor="middle" class="d-m">interest strategy</text>
+      <rect x="220" y="300" width="170" height="56" rx="4" class="d-good"/><text x="305" y="324" text-anchor="middle" class="d-t">CurrentAccount</text><text x="305" y="342" text-anchor="middle" class="d-m">overdraftLimit</text>
+      <path d="M115 298 L230 252 M305 298 L290 252" class="d-line" marker-end="url(#tri)"/>
+
+      <rect x="640" y="20" width="220" height="110" rx="4" class="d-amb"/><line x1="640" y1="44" x2="860" y2="44" class="d-line"/><line x1="640" y1="88" x2="860" y2="88" class="d-line"/>
+      <text x="750" y="37" text-anchor="middle" class="d-t">TransferService</text>
+      <text x="650" y="60" class="d-m">- rules: List&lt;TransferRule&gt;</text><text x="650" y="76" class="d-m">- repos, ledger, events</text>
+      <text x="650" y="106" class="d-m">+ transfer(TransferRequest)</text><text x="650" y="122" class="d-m">: Transaction</text>
+
+      <rect x="660" y="170" width="200" height="56" rx="4" class="d-vio"/><text x="760" y="190" text-anchor="middle" class="d-xs">«interface»</text><text x="760" y="208" text-anchor="middle" class="d-t">TransferRule</text>
+      <rect x="640" y="250" width="110" height="44" rx="4" class="d-box"/><text x="695" y="268" text-anchor="middle" class="d-xs">ActiveAccount</text><text x="695" y="282" text-anchor="middle" class="d-xs">Rule</text>
+      <rect x="760" y="250" width="110" height="44" rx="4" class="d-box"/><text x="815" y="268" text-anchor="middle" class="d-xs">DailyLimit</text><text x="815" y="282" text-anchor="middle" class="d-xs">Rule</text>
+      <path d="M695 248 L730 228 M815 248 L790 228" class="d-line d-dash" marker-end="url(#tri)"/>
+      <path d="M760 130 V168" class="d-line" marker-end="url(#open)"/>
+
+      <rect x="440" y="300" width="180" height="70" rx="4" class="d-teal"/><line x1="440" y1="324" x2="620" y2="324" class="d-line"/>
+      <text x="530" y="317" text-anchor="middle" class="d-t">LedgerEntry «record»</text><text x="450" y="342" class="d-m">txnId, accountId</text><text x="450" y="358" class="d-m">DEBIT|CREDIT, amount</text>
+      <rect x="660" y="320" width="200" height="56" rx="4" class="d-vio"/><text x="760" y="340" text-anchor="middle" class="d-xs">«interface»</text><text x="760" y="358" text-anchor="middle" class="d-t">TransferListener</text>
+      <rect x="660" y="396" width="200" height="40" rx="4" class="d-box"/><text x="760" y="421" text-anchor="middle" class="d-s">SmsAlert, FraudMonitor</text>
+      <path d="M760 394 V378" class="d-line d-dash" marker-end="url(#tri)"/>
+      <path d="M690 130 C640 200,600 260,560 298" class="d-line" marker-end="url(#open)"/>
+      <path d="M840 130 C900 220,880 300,862 340" class="d-line" marker-end="url(#open)"/>
+      <path d="M640 80 C560 90,520 140,420 175" class="d-line" marker-end="url(#open)"/><text x="530" y="112" class="d-m">locks + debits</text>
+      <rect x="40" y="390" width="350" height="50" rx="10" class="d-paper"/><text x="215" y="412" text-anchor="middle" class="d-s">Money «record»: BigDecimal amount + Currency,</text><text x="215" y="428" text-anchor="middle" class="d-s">immutable, used everywhere instead of double</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Fixed deposits sit outside <code>TransactionalAccount</code>, so the compiler stops anyone from debiting one. Rules and listeners are interfaces: new rules and alerts are new classes (OCP).</figcaption>
+  </figure>
+
+  <h3>Step 4 · The deadlock, and the fix</h3>
+  <div class="widget" id="w-deadlock">
+    <div class="widget-head"><span class="live">Live</span>Two transfers at the same instant: A → B and B → A</div>
+    <div class="widget-body">
+      <div class="controls">
+        <button class="btn on" data-dl="naive">Lock "from" first (naive)</button>
+        <button class="btn" data-dl="ordered">Lock lower ID first</button>
+        <button class="btn primary" id="dlRun">Run</button>
+        <button class="btn" id="dlStep">Step</button>
+        <button class="btn" id="dlReset">Reset</button>
+      </div>
+      <div class="svgwrap" style="overflow-x:auto"><svg id="dlSvg" viewBox="0 0 640 230" style="min-width:520px" role="img" aria-label="Two threads and two account locks"></svg></div>
+      <div class="upi-step" id="dlText" aria-live="polite"></div>
+    </div>
+  </div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: locks taken in argument order → deadlock">
+public void transfer(Account from, Account to, BigDecimal amount) {
+    synchronized (from) {               // T1 locks A        | T2 locks B
+        synchronized (to) {             // T1 waits for B    | T2 waits for A  → stuck forever
+            if (from.balance.compareTo(amount) < 0) throw new InsufficientFundsException();
+            from.balance = from.balance.subtract(amount);   // double-check the other bugs too:
+            to.balance = to.balance.add(amount);            // public mutable fields, no audit trail,
+        }                                                   // a retry transfers the money again
+    }
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: global lock order + timeout + idempotency + ledger">
+public Transaction transfer(TransferRequest req) throws InterruptedException {
+    // 1. Idempotency: a retried request returns the original result
+    Optional<Transaction> done = txnRepo.findByIdempotencyKey(req.idempotencyKey());
+    if (done.isPresent()) return done.get();
+
+    TransactionalAccount from = accounts.transactional(req.fromId());
+    Account to = accounts.get(req.toId());
+
+    // 2. Always lock the smaller ID first: no circular wait is possible
+    Account first  = from.id().compareTo(to.id()) < 0 ? from : to;
+    Account second = first == from ? to : from;
+
+    if (!first.lock().tryLock(2, TimeUnit.SECONDS)) throw new BusyException(first.id());
+    try {
+        if (!second.lock().tryLock(2, TimeUnit.SECONDS)) throw new BusyException(second.id());
+        try {
+            rules.forEach(r -> r.check(req, from, to));       // 3. pluggable rules (chain)
+            from.debit(req.amount());                         //    throws if not enough
+            to.credit(req.amount());
+
+            Transaction txn = Transaction.completed(req);     // 4. record the truth:
+            ledger.append(LedgerEntry.debit(txn, from));      //    two entries that
+            ledger.append(LedgerEntry.credit(txn, to));       //    sum to zero
+            txnRepo.save(txn);
+            listeners.forEach(l -> l.onTransfer(txn));        // 5. alerts (observers)
+            return txn;
+        } finally { second.lock().unlock(); }
+    } finally { first.lock().unlock(); }
+}
+</script>
+</div>
+
+  <h3>Step 5 · The rest of the core code</h3>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Money: an immutable value object">
+public record Money(BigDecimal amount, Currency currency) {
+    public Money {
+        amount = amount.setScale(2, RoundingMode.HALF_EVEN);   // banker's rounding, always 2 dp
+        Objects.requireNonNull(currency);
+    }
+    public static Money inr(String v) { return new Money(new BigDecimal(v), Currency.getInstance("INR")); }
+
+    public Money plus(Money o)  { same(o); return new Money(amount.add(o.amount), currency); }
+    public Money minus(Money o) { same(o); return new Money(amount.subtract(o.amount), currency); }
+    public boolean lessThan(Money o) { same(o); return amount.compareTo(o.amount) < 0; }
+    public boolean isPositive() { return amount.signum() > 0; }
+
+    private void same(Money o) {                                // never add rupees to dollars
+        if (!currency.equals(o.currency)) throw new CurrencyMismatchException(currency, o.currency);
+    }
+}
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Accounts: status rules, template method for debit, LSP-safe hierarchy">
+public enum AccountStatus {
+    ACTIVE { boolean canDebit() { return true; }  boolean canCredit() { return true; } },
+    FROZEN { boolean canDebit() { return false; } boolean canCredit() { return true; } },  // e.g. court order
+    CLOSED { boolean canDebit() { return false; } boolean canCredit() { return false; } };
+    abstract boolean canDebit();
+    abstract boolean canCredit();
+}
+
+public abstract class Account {
+    private final String id;
+    protected volatile AccountStatus status = AccountStatus.ACTIVE;
+    protected Money balance;
+    private final ReentrantLock lock = new ReentrantLock();
+
+    protected Account(String id, Money opening) { this.id = id; this.balance = opening; }
+
+    public void credit(Money amt) {
+        if (!status.canCredit()) throw new AccountNotUsableException(id, status);
+        if (!amt.isPositive()) throw new IllegalArgumentException("amount must be > 0");
+        balance = balance.plus(amt);
+    }
+    public String id() { return id; }
+    public Money balance() { return balance; }
+    public ReentrantLock lock() { return lock; }
+}
+
+/** Only accounts you can take money out of. Fixed deposits are NOT one of these. */
+public abstract class TransactionalAccount extends Account {
+    protected TransactionalAccount(String id, Money opening) { super(id, opening); }
+
+    public final void debit(Money amt) {                    // template method: fixed steps
+        if (!status.canDebit()) throw new AccountNotUsableException(id(), status);
+        if (!amt.isPositive()) throw new IllegalArgumentException("amount must be > 0");
+        if (available().lessThan(amt)) throw new InsufficientFundsException(id());
+        balance = balance.minus(amt);
+    }
+    protected abstract Money available();                    // the one step that varies
+}
+
+public class SavingsAccount extends TransactionalAccount {
+    private final InterestPolicy interest;                    // strategy
+    public SavingsAccount(String id, Money opening, InterestPolicy interest) { super(id, opening); this.interest = interest; }
+    protected Money available() { return balance; }
+    public Money monthlyInterest() { return interest.forMonth(balance); }
+}
+
+public class CurrentAccount extends TransactionalAccount {
+    private final Money overdraftLimit;
+    public CurrentAccount(String id, Money opening, Money overdraftLimit) { super(id, opening); this.overdraftLimit = overdraftLimit; }
+    protected Money available() { return balance.plus(overdraftLimit); }  // may go negative, within limit
+}
+
+public class FixedDeposit extends Account {                  // no debit(): honest about what it can do
+    private final LocalDate maturity;
+    public FixedDeposit(String id, Money principal, LocalDate maturity) { super(id, principal); this.maturity = maturity; }
+}
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Pluggable rules, interest strategies and alert listeners">
+public interface TransferRule { void check(TransferRequest req, TransactionalAccount from, Account to); }
+
+public class DailyLimitRule implements TransferRule {
+    private final LedgerRepository ledger;
+    private final Money limit;
+    public DailyLimitRule(LedgerRepository ledger, Money limit) { this.ledger = ledger; this.limit = limit; }
+
+    public void check(TransferRequest req, TransactionalAccount from, Account to) {
+        Money spentToday = ledger.totalDebitsSince(from.id(), LocalDate.now().atStartOfDay());
+        if (limit.lessThan(spentToday.plus(req.amount())))
+            throw new LimitExceededException(from.id(), limit);
+    }
+}
+
+public class SameCurrencyRule implements TransferRule {
+    public void check(TransferRequest req, TransactionalAccount from, Account to) {
+        if (!from.balance().currency().equals(to.balance().currency()))
+            throw new CurrencyMismatchException(from.balance().currency(), to.balance().currency());
+    }
+}
+
+public interface InterestPolicy { Money forMonth(Money balance); }
+public class FlatRateInterest implements InterestPolicy {        // e.g. 3.0% a year
+    private final BigDecimal annualRate;
+    public FlatRateInterest(String rate) { this.annualRate = new BigDecimal(rate); }
+    public Money forMonth(Money b) {
+        BigDecimal m = b.amount().multiply(annualRate).divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_EVEN);
+        return new Money(m, b.currency());
+    }
+}
+
+public interface TransferListener { void onTransfer(Transaction txn); }
+public class SmsAlert implements TransferListener {
+    public void onTransfer(Transaction t) { sms.send(t.fromCustomerPhone(), "Debited " + t.amount() + " ref " + t.id()); }
+}
+</script>
+
+  <h3>Step 6 · Follow-up questions</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Interviewer asks</th><th>Answer</th><th>Principle / pattern</th></tr>
+    <tr><td>"The app runs on 10 servers. Do your Java locks still work?"</td><td>No, they're per-JVM. Move atomicity into the database: one ACID transaction that locks both rows with <code>SELECT … FOR UPDATE</code> in ID order, or a version column for optimistic locking. At larger scale, route all operations for an account to one partition (single writer).</td><td>{{ref:ch-db}}, {{ref:ch-concurrency}}</td></tr>
+    <tr><td>"Show the statement for March."</td><td>Query the ledger by account and date range; the balance column on each entry makes running balances trivial.</td><td>Double-entry ledger</td></tr>
+    <tr><td>"Add a ₹10,000 per-transaction cap for new accounts."</td><td>New <code>NewAccountCapRule implements TransferRule</code>; register it. Nothing else changes.</td><td>OCP, Chain of Responsibility</td></tr>
+    <tr><td>"Transfer to another bank."</td><td>The external leg is a separate system: debit locally into a suspense account, send via the payment network, then settle or reverse when the result arrives.</td><td>Saga ({{ref:ch-dtx}}), UPI ({{ref:ch-upi}})</td></tr>
+    <tr><td>"How do you prove no money was lost?"</td><td>Sum of all ledger entries must be zero; nightly reconciliation compares ledger totals with account balances and with the central bank's settlement.</td><td>Invariants + reconciliation</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Money is a value, the ledger is the truth, and locks go smallest ID first.</p>
+    <p><strong>BigDecimal Money</strong>, <strong>double-entry ledger</strong>, <strong>LSP-safe account hierarchy</strong>, <strong>ordered locking with timeouts</strong>, <strong>idempotency keys</strong>, and rules/strategies/listeners for everything that changes.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What are the four conditions for deadlock, and which one does lock ordering break?</summary><div class="ans"><p>Mutual exclusion, hold and wait, no preemption, and circular wait (Coffman conditions). A global lock order breaks <strong>circular wait</strong>: if everyone acquires locks in the same order, a cycle can't form. <code>tryLock</code> with a timeout additionally breaks "wait forever".</p></div></details>
+    <details><summary>Why store a ledger instead of just updating a balance column?</summary><div class="ans"><p>A balance alone can't explain itself. The ledger is an append-only history: it gives statements, audits, dispute resolution, and a way to rebuild or verify the balance. The balance is a cached projection of the ledger, kept in the same transaction.</p></div></details>
+  </div>
+  {{done}}
+</section>

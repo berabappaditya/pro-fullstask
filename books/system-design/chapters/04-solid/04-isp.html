@@ -1,0 +1,88 @@
+<section class="chapter" id="ch-isp" data-title="I · Interface Segregation">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>SOLID · I</div>
+    <h2>Interface Segregation Principle</h2>
+    <p class="ch-oneline"><b>No client should be forced to depend on methods it doesn't use.</b> Many small, focused interfaces beat one fat one.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu's hiring form had one job description for everyone: "Must brew tea, drive the delivery van, and maintain the accounts ledger." The cook can't drive, the driver can't do accounts, and the accountant can't make tea, so every new hire had to fake two-thirds of the job. Ramu replaced it with three short role cards: <strong>Brewer</strong>, <strong>Driver</strong>, <strong>Accountant</strong>. His nephew, who can brew and drive, simply holds two cards.</p></div>
+
+  <div class="box def"><div class="box-tag">Definition</div>
+    <p>Split large interfaces into smaller, role-specific ones so that implementers only implement what they can genuinely do, and callers only depend on what they genuinely use. SRP applied to interfaces.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 230" role="img" aria-label="One fat Worker interface forces a cook to implement driving; three small role interfaces let each class implement only what it does">
+      <text x="200" y="22" text-anchor="middle" class="d-tb">Fat interface</text>
+      <rect x="110" y="36" width="180" height="84" rx="8" class="d-bad"/><text x="200" y="56" text-anchor="middle" class="d-xs">«interface» Worker</text><text x="200" y="76" text-anchor="middle" class="d-m">brewTea()</text><text x="200" y="93" text-anchor="middle" class="d-m">driveVan()</text><text x="200" y="110" text-anchor="middle" class="d-m">doAccounts()</text>
+      <rect x="40" y="160" width="140" height="52" rx="8" class="d-box"/><text x="110" y="182" text-anchor="middle" class="d-t">Cook</text><text x="110" y="200" text-anchor="middle" class="d-tb">2 fake methods</text>
+      <rect x="220" y="160" width="140" height="52" rx="8" class="d-box"/><text x="290" y="182" text-anchor="middle" class="d-t">Driver</text><text x="290" y="200" text-anchor="middle" class="d-tb">2 fake methods</text>
+      <path d="M110 158 L170 122 M290 158 L230 122" class="d-line d-dash" marker-end="url(#tri)"/>
+      <line x1="410" y1="15" x2="410" y2="215" class="d-line d-dash"/>
+      <text x="620" y="22" text-anchor="middle" class="d-tg">Role interfaces</text>
+      <rect x="430" y="40" width="115" height="44" rx="8" class="d-acc"/><text x="487" y="58" text-anchor="middle" class="d-xs">«interface»</text><text x="487" y="74" text-anchor="middle" class="d-t">Brewer</text>
+      <rect x="562" y="40" width="115" height="44" rx="8" class="d-acc"/><text x="619" y="58" text-anchor="middle" class="d-xs">«interface»</text><text x="619" y="74" text-anchor="middle" class="d-t">Driver</text>
+      <rect x="694" y="40" width="115" height="44" rx="8" class="d-acc"/><text x="751" y="58" text-anchor="middle" class="d-xs">«interface»</text><text x="751" y="74" text-anchor="middle" class="d-t">Accountant</text>
+      <rect x="430" y="160" width="110" height="44" rx="8" class="d-good"/><text x="485" y="187" text-anchor="middle" class="d-t">Cook</text>
+      <rect x="560" y="160" width="120" height="44" rx="8" class="d-good"/><text x="620" y="182" text-anchor="middle" class="d-t">Nephew</text><text x="620" y="197" text-anchor="middle" class="d-xs">brews + drives</text>
+      <rect x="700" y="160" width="110" height="44" rx="8" class="d-good"/><text x="755" y="187" text-anchor="middle" class="d-t">Clerk</text>
+      <path d="M485 158 V86 M600 158 L500 86 M640 158 L619 86 M755 158 V86" class="d-line d-dash" marker-end="url(#tri)"/>
+    </svg></div>
+  </figure>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: one interface for every kind of worker">
+public interface Worker {
+    void brewTea();
+    void driveVan(String route);
+    void doAccounts(Ledger ledger);
+}
+
+public class Cook implements Worker {
+    public void brewTea() { /* real work */ }
+    public void driveVan(String route) {
+        throw new UnsupportedOperationException();   // forced to lie (also breaks LSP)
+    }
+    public void doAccounts(Ledger l) {
+        throw new UnsupportedOperationException();
+    }
+}
+// Adding a method to Worker (e.g. cleanKitchen) forces EVERY implementer to change,
+// and every client that holds a Worker "sees" methods it should never call.
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: small role interfaces, combined where it&#x27;s true">
+public interface Brewer     { void brewTea(); }
+public interface Driver     { void driveVan(String route); }
+public interface Accountant { void doAccounts(Ledger ledger); }
+
+public class Cook implements Brewer {
+    public void brewTea() { /* ... */ }               // only what it can really do
+}
+
+public class Nephew implements Brewer, Driver {       // multiple roles, honestly
+    public void brewTea() { /* ... */ }
+    public void driveVan(String route) { /* ... */ }
+}
+
+// Clients depend on the narrowest role they need:
+public class DeliveryScheduler {
+    private final List<Driver> drivers;               // can't accidentally ask a
+    public DeliveryScheduler(List<Driver> drivers) {  // driver to do accounts
+        this.drivers = drivers;
+    }
+}
+</script>
+</div>
+
+  <div class="box tip"><div class="box-tag">Interview tip</div>
+    <p>Spring Data shows ISP in layers: <code>Repository</code> (marker) → <code>CrudRepository</code> → <code>PagingAndSortingRepository</code> → <code>JpaRepository</code>. You can also declare a tiny custom interface extending <code>Repository&lt;Order, Long&gt;</code> with only <code>findById</code> and <code>save</code>, so the service can't call <code>deleteAll()</code> by mistake.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Role cards, not one giant job description.</p>
+    <p>If an implementer throws <code>UnsupportedOperationException</code> or leaves methods empty, the interface is <strong>too fat</strong>. Split by <span class="hl">who uses it</span>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Doesn't ISP lead to too many interfaces?</summary><div class="ans"><p>It can if applied blindly. Split along real client needs: if every client uses all methods together, one interface is right. Split when distinct groups of clients use distinct subsets, or when some implementers can't support some methods.</p></div></details>
+  </div>
+  {{done}}
+</section>

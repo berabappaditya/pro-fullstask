@@ -1,0 +1,85 @@
+<section class="chapter" id="ch-mcp" data-title="MCP: the Model Context Protocol">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Tools &amp; agents</div>
+    <h2>MCP: one standard socket between AI apps and everything else</h2>
+    <p class="ch-oneline"><b>The Model Context Protocol is an open JSON-RPC protocol through which AI applications (clients) discover and use tools, resources and prompts exposed by servers.</b> Write a server once; every MCP-capable app can use it.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>Before, every new appliance needed a <strong>custom-wired plug</strong> for every assistant: GitHub for Claude, GitHub for the IDE, GitHub for the chatbot (N × M integrations). MCP is a <strong>standard socket</strong>: each appliance gets one MCP plug (server), each assistant one socket (client), and anything plugs into anything (N + M).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 270" role="img" aria-label="MCP architecture: a host application such as an IDE or chat app contains MCP clients; each client connects to one MCP server over stdio or Streamable HTTP; servers expose tools, resources and prompts backed by systems like GitHub, Postgres and an orders API">
+      <rect x="10" y="20" width="260" height="230" rx="16" class="d-acc"/><text x="140" y="44" text-anchor="middle" class="d-tl">Host (AI app)</text><text x="140" y="62" text-anchor="middle" class="d-xs">IDE agent · Claude · your Spring AI app</text>
+      <rect x="30" y="76" width="220" height="40" rx="8" class="d-box"/><text x="140" y="101" text-anchor="middle" class="d-xs">LLM + agent loop</text>
+      <rect x="30" y="128" width="220" height="32" rx="8" class="d-vio"/><text x="140" y="149" text-anchor="middle" class="d-xs">MCP client #1</text>
+      <rect x="30" y="168" width="220" height="32" rx="8" class="d-vio"/><text x="140" y="189" text-anchor="middle" class="d-xs">MCP client #2</text>
+      <rect x="30" y="208" width="220" height="32" rx="8" class="d-vio"/><text x="140" y="229" text-anchor="middle" class="d-xs">MCP client #3</text>
+      <path d="M250 144 H420" class="d-lvio" marker-end="url(#av)"/><text x="335" y="138" text-anchor="middle" class="d-xs">stdio (local process)</text>
+      <path d="M250 184 H420" class="d-lvio" marker-end="url(#av)"/><text x="335" y="178" text-anchor="middle" class="d-xs">Streamable HTTP</text>
+      <path d="M250 224 H420" class="d-lvio" marker-end="url(#av)"/><text x="335" y="218" text-anchor="middle" class="d-xs">Streamable HTTP + OAuth</text>
+      <rect x="422" y="126" width="200" height="36" rx="8" class="d-good"/><text x="522" y="149" text-anchor="middle" class="d-xs">Filesystem / Git server</text>
+      <rect x="422" y="166" width="200" height="36" rx="8" class="d-good"/><text x="522" y="189" text-anchor="middle" class="d-xs">Postgres server (read-only)</text>
+      <rect x="422" y="206" width="200" height="36" rx="8" class="d-good"/><text x="522" y="229" text-anchor="middle" class="d-xs">Orders MCP server (yours)</text>
+      <rect x="660" y="20" width="190" height="230" rx="16" class="d-paper"/><text x="755" y="44" text-anchor="middle" class="d-tl">Server exposes</text>
+      <rect x="676" y="60" width="158" height="52" rx="8" class="d-amb"/><text x="755" y="82" text-anchor="middle" class="d-t">Tools</text><text x="755" y="100" text-anchor="middle" class="d-xs">actions the model calls</text>
+      <rect x="676" y="120" width="158" height="52" rx="8" class="d-amb"/><text x="755" y="142" text-anchor="middle" class="d-t">Resources</text><text x="755" y="160" text-anchor="middle" class="d-xs">data the app can read</text>
+      <rect x="676" y="180" width="158" height="52" rx="8" class="d-amb"/><text x="755" y="202" text-anchor="middle" class="d-t">Prompts</text><text x="755" y="220" text-anchor="middle" class="d-xs">templates users pick</text>
+      <path d="M622 224 C640 224,650 150,674 140" class="d-line d-dash"/>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> One client per server connection, inside the host. Tools are model-controlled, resources app-controlled, prompts user-controlled.</figcaption></figure>
+
+  <div class="widget" data-sequence>
+    <div class="widget-head"><span class="live">Live</span>An MCP tool call under the 2026-07-28 specification (stateless)</div>
+    <div class="widget-body">
+<script type="application/json">
+{"actors":[
+ {"id":"h","label":"Host + LLM","sub":"agent app","cls":"d-acc"},
+ {"id":"c","label":"MCP client","sub":"in the host","cls":"d-vio"},
+ {"id":"s","label":"Orders MCP server","sub":"Streamable HTTP","cls":"d-good"},
+ {"id":"d","label":"Orders DB","sub":"your system","cls":"d-amb"}],
+ "steps":[
+ {"from":"c","to":"s","msg":"server/discover","text":"Optional first call: the server advertises supported protocol versions, capabilities and identity. There is no initialize handshake any more and no Mcp-Session-Id: every request is self-contained."},
+ {"from":"c","to":"s","msg":"tools/list (+ _meta: version, capabilities)","text":"Each request carries the protocol version and client capabilities in _meta. Headers Mcp-Method and Mcp-Name let gateways route without parsing the body."},
+ {"from":"s","to":"c","msg":"[get_order_status, …] ttlMs=300000","ret":true,"text":"Tool names, descriptions and JSON Schemas, plus caching hints (ttlMs, cacheScope) so clients don't re-list constantly. Deterministic order helps LLM prompt caching."},
+ {"from":"h","to":"c","msg":"model wants get_order_status(7)","text":"The host put the tool definitions in the model's context; the model emitted a tool call."},
+ {"from":"c","to":"s","msg":"tools/call get_order_status {id:7}","text":"A JSON-RPC request over HTTP POST with an OAuth bearer token for this user."},
+ {"from":"s","to":"d","msg":"SELECT … WHERE id=7 AND user=…","text":"The server enforces authorisation for the token's user, like any API."},
+ {"from":"d","to":"s","msg":"row","ret":true,"text":"Data comes back."},
+ {"from":"s","to":"c","msg":"result (resultType: complete)","ret":true,"text":"Content plus optional structuredContent. If the server needed more input (e.g. user confirmation), it would return resultType: input_required with inputRequests, and the client retries the same request with inputResponses (Multi Round-Trip Requests)."},
+ {"from":"c","to":"h","msg":"tool result → model","ret":true,"text":"The host feeds the result back to the model, which writes the answer."}]}
+</script>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Plain function calling</th><th>MCP</th></tr>
+    <tr><td>Where tools live</td><td>inside your app's code</td><td>in separate servers, reusable by any MCP host</td></tr>
+    <tr><td>Discovery</td><td>you hard-code definitions</td><td>clients list tools at runtime (with caching hints)</td></tr>
+    <tr><td>Who benefits</td><td>one app</td><td>an ecosystem: IDEs, chat apps, agents, your services</td></tr>
+    <tr><td>Relationship</td><td colspan="2">complementary: the host still uses the model's function calling; MCP standardises where tool definitions and executions come from</td></tr>
+  </table></div>
+
+  <h3>What changed in the 2026-07-28 specification</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Change</th><th>Before (2025-11-25)</th><th>Now (2026-07-28)</th></tr>
+    <tr><td>State</td><td><code>initialize</code> handshake, sessions, <code>Mcp-Session-Id</code></td><td><b>stateless</b>: version and capabilities in every request's <code>_meta</code>; <code>server/discover</code>; cross-call state via explicit handles in tool arguments</td></tr>
+    <tr><td>Server asking the client</td><td>server-initiated <code>sampling/createMessage</code>, <code>elicitation/create</code>, <code>roots/list</code></td><td><b>Multi Round-Trip Requests</b>: result with <code>resultType: "input_required"</code>; client retries with <code>inputResponses</code></td></tr>
+    <tr><td>Notifications</td><td>GET stream, <code>resources/subscribe</code></td><td><code>subscriptions/listen</code> (one opt-in stream)</td></tr>
+    <tr><td>Results</td><td>-</td><td>required <code>resultType</code>; <code>ttlMs</code> + <code>cacheScope</code> on list/read results</td></tr>
+    <tr><td>Removed</td><td><code>ping</code>, <code>logging/setLevel</code>, SSE resumability</td><td>log level per request in <code>_meta</code>; broken streams → re-issue the request</td></tr>
+    <tr><td>Tasks</td><td>experimental in core</td><td>official extension <code>io.modelcontextprotocol/tasks</code></td></tr>
+    <tr><td>Deprecated</td><td colspan="2">Roots, Sampling and Logging features; HTTP+SSE transport; OAuth Dynamic Client Registration in favour of Client ID Metadata Documents (12-month deprecation window)</td></tr>
+  </table></div>
+  <p class="small">SDK support lags the spec: Spring AI 2.0's MCP Java SDK 2.0 implements the 2025-11-25 revision at the time of writing. Check your SDK's supported protocol versions; servers can serve older clients during the transition.</p>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">One standard socket: N + M, not N × M.</p>
+    <p>Host ⊃ clients ↔ servers over <span class="hl">stdio or Streamable HTTP</span>, JSON-RPC. Servers expose tools, resources, prompts. 2026-07-28: stateless, server/discover, MRTR, subscriptions/listen.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What problem does MCP solve and how is it different from function calling?</summary><div class="ans"><p>It standardises how AI applications connect to external tools and data so integrations are built once and reused across hosts (N+M instead of N×M). Function calling is the model capability of emitting structured tool calls; MCP is the protocol by which the host discovers and invokes tools hosted elsewhere. A host typically turns MCP tool listings into function definitions for its model.</p></div></details>
+    <details><summary>Why did MCP become stateless in 2026?</summary><div class="ans"><p>Sessions made remote servers hard to scale and deploy behind load balancers and serverless platforms (sticky sessions, session stores, resumable streams). Making each request self-contained (version and capabilities in _meta, no session id) lets servers be ordinary stateless HTTP services, cacheable and horizontally scalable, while MRTR replaces server-initiated requests that needed a persistent bidirectional channel.</p></div></details>
+  </div>
+  {{done}}
+</section>

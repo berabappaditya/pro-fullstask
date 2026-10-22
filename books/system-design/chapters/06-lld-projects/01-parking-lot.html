@@ -1,0 +1,259 @@
+<section class="chapter" id="ch-parking" data-title="LLD project: parking lot">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>LLD · Project</div>
+    <h2>LLD project: a parking lot</h2>
+    <p class="ch-oneline"><b>The most common LLD interview question</b>, solved with the framework, a class diagram and working, thread-safe Java that uses the principles and patterns from this book.</p>
+  </header>
+
+  <h3>The LLD interview framework</h3>
+  <ol class="steps">
+    <li><b>Clarify requirements (5 min)</b>What must it do? What's out of scope? Ask about scale, concurrency and which parts may change in future.</li>
+    <li><b>Find the entities (5 min)</b>Underline the nouns in the requirements: they become classes. Verbs become methods.</li>
+    <li><b>Draw the class diagram (10 min)</b>Classes, key fields and methods, relationships and multiplicities. Mark interfaces where things vary.</li>
+    <li><b>Pick patterns where they fit (in passing)</b>Strategy for rules that vary, State for lifecycles, Observer for notifications, Factory for creation. Say why.</li>
+    <li><b>Write the core code (20 min)</b>The main flows end to end, clean names, SOLID. Skip boilerplate (getters, imports).</li>
+    <li><b>Discuss concurrency, edge cases, extensions (5 min)</b>Two cars, one spot. Lost tickets. A new vehicle type. Show that adding it is an addition, not a rewrite.</li>
+  </ol>
+
+  <h3>Step 1 · Requirements</h3>
+  <div class="cards">
+    <div class="card"><h5>Must have</h5><ul><li>Several floors, each with spots of sizes SMALL, MEDIUM, LARGE</li><li>Bikes, cars, trucks; a vehicle may use a bigger spot if its size is full</li><li>Entry: assign a spot, issue a ticket</li><li>Exit: compute fee by duration and vehicle type, take payment, free the spot</li><li>Show free spots per floor</li></ul></div>
+    <div class="card"><h5>Design goals</h5><ul><li>Two entry gates must never assign the same spot</li><li>Pricing rules and allocation rules will change (weekend rates, EV-first floors)</li><li>Easy to add a vehicle type (EV, bus)</li><li>Out of scope: reservations, licence plate cameras</li></ul></div>
+  </div>
+
+  <h3>Steps 2–3 · Entities and class diagram</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 420" role="img" aria-label="Parking lot class diagram: ParkingLot composes floors which compose spots; ParkingLot uses allocation and pricing strategy interfaces; tickets reference a vehicle and a spot">
+      <g>
+        <rect x="320" y="15" width="220" height="110" rx="4" class="d-acc"/><line x1="320" y1="40" x2="540" y2="40" class="d-line"/><line x1="320" y1="82" x2="540" y2="82" class="d-line"/>
+        <text x="430" y="33" text-anchor="middle" class="d-tl">ParkingLot</text>
+        <text x="330" y="56" class="d-m">- floors: List&lt;ParkingFloor&gt;</text><text x="330" y="72" class="d-m">- active: Map&lt;id, Ticket&gt;</text>
+        <text x="330" y="98" class="d-m">+ park(Vehicle): Ticket</text><text x="330" y="114" class="d-m">+ exit(id, payment): Receipt</text>
+      </g>
+      <g>
+        <rect x="40" y="175" width="200" height="80" rx="4" class="d-box"/><line x1="40" y1="200" x2="240" y2="200" class="d-line"/>
+        <text x="140" y="193" text-anchor="middle" class="d-t">ParkingFloor</text>
+        <text x="50" y="218" class="d-m">- number: int</text><text x="50" y="234" class="d-m">- spots: List&lt;ParkingSpot&gt;</text><text x="50" y="250" class="d-m">+ freeCount(SpotSize)</text>
+      </g>
+      <g>
+        <rect x="40" y="310" width="200" height="96" rx="4" class="d-box"/><line x1="40" y1="335" x2="240" y2="335" class="d-line"/>
+        <text x="140" y="328" text-anchor="middle" class="d-t">ParkingSpot</text>
+        <text x="50" y="352" class="d-m">- size: SpotSize</text><text x="50" y="368" class="d-m">- occupant: AtomicReference</text><text x="50" y="384" class="d-m">+ tryOccupy(Vehicle): bool</text><text x="50" y="400" class="d-m">+ release()</text>
+      </g>
+      <g>
+        <rect x="620" y="160" width="220" height="56" rx="4" class="d-vio"/><text x="730" y="181" text-anchor="middle" class="d-xs">«interface»</text><text x="730" y="199" text-anchor="middle" class="d-t">SpotAllocationStrategy</text>
+        <rect x="620" y="250" width="220" height="40" rx="4" class="d-box"/><text x="730" y="275" text-anchor="middle" class="d-s">BestFitNearestFirst</text>
+        <path d="M730 248 V218" class="d-line d-dash" marker-end="url(#tri)"/>
+      </g>
+      <g>
+        <rect x="620" y="20" width="220" height="56" rx="4" class="d-vio"/><text x="730" y="41" text-anchor="middle" class="d-xs">«interface»</text><text x="730" y="59" text-anchor="middle" class="d-t">PricingStrategy</text>
+        <rect x="620" y="100" width="105" height="36" rx="4" class="d-box"/><text x="672" y="123" text-anchor="middle" class="d-xs">HourlyPricing</text>
+        <rect x="735" y="100" width="105" height="36" rx="4" class="d-box"/><text x="787" y="123" text-anchor="middle" class="d-xs">WeekendPricing</text>
+        <path d="M672 98 V78 M787 98 V78" class="d-line d-dash" marker-end="url(#tri)"/>
+      </g>
+      <g>
+        <rect x="330" y="200" width="200" height="80" rx="4" class="d-amb"/><line x1="330" y1="225" x2="530" y2="225" class="d-line"/>
+        <text x="430" y="218" text-anchor="middle" class="d-t">Ticket «record»</text>
+        <text x="340" y="242" class="d-m">id, entryTime</text><text x="340" y="258" class="d-m">vehicle: Vehicle</text><text x="340" y="274" class="d-m">spot: ParkingSpot</text>
+      </g>
+      <g>
+        <rect x="330" y="330" width="200" height="70" rx="4" class="d-good"/><line x1="330" y1="355" x2="530" y2="355" class="d-line"/>
+        <text x="430" y="348" text-anchor="middle" class="d-t">Vehicle «record»</text>
+        <text x="340" y="372" class="d-m">plate, type: VehicleType</text><text x="340" y="388" class="d-m">+ needs(): SpotSize</text>
+      </g>
+      <path d="M332 100 C260 110,180 140,150 173" class="d-line" marker-start="url(#dia)"/><text x="218" y="128" class="d-m">1 → 1..*</text>
+      <path d="M140 266 V308" class="d-line" marker-start="url(#dia)"/><text x="148" y="292" class="d-m">1 → 1..*</text>
+      <path d="M540 50 H618" class="d-line" marker-end="url(#open)"/>
+      <path d="M540 105 C580 120,590 180,618 186" class="d-line" marker-end="url(#open)"/>
+      <path d="M430 127 V198" class="d-line" marker-end="url(#open)"/><text x="438" y="168" class="d-m">0..*</text>
+      <path d="M430 280 V328" class="d-line" marker-end="url(#open)"/>
+      <path d="M330 255 C290 270,260 330,242 345" class="d-line" marker-end="url(#open)"/>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Composition: the lot owns its floors, a floor owns its spots. Allocation and pricing are <strong>strategies</strong> behind interfaces (OCP + DIP), so new rules are new classes.</figcaption>
+  </figure>
+
+  <h3>Step 5 · The code</h3>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Value types: enums and records">
+public enum VehicleType { BIKE, CAR, TRUCK }        // add EV_CAR later = add a constant
+public enum SpotSize { SMALL, MEDIUM, LARGE }       // ordered small -> large
+
+public record Vehicle(String plate, VehicleType type) {
+    public SpotSize needs() {                       // the smallest spot that fits
+        return switch (type) {
+            case BIKE  -> SpotSize.SMALL;
+            case CAR   -> SpotSize.MEDIUM;
+            case TRUCK -> SpotSize.LARGE;
+        };
+    }
+}
+
+public record Ticket(String id, Vehicle vehicle, ParkingSpot spot, Instant entryTime) { }
+public record Receipt(String ticketId, BigDecimal amount, String paymentRef) { }
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="ParkingSpot: thread-safe occupy with compare-and-set">
+public class ParkingSpot {
+    private final String id;
+    private final int floor;
+    private final SpotSize size;
+    // null = free. compareAndSet makes "check free + take it" ONE atomic step,
+    // so two entry gates can never both win the same spot.
+    private final AtomicReference<Vehicle> occupant = new AtomicReference<>();
+
+    public ParkingSpot(String id, int floor, SpotSize size) {
+        this.id = id; this.floor = floor; this.size = size;
+    }
+
+    public boolean tryOccupy(Vehicle v) { return occupant.compareAndSet(null, v); }
+    public void release()               { occupant.set(null); }
+    public boolean isFree()             { return occupant.get() == null; }
+    public SpotSize size()              { return size; }
+    public int floor()                  { return floor; }
+    public String id()                  { return id; }
+}
+
+public class ParkingFloor {
+    private final int number;
+    private final List<ParkingSpot> spots;           // composition: created with the floor
+
+    public ParkingFloor(int number, Map<SpotSize, Integer> layout) {
+        this.number = number;
+        List<ParkingSpot> list = new ArrayList<>();
+        layout.forEach((size, count) -> {
+            for (int i = 1; i <= count; i++)
+                list.add(new ParkingSpot(number + "-" + size.name().charAt(0) + i, number, size));
+        });
+        this.spots = List.copyOf(list);              // immutable list of spots
+    }
+
+    public List<ParkingSpot> spots() { return spots; }
+    public long freeCount(SpotSize s) {
+        return spots.stream().filter(p -> p.size() == s && p.isFree()).count();
+    }
+}
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Strategies: allocation and pricing (the parts that change)">
+public interface SpotAllocationStrategy {
+    Optional<ParkingSpot> allocate(List<ParkingFloor> floors, Vehicle v);
+}
+
+/** Exact size first, then bigger sizes; lowest floor first. */
+public class BestFitNearestFirst implements SpotAllocationStrategy {
+    @Override
+    public Optional<ParkingSpot> allocate(List<ParkingFloor> floors, Vehicle v) {
+        for (SpotSize size : SpotSize.values()) {
+            if (size.compareTo(v.needs()) < 0) continue;          // too small, skip
+            for (ParkingFloor f : floors)
+                for (ParkingSpot s : f.spots())
+                    if (s.size() == size && s.isFree() && s.tryOccupy(v))
+                        return Optional.of(s);                    // won the CAS race
+        }                                                         // lost? keep looking
+        return Optional.empty();
+    }
+}
+
+public interface PricingStrategy { BigDecimal price(Ticket t, Instant exitTime); }
+
+public class HourlyPricing implements PricingStrategy {
+    private final Map<VehicleType, BigDecimal> perHour = Map.of(
+        VehicleType.BIKE, new BigDecimal("10"),
+        VehicleType.CAR,  new BigDecimal("30"),
+        VehicleType.TRUCK, new BigDecimal("60"));
+
+    @Override
+    public BigDecimal price(Ticket t, Instant exitTime) {
+        long minutes = Duration.between(t.entryTime(), exitTime).toMinutes();
+        long hours = Math.max(1, (minutes + 59) / 60);           // round up, minimum 1 hour
+        return perHour.get(t.vehicle().type()).multiply(BigDecimal.valueOf(hours));
+    }
+}
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="ParkingLot: the coordinator">
+public class ParkingLot {
+    private final List<ParkingFloor> floors;
+    private final SpotAllocationStrategy allocator;   // DIP: depends on interfaces
+    private final PricingStrategy pricing;
+    private final Clock clock;                        // injectable time = testable fees
+    private final Map<String, Ticket> active = new ConcurrentHashMap<>();
+
+    public ParkingLot(List<ParkingFloor> floors, SpotAllocationStrategy allocator,
+                      PricingStrategy pricing, Clock clock) {
+        this.floors = List.copyOf(floors);
+        this.allocator = allocator; this.pricing = pricing; this.clock = clock;
+    }
+
+    /** Entry gate calls this. Safe to call from many gates at once. */
+    public Ticket park(Vehicle v) {
+        ParkingSpot spot = allocator.allocate(floors, v)
+            .orElseThrow(() -> new LotFullException("No spot for " + v.type()));
+        Ticket t = new Ticket(UUID.randomUUID().toString(), v, spot, clock.instant());
+        active.put(t.id(), t);
+        return t;
+    }
+
+    /** Exit gate calls this. */
+    public Receipt exit(String ticketId, PaymentMethod method) {
+        Ticket t = active.remove(ticketId);           // atomic: a ticket can't exit twice
+        if (t == null) throw new InvalidTicketException(ticketId);
+
+        BigDecimal fee = pricing.price(t, clock.instant());
+        PaymentResult r = method.pay(fee);            // the abstraction from Chapter {{n:ch-oop}}
+        if (!r.ok()) {
+            active.put(ticketId, t);                  // payment failed: car stays parked
+            throw new PaymentFailedException(r.message());
+        }
+        t.spot().release();                           // free the spot only after payment
+        return new Receipt(t.id(), fee, r.reference());
+    }
+
+    public Map<Integer, Long> freeSpots(SpotSize size) {     // for the display boards
+        Map<Integer, Long> out = new TreeMap<>();
+        for (int i = 0; i < floors.size(); i++) out.put(i, floors.get(i).freeCount(size));
+        return out;
+    }
+}
+
+// Wiring it up
+ParkingLot lot = new ParkingLot(
+    List.of(new ParkingFloor(0, Map.of(SpotSize.SMALL, 20, SpotSize.MEDIUM, 40, SpotSize.LARGE, 5)),
+            new ParkingFloor(1, Map.of(SpotSize.MEDIUM, 60))),
+    new BestFitNearestFirst(), new HourlyPricing(), Clock.systemDefaultZone());
+
+Ticket t = lot.park(new Vehicle("WB-34-AB-1308", VehicleType.CAR));
+Receipt r = lot.exit(t.id(), new UpiPayment());
+</script>
+
+  <h3>Step 6 · How the design answers follow-up questions</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Interviewer asks</th><th>Answer</th><th>Principle / pattern</th></tr>
+    <tr><td>"Two cars arrive at two gates for the last spot."</td><td><code>tryOccupy</code> is a compare-and-set; exactly one wins, the other's strategy moves to the next spot</td><td>Atomic check-then-act</td></tr>
+    <tr><td>"Add weekend pricing."</td><td>New <code>WeekendPricing implements PricingStrategy</code>; inject it. No existing class edited</td><td>Strategy, OCP</td></tr>
+    <tr><td>"EV cars should prefer charging spots."</td><td>Add <code>EV_CAR</code> type and an <code>EvFirstAllocation</code> strategy</td><td>Strategy, OCP</td></tr>
+    <tr><td>"Show live free counts on screens at each floor."</td><td>Spots publish <code>SpotFreed</code>/<code>SpotTaken</code> events; display boards subscribe</td><td>Observer</td></tr>
+    <tr><td>"How do you test fees for a 3-hour stay?"</td><td>Pass a fixed <code>Clock</code>; no sleeping or real time</td><td>DIP</td></tr>
+    <tr><td>"Many lots across a city?"</td><td>Each lot is a service instance; spot state moves to a DB with conditional updates</td><td>HLD: sharding by lot ID</td></tr>
+  </table></div>
+
+  <h3>Other classic LLD questions, and the key idea in each</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Problem</th><th>Core entities</th><th>Patterns / key idea</th></tr>
+    <tr><td>Elevator system</td><td>Elevator, Floor, Request, Controller</td><td>State (moving/idle/doors open), Strategy for scheduling (SCAN / nearest car)</td></tr>
+    <tr><td>Vending machine</td><td>Machine, Product, Inventory, Coin</td><td>State (idle → has money → dispensing), handle change</td></tr>
+    <tr><td>BookMyShow / ticket booking</td><td>Show, Screen, Seat, Booking, Payment</td><td>Seat locking with timeouts (concurrency), Strategy for pricing</td></tr>
+    <tr><td>Splitwise</td><td>User, Group, Expense, Split, Balance</td><td>Strategy for split types (equal/exact/percent), debt simplification</td></tr>
+    <tr><td>LRU cache</td><td>Cache, Node</td><td>HashMap + doubly linked list ({{ref:ch-cache}})</td></tr>
+    <tr><td>Rate limiter</td><td>Limiter, Bucket, Rule</td><td>Strategy per algorithm ({{ref:ch-rate}})</td></tr>
+    <tr><td>Logger framework</td><td>Logger, Appender, Level, Formatter</td><td>Chain of Responsibility for levels, Singleton/factory for loggers, Strategy for formatters</td></tr>
+    <tr><td>Snake and ladder / chess</td><td>Board, Player, Piece, Move, Game</td><td>Polymorphism per piece, Command for moves (undo)</td></tr>
+    <tr><td>Banking system</td><td>Account, Money, Ledger, Transfer</td><td>Ordered locking, idempotency, double-entry ledger ({{ref:ch-banking}})</td></tr>
+    <tr><td>IAM / access control</td><td>User, Group, Role, Binding, Resource</td><td>Composite hierarchy, deny-overrides policy engine, step-up auth ({{ref:ch-iam}})</td></tr>
+    <tr><td>Food delivery (Swiggy)</td><td>Restaurant, Menu, Order, Rider, Cart</td><td>State for order lifecycle, Observer for tracking, Strategy for rider assignment</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Nouns → classes, verbs → methods, "what changes?" → interfaces.</p>
+    <p>Every LLD answer should show: <strong>clear entities</strong>, <strong>composition</strong> over inheritance, <strong>Strategy/State</strong> where rules vary, <strong>atomic</strong> handling of shared resources, and an <strong>extension</strong> that needs no edits.</p></div>
+  {{done}}
+</section>

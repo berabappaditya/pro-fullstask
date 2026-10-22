@@ -1,0 +1,117 @@
+<section class="chapter" id="ch-lb" data-title="Load balancing">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Building blocks</div>
+    <h2>Load balancing</h2>
+    <p class="ch-oneline"><b>A load balancer sits in front of many servers and decides which one handles each request</b>, so no single server is overloaded and dead servers are skipped.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Four stalls now stand side by side, but everybody crowds stall 1 because it's nearest the station exit. Ramu hires his cousin Bablu to stand at the entrance and point: "You, stall 2. You, stall 3." Bablu also notices when stall 4's stove goes out and stops sending people there until it's fixed.</p>
+    <p>Bablu is the <strong>load balancer</strong>. Pointing people in turn is an <strong>algorithm</strong>. Checking the stoves is a <strong>health check</strong>.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 240" role="img" aria-label="Clients send requests to a load balancer which forwards them to healthy servers and skips an unhealthy one">
+      <rect x="20" y="50" width="90" height="34" rx="7" class="d-vio"/><text x="65" y="72" text-anchor="middle" class="d-s">user 1</text>
+      <rect x="20" y="103" width="90" height="34" rx="7" class="d-vio"/><text x="65" y="125" text-anchor="middle" class="d-s">user 2</text>
+      <rect x="20" y="156" width="90" height="34" rx="7" class="d-vio"/><text x="65" y="178" text-anchor="middle" class="d-s">user 3</text>
+      <path d="M110 67 L250 112 M110 120 L250 120 M110 173 L250 128" class="d-lacc d-flow"/>
+      <rect x="255" y="85" width="150" height="70" rx="12" class="d-amb"/><text x="330" y="114" text-anchor="middle" class="d-t">Load Balancer</text><text x="330" y="132" text-anchor="middle" class="d-xs">one public IP / DNS name</text>
+      <rect x="560" y="20" width="160" height="40" rx="8" class="d-good"/><text x="640" y="45" text-anchor="middle" class="d-t">Server 1 ✓ healthy</text>
+      <rect x="560" y="75" width="160" height="40" rx="8" class="d-good"/><text x="640" y="100" text-anchor="middle" class="d-t">Server 2 ✓ healthy</text>
+      <rect x="560" y="130" width="160" height="40" rx="8" class="d-good"/><text x="640" y="155" text-anchor="middle" class="d-t">Server 3 ✓ healthy</text>
+      <rect x="560" y="185" width="160" height="40" rx="8" class="d-bad"/><text x="640" y="210" text-anchor="middle" class="d-t">Server 4 ✗ failing</text>
+      <path d="M405 105 C480 90,500 40,560 40 M405 115 C480 110,500 95,560 95 M405 125 C480 130,500 150,560 150" class="d-line" marker-end="url(#ah)"/>
+      <path d="M405 140 C480 160,500 205,556 205" class="d-lbad d-dash"/><text x="490" y="200" text-anchor="middle" class="d-tb">no traffic</text>
+      <text x="760" y="125" class="d-xs" transform="rotate(90 760 125)" text-anchor="middle">health check every 5 s</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Clients only know the load balancer's address. It forwards each request to a healthy backend and removes failing ones automatically.</figcaption>
+  </figure>
+
+  <h3>What a load balancer gives you</h3>
+  <div class="cards">
+    <div class="card"><h5>Spreads load</h5><p>No server is idle while another melts.</p></div>
+    <div class="card"><h5>Hides failures</h5><p>Health checks pull dead servers out of rotation.</p></div>
+    <div class="card"><h5>Zero-downtime deploys</h5><p>Drain one server, update it, put it back, repeat.</p></div>
+    <div class="card"><h5>One front door</h5><p>TLS termination, a single domain, easy to add servers behind it.</p></div>
+  </div>
+
+  <h3>Layer 4 vs Layer 7</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Layer 4 (transport)</th><th>Layer 7 (application)</th></tr>
+    <tr><td>Looks at</td><td>IP address and port only</td><td>Full HTTP: URL path, headers, cookies</td></tr>
+    <tr><td>Can route by</td><td>Connection</td><td><code>/api/*</code> → API servers, <code>/images/*</code> → static servers</td></tr>
+    <tr><td>Speed</td><td>Faster, less CPU</td><td>Slower, but smarter</td></tr>
+    <tr><td>Extras</td><td>None</td><td>TLS termination, compression, auth, rewriting, A/B routing</td></tr>
+    <tr><td>Examples</td><td>AWS NLB, HAProxy (TCP mode)</td><td>AWS ALB, Nginx, HAProxy (HTTP mode), Envoy</td></tr>
+  </table></div>
+
+  <h3>Algorithms: how the LB picks a server</h3>
+  <div class="cards">
+    <div class="card"><span class="k">static</span><h5>Round robin</h5><p>1, 2, 3, 1, 2, 3… Simple and fair when servers and requests are alike.</p></div>
+    <div class="card"><span class="k">static</span><h5>Weighted round robin</h5><p>A server twice as big gets twice the turns. Good for mixed hardware.</p></div>
+    <div class="card"><span class="k">dynamic</span><h5>Least connections</h5><p>Send to whoever is busiest the least. Best when requests take very different times.</p></div>
+    <div class="card"><span class="k">dynamic</span><h5>Least response time</h5><p>Pick the server answering fastest right now.</p></div>
+    <div class="card"><span class="k">hash</span><h5>IP hash / consistent hash</h5><p><code>hash(clientIP) % N</code>: the same user always lands on the same server. Useful for caches and sticky behaviour.</p></div>
+    <div class="card"><span class="k">random</span><h5>Random / power of two choices</h5><p>Pick two servers at random, use the less loaded one. Surprisingly close to optimal.</p></div>
+  </div>
+
+  <div class="widget" id="w-lb">
+    <div class="widget-head"><span class="live">Live</span>Load balancer simulator</div>
+    <div class="widget-body">
+      <div class="controls">
+        <label for="lbAlgo" class="small">Algorithm</label>
+        <select class="btn" id="lbAlgo">
+          <option value="rr">Round robin</option>
+          <option value="wrr">Weighted round robin (S1 = 3×)</option>
+          <option value="lc">Least connections</option>
+          <option value="ip">IP hash</option>
+        </select>
+        <button class="btn primary" id="lbSend">Send 1 request</button>
+        <button class="btn" id="lbBurst">Send 12</button>
+        <button class="btn" id="lbKill">Kill server 3</button>
+        <button class="btn" id="lbReset">Reset</button>
+      </div>
+      <div class="servers" id="lbServers"></div>
+      <div class="statrow" id="lbStats"></div>
+      <div class="wlog" id="lbLog" aria-live="polite"></div>
+      <p class="small" style="margin-top:10px">Requests have random durations. Try "Least connections" with a burst and watch how it avoids the busy server. Kill server 3 and see the health check route around it.</p>
+    </div>
+  </div>
+
+  <h3>Real config: Nginx as a load balancer</h3>
+<script type="text/x-code" data-lang="sh" data-variant="plain" data-title="nginx.conf: an L7 load balancer in 15 lines">
+upstream chai_api {                       # the pool of backend servers
+    least_conn;                           # algorithm (default is round robin)
+    server 10.0.0.11:8080 weight=3;       # bigger box gets 3x the share
+    server 10.0.0.12:8080;
+    server 10.0.0.13:8080 max_fails=3 fail_timeout=30s;  # passive health check
+    server 10.0.0.14:8080 backup;         # used only if all others are down
+}
+server {
+    listen 443 ssl;                       # TLS terminates here
+    location /api/ {
+        proxy_pass http://chai_api;       # forward to the pool
+        proxy_set_header X-Real-IP $remote_addr;   # pass the client's IP on
+    }
+    location /static/ { root /var/www; }  # L7 routing by path
+}
+</script>
+
+  <h3>Sticky sessions, and who balances the balancer?</h3>
+  <p><strong>Sticky sessions</strong> pin a user to one server (via a cookie). It's a quick fix for stateful apps but it breaks even spreading, and the user loses their session when that server dies. Prefer stateless servers ({{ref:ch-scaling}}).</p>
+  <p>A single load balancer is itself a <strong>single point of failure</strong>. Production setups run two in an <em>active–passive</em> pair sharing a floating virtual IP (keepalived/VRRP), or use a managed LB (AWS ALB) that is already redundant across zones. Across regions, <strong>DNS / global server load balancing</strong> sends users to the nearest healthy region.</p>
+
+  <div class="box pitfall"><div class="box-tag">Common trap</div>
+    <p>Health checks that only check "is the process alive" (<code>/ping</code> returns 200) miss servers that are alive but broken, e.g. lost their DB connection. A good <code>/health</code> checks critical dependencies, but keep it cheap, or the health checks themselves become load.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Bablu at the gate: Spread, Skip the sick, Single front door.</p>
+    <p>L4 = fast, sees only addresses. L7 = smart, sees URLs and headers. Least-connections when requests vary in length, round robin when they don't, hashing when the same user must land on the same server.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How does a load balancer know a server is down?</summary><div class="ans"><p><strong>Active health checks</strong>: it calls <code>/health</code> every few seconds and removes the server after N failures, then re-adds it after M successes. <strong>Passive checks</strong>: it watches real traffic and marks a server bad after repeated errors or timeouts. Most setups use both.</p></div></details>
+    <details><summary>Where would you put load balancers in a three-tier system?</summary><div class="ans"><p>Between users and web servers, between web/API servers and internal services, and sometimes in front of database read replicas. Each tier then scales independently.</p></div></details>
+    <details><summary>Why is <code>hash(key) % N</code> a problem when N changes?</summary><div class="ans"><p>Changing N (adding or removing a server) remaps almost every key, so caches miss and sessions move all at once. Consistent hashing ({{ref:ch-sharding}}) fixes this by remapping only about 1/N of the keys.</p></div></details>
+  </div>
+  {{done}}
+</section>

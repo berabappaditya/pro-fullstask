@@ -1,0 +1,58 @@
+<section class="chapter" id="ch-storage-db" data-title="Storage and managed databases">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Running code</div>
+    <h2>Storage and managed databases</h2>
+    <p class="ch-oneline"><b>Object storage for files, block storage for a VM's disk, managed databases for structured data.</b> Let the cloud run backups, patching and failover.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>The <strong>cold store</strong> in the basement holds unlimited sacks, each with a label (object storage). Each stove has its own <strong>drawer</strong> (block storage). The <strong>accounts office</strong> with a trained accountant who keeps double-entry books and a photocopy in the next building (managed relational database with a standby).</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Type</th><th>AWS / GCP</th><th>Access</th><th>Use for</th></tr>
+    <tr><td>Object</td><td>S3 / Cloud Storage</td><td>HTTP API, whole objects by key</td><td>uploads, images, backups, logs, data lakes, static sites</td></tr>
+    <tr><td>Block</td><td>EBS / Persistent Disk</td><td>a disk attached to one VM (in one AZ)</td><td>OS, self-managed databases</td></tr>
+    <tr><td>File</td><td>EFS / Filestore</td><td>shared NFS across many VMs</td><td>legacy apps needing a shared folder</td></tr>
+    <tr><td>Relational</td><td>RDS, Aurora / Cloud SQL, AlloyDB</td><td>SQL</td><td>transactions, joins: most business data</td></tr>
+    <tr><td>Key-value / document</td><td>DynamoDB / Firestore</td><td>by key, single-digit ms at any scale</td><td>sessions, carts, high-scale simple access</td></tr>
+    <tr><td>In-memory</td><td>ElastiCache / Memorystore</td><td>Redis protocol</td><td>caching, rate limits, leaderboards</td></tr>
+  </table></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 200" role="img" aria-label="A browser uploads a file directly to S3 with a presigned URL obtained from the API, so the file never passes through the application servers">
+      <rect x="10" y="70" width="130" height="60" rx="12" class="d-vio"/><text x="75" y="104" text-anchor="middle" class="d-t">Browser</text>
+      <rect x="330" y="10" width="170" height="60" rx="12" class="d-box"/><text x="415" y="36" text-anchor="middle" class="d-t">Orders API</text><text x="415" y="54" text-anchor="middle" class="d-xs">signs a URL (5 min)</text>
+      <rect x="640" y="70" width="200" height="60" rx="12" class="d-amb"/><text x="740" y="96" text-anchor="middle" class="d-t">S3 bucket</text><text x="740" y="114" text-anchor="middle" class="d-xs">private, encrypted</text>
+      <path d="M140 90 C220 60,260 40,328 40" class="d-lacc" marker-end="url(#aa)"/><text x="230" y="52" class="d-xs">1. "I want to upload"</text>
+      <path d="M330 56 C260 80,200 100,142 104" class="d-lacc d-dash" marker-end="url(#aa)"/><text x="200" y="126" class="d-xs">2. presigned PUT URL</text>
+      <path d="M140 115 C300 170,500 170,638 112" class="d-lgood" marker-end="url(#ag)"/><text x="390" y="178" text-anchor="middle" class="d-xs">3. PUT file directly to S3: app servers never touch the bytes</text>
+    </svg></div></figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>S3 storage class</th><th>For</th><th>GCS equivalent</th></tr>
+    <tr><td>Standard</td><td>frequently read</td><td>Standard</td></tr>
+    <tr><td>Intelligent-Tiering</td><td>unknown patterns (auto-moves)</td><td>Autoclass</td></tr>
+    <tr><td>Standard-IA / One Zone-IA</td><td>read monthly</td><td>Nearline</td></tr>
+    <tr><td>Glacier Instant / Flexible / Deep Archive</td><td>archives, compliance (minutes to hours to retrieve)</td><td>Coldline / Archive</td></tr>
+  </table></div>
+  <p class="small">Lifecycle rules move objects between classes automatically (e.g. logs → IA after 30 days → Glacier after 180 → delete after 3 years).</p>
+
+  <h3>Managed relational databases: what you get</h3>
+  <div class="cards">
+    <div class="card"><span class="k">HA</span><h5>Multi-AZ standby</h5><p>Synchronous copy in another AZ with automatic failover (~1–2 min; Aurora faster). Not for reads.</p></div>
+    <div class="card"><span class="k">scale reads</span><h5>Read replicas</h5><p>Asynchronous copies for read traffic, reports, cross-region DR. Watch replication lag.</p></div>
+    <div class="card"><span class="k">recovery</span><h5>Automated backups + PITR</h5><p>Restore to any second within the retention window (e.g. 7–35 days). Test restores regularly.</p></div>
+    <div class="card"><span class="k">ops</span><h5>Patching, monitoring, storage autoscaling</h5><p>Maintenance windows, Performance Insights / Query Insights, encryption with KMS.</p></div>
+    <div class="card"><span class="k">connections</span><h5>RDS Proxy / pooling</h5><p>Shares DB connections among many app instances or Lambdas.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Cold store, drawer, accounts office.</p>
+    <p>S3 for files (presigned URLs, lifecycle rules, block public access). <span class="hl">Multi-AZ for availability, read replicas for scale</span>, PITR for mistakes. Pick DynamoDB when access is by key at huge scale.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Multi-AZ vs read replica?</summary><div class="ans"><p>Multi-AZ is a synchronous standby for automatic failover; it doesn't serve reads (except in some newer cluster deployments). A read replica is an asynchronous copy that serves reads and can be promoted manually; it may lag. Use both: Multi-AZ for availability, replicas for read scaling.</p></div></details>
+    <details><summary>How do you let users upload large files?</summary><div class="ans"><p>The API authorises the user and returns a short-lived presigned URL (or POST policy); the client uploads directly to S3/GCS, using multipart upload for large files. An S3 event triggers processing (virus scan, thumbnails) asynchronously. The bucket stays private and blocks public access.</p></div></details>
+  </div>
+  {{done}}
+</section>

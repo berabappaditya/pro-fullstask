@@ -1,0 +1,76 @@
+<section class="chapter" id="ch-repos" data-title="Spring Data repositories and queries">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Data</div>
+    <h2>Spring Data repositories: queries from method names</h2>
+    <p class="ch-oneline"><b>Declare an interface; Spring generates the implementation at startup.</b> Method names become queries; @Query covers the rest; Pageable keeps lists bounded.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>The storekeeper understands a <strong>fixed phrasebook</strong>: "find by name", "count by city", "find by price between … order by name". Say it in that form and he knows exactly which shelf to check. For anything unusual you hand him a <strong>written note</strong> (@Query).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 130" role="img" aria-label="Repository hierarchy: Repository, CrudRepository, ListCrudRepository, PagingAndSortingRepository, JpaRepository">
+      <rect x="10" y="40" width="130" height="50" rx="10" class="d-paper"/><text x="75" y="62" text-anchor="middle" class="d-t">Repository</text><text x="75" y="78" text-anchor="middle" class="d-xs">marker</text>
+      <path d="M140 65 H168" class="d-line" marker-end="url(#ah)"/>
+      <rect x="170" y="40" width="150" height="50" rx="10" class="d-box"/><text x="245" y="62" text-anchor="middle" class="d-t">CrudRepository</text><text x="245" y="78" text-anchor="middle" class="d-xs">save, findById, delete</text>
+      <path d="M320 65 H348" class="d-line" marker-end="url(#ah)"/>
+      <rect x="350" y="40" width="160" height="50" rx="10" class="d-box"/><text x="430" y="62" text-anchor="middle" class="d-t">ListCrudRepository</text><text x="430" y="78" text-anchor="middle" class="d-xs">returns List</text>
+      <path d="M510 65 H538" class="d-line" marker-end="url(#ah)"/>
+      <rect x="540" y="40" width="150" height="50" rx="10" class="d-box"/><text x="615" y="62" text-anchor="middle" class="d-t">PagingAndSorting</text><text x="615" y="78" text-anchor="middle" class="d-xs">Pageable, Sort</text>
+      <path d="M690 65 H718" class="d-line" marker-end="url(#ah)"/>
+      <rect x="720" y="40" width="130" height="50" rx="10" class="d-good"/><text x="785" y="62" text-anchor="middle" class="d-t">JpaRepository</text><text x="785" y="78" text-anchor="middle" class="d-xs">flush, batch, refs</text>
+      <text x="430" y="118" text-anchor="middle" class="d-s">Extend JpaRepository&lt;Entity, Id&gt; and you get all of them.</text>
+    </svg></div></figure>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Derived queries, @Query, projections and pagination">
+public interface OrderRepository extends JpaRepository<Order, Long> {
+    List<Order> findByStatus(Status status);                               // WHERE status = ?
+    List<Order> findByCustomerEmailIgnoreCase(String email);               // traverses customer.email (join)
+    List<Order> findByCreatedAtBetweenOrderByCreatedAtDesc(Instant a, Instant b);
+    Optional<Order> findFirstByCustomerIdOrderByCreatedAtDesc(Long customerId);   // latest one
+    long countByStatus(Status status);
+    boolean existsByIdAndCustomerId(Long id, Long customerId);             // ownership check
+    Page<Order> findByStatus(Status status, Pageable pageable);            // + count query for totals
+    Slice<Order> findByCustomerId(Long id, Pageable p);                    // no count query: cheaper "load more"
+
+    @Query("select o from Order o where o.total > :min and o.status = 'PAID'")    // JPQL: entities & fields
+    List<Order> bigPaidOrders(@Param("min") BigDecimal min);
+
+    @Query(value = "select * from orders where created_at > now() - interval '1 day'", nativeQuery = true)
+    List<Order> lastDay();                                                 // native SQL: tables & columns
+
+    @Modifying(clearAutomatically = true)                                  // UPDATE/DELETE need @Modifying
+    @Transactional
+    @Query("update Order o set o.status = 'CANCELLED' where o.status = 'PENDING' and o.createdAt < :cutoff")
+    int cancelStale(@Param("cutoff") Instant cutoff);                      // returns rows affected
+
+    interface OrderSummary { Long getId(); String getCustomerName(); BigDecimal getTotal(); }
+    List<OrderSummary> findTop10ByOrderByTotalDesc();                      // interface projection: selects only these columns
+}
+
+Pageable page = PageRequest.of(0, 20, Sort.by("createdAt").descending());
+Page<Order> p = repo.findByStatus(Status.PAID, page);
+p.getContent(); p.getTotalElements(); p.getTotalPages(); p.hasNext();
+</script>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Keyword</th><th>SQL</th></tr>
+    <tr><td><code>And</code> / <code>Or</code></td><td><code>WHERE a AND/OR b</code></td></tr>
+    <tr><td><code>GreaterThan</code>, <code>LessThanEqual</code>, <code>Between</code></td><td><code>&gt;</code>, <code>&lt;=</code>, <code>BETWEEN</code></td></tr>
+    <tr><td><code>Like</code>, <code>Containing</code>, <code>StartingWith</code></td><td><code>LIKE</code> with wildcards</td></tr>
+    <tr><td><code>In</code>, <code>NotIn</code>, <code>IsNull</code>, <code>True</code></td><td><code>IN (…)</code>, <code>IS NULL</code>, <code>= true</code></td></tr>
+    <tr><td><code>OrderBy…Desc</code>, <code>First</code>/<code>Top10</code>, <code>Distinct</code></td><td><code>ORDER BY</code>, <code>LIMIT</code>, <code>DISTINCT</code></td></tr>
+  </table></div>
+
+  <div class="box tip"><div class="box-tag">Deep pages</div><p><code>OFFSET 100000</code> makes the database read and discard 100,000 rows. For infinite scroll or exports use keyset (cursor) pagination: <code>WHERE id &lt; :lastSeenId ORDER BY id DESC LIMIT 20</code> (Spring Data supports it with <code>ScrollPosition</code> / <code>Window</code>).</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Speak the phrasebook; hand over a note when you can't.</p>
+    <p>Derived methods for simple queries, <span class="hl">@Query when the name gets long</span>, @Modifying for updates, projections for read APIs, Pageable on every list.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>save() vs saveAndFlush()? findById vs getReferenceById?</summary><div class="ans"><p>save() persists or merges and the SQL runs at flush/commit; saveAndFlush() forces the SQL immediately (useful to catch constraint violations now). findById queries and returns an Optional; getReferenceById returns a lazy proxy without a query (great for setting a foreign key: <code>order.setCustomer(repo.getReferenceById(id))</code>), throwing EntityNotFoundException only if accessed and missing.</p></div></details>
+    <details><summary>Page vs Slice?</summary><div class="ans"><p>Page runs an extra COUNT query to know total elements/pages. Slice only fetches size+1 rows to know whether there's a next page: cheaper for "load more" UIs.</p></div></details>
+  </div>
+  {{done}}
+</section>

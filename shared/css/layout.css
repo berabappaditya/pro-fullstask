@@ -1,0 +1,53 @@
+/* ---------- top bar ---------- */
+.topbar{position:sticky; top:env(safe-area-inset-top,0px); z-index:50; height:var(--topbar); display:flex; align-items:center; gap:12px;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+  background:color-mix(in srgb,var(--paper) 88%,transparent); backdrop-filter:blur(10px); border-bottom:1px solid var(--line)}
+.brand{font:800 18px/1 var(--f-display); letter-spacing:-.01em; color:var(--ink); text-decoration:none; display:flex; align-items:center; gap:10px; white-space:nowrap}
+.brand-mark{width:30px; height:30px; flex:none; border-radius:9px; background:var(--accent); color:var(--on-accent); display:grid; place-items:center}
+.brand-mark svg{width:18px; height:18px}
+.home-link{text-decoration:none}
+@media (max-width:620px){ .home-txt{display:none} }
+.topbar .spacer{flex:1}
+.progress{position:absolute; left:0; right:0; bottom:-1px; height:3px; background:transparent}
+.progress span{display:block; height:100%; width:0; background:var(--accent); transition:width .15s}
+.tb-btn{font:600 13px var(--f-body); color:var(--ink); background:var(--card); border:1px solid var(--line); border-radius:8px; padding:7px 11px; cursor:pointer; display:inline-flex; align-items:center; gap:6px}
+.tb-btn:hover{border-color:var(--accent)}
+.tb-stat{font:500 13px var(--f-body); color:var(--ink-2); white-space:nowrap}
+.menu-btn{display:none}
+@media (max-width:1020px){ .menu-btn{display:inline-flex} .tb-stat{display:none} }
+@media (max-width:420px){ .brand-text small{display:none} }
+.brand-text small{font:500 12px var(--f-body); color:var(--ink-3); margin-left:6px}
+
+/* ---------- shell ---------- */
+.shell{display:grid; grid-template-columns:var(--rail) minmax(0,1fr)}
+.rail{position:sticky; top:calc(var(--topbar) + env(safe-area-inset-top,0px)); height:calc(100vh - var(--topbar) - env(safe-area-inset-top,0px)); overflow:auto;
+  border-right:1px solid var(--line); background:var(--paper-2); padding:18px 14px 40px max(14px,env(safe-area-inset-left,0px))}
+.rail-search{width:100%; font:500 14px var(--f-body); color:var(--ink); background:var(--card); border:1px solid var(--line); border-radius:8px; padding:9px 11px; margin-bottom:12px}
+.rail-meter{font:500 12px var(--f-body); color:var(--ink-2); margin:0 2px 14px; display:flex; flex-direction:column; gap:6px}
+.rail-meter .bar{height:6px; border-radius:99px; background:var(--line); overflow:hidden}
+.rail-meter .bar i{display:block; height:100%; width:0; background:var(--good); transition:width .3s}
+.toc{display:flex; flex-direction:column; gap:2px}
+.toc ol{list-style:none; margin:0 0 10px; padding:0}
+.toc a{display:flex; gap:8px; align-items:baseline; text-decoration:none; color:var(--ink-2); font-size:13.5px; line-height:1.35; padding:6px 8px; border-radius:7px}
+.toc a:hover{background:var(--card); color:var(--ink)}
+.toc a.active{background:var(--accent-soft); color:var(--accent-ink); font-weight:600}
+.toc-part,.toc-front{font:700 11px var(--f-body)!important; letter-spacing:.09em; text-transform:uppercase; color:var(--ink)!important; margin-top:10px}
+.toc-num{font:600 11px var(--f-mono); color:var(--ink-3); min-width:20px}
+.toc-t{flex:1}
+.toc-tick{width:14px; height:14px; border-radius:50%; border:1.5px solid var(--line); flex:none; align-self:center}
+.toc a.done .toc-tick{background:var(--good); border-color:var(--good)}
+.toc a.hide{display:none}
+@media (max-width:1020px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .rail{position:fixed; z-index:70; left:0; top:0; bottom:0; height:auto; width:min(320px,86vw); transform:translateX(-102%); transition:transform .22s; box-shadow:var(--shadow);
+    padding-top:calc(18px + env(safe-area-inset-top,0px))}
+  .rail.open{transform:none}
+  .scrim{position:fixed; inset:0; background:rgba(5,10,20,.45); z-index:65}
+}
+.page{min-width:0; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); padding-block:0 120px}
+.col{max-width:800px; margin:0 auto}
+/* small phones: keep the top bar on one line */
+.brand{min-width:0}
+.brand-text{min-width:0; overflow:hidden; text-overflow:ellipsis}
+@media (max-width:620px){ .brand-text small{display:none} #themeLbl{display:none} .topbar{gap:8px} }
+@media (max-width:400px){ .menu-btn{font-size:0; gap:0} .brand{font-size:16px} }

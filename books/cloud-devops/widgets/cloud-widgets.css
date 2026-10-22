@@ -1,0 +1,49 @@
+/* Styles for the Cloud & DevOps simulators. */
+
+/* Autoscaling */
+.as-slider{display:flex; align-items:center; gap:8px; font:600 13px var(--f-body); flex:1 1 260px}
+.as-slider input{flex:1; accent-color:var(--accent)}
+.as-slider b{font-family:var(--f-mono); min-width:3.2em; text-align:right}
+.as-grid{display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:6px}
+@media (max-width:520px){ .as-grid{grid-template-columns:repeat(4,minmax(0,1fr))} }
+.as-vm{position:relative; height:58px; border-radius:8px; border:1.5px solid var(--accent); background:var(--paper); overflow:hidden; display:grid; place-items:center; font:600 11px var(--f-mono); color:var(--ink-2)}
+.as-vm i{position:absolute; left:0; right:0; bottom:0; background:var(--accent-soft); transition:height .5s}
+.as-vm span{position:relative}
+.as-vm.warm{border-style:dashed; border-color:var(--amber); background:var(--amber-soft); animation:pop .3s}
+.as-vm.off{border:1.5px dashed var(--line); opacity:.5}
+.as-chart{width:100%; height:64px; margin-top:10px; background:var(--paper); border:1px solid var(--line); border-radius:8px}
+.as-target{stroke:var(--good); stroke-dasharray:4 4; stroke-width:1.5}
+.as-line{fill:none; stroke:var(--accent); stroke-width:2; vector-effect:non-scaling-stroke}
+
+/* CIDR */
+.cidr-in{font-family:var(--f-mono); width:170px}
+.cidr-bits{font:600 14px var(--f-mono); letter-spacing:.04em; overflow-wrap:anywhere; line-height:1.9}
+.cidr-bits span{padding:2px 1px; border-radius:3px}
+.cidr-bits .net,.cidr-legend .net{background:var(--accent-soft); color:var(--accent-ink)}
+.cidr-bits .host,.cidr-legend .host{background:var(--amber-soft)}
+.cidr-bits em{font-style:normal; color:var(--ink-3); margin:0 3px}
+.cidr-legend{display:flex; gap:8px; flex-wrap:wrap; font-size:12px; margin:6px 0 12px}
+.cidr-legend span{padding:2px 8px; border-radius:99px}
+.cidr-facts{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px}
+.cidr-facts div{border:1.5px solid var(--line); border-radius:10px; padding:8px 10px; background:var(--paper); display:flex; flex-direction:column; min-width:0}
+.cidr-facts small{font:600 11px var(--f-body); text-transform:uppercase; letter-spacing:.06em; color:var(--ink-3)}
+.cidr-facts b{font:700 14px var(--f-mono); overflow-wrap:anywhere}
+.cidr-sub{margin-top:12px; font-size:14px}
+.cidr-sub ul{margin:6px 0 0; padding-left:20px}
+.cidr-sub li{margin:2px 0; font-size:13.5px}
+.cidr-err,.cidr-note{font-size:13.5px; color:var(--bad); margin-top:8px}
+.cidr-note{color:var(--ink-2)}
+
+/* Deployment strategies */
+.dep-row{display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:8px}
+.dep-row small{width:48px; font:700 11px var(--f-body); text-transform:uppercase; letter-spacing:.06em; color:var(--ink-3)}
+.dep-row em{font-size:13px; color:var(--ink-3); font-style:normal}
+.dep-pod{width:44px; height:34px; border-radius:7px; display:grid; place-items:center; font:700 12px var(--f-mono); border:1.5px solid var(--line); transition:all .3s}
+.dep-pod.v1{background:var(--violet-soft); border-color:var(--violet)}
+.dep-pod.v2{background:var(--good-soft); border-color:var(--good); animation:pop .3s}
+.dep-pod.bad{background:var(--bad-soft); border-color:var(--bad); color:var(--bad)}
+.dep-pod.off{border-style:dashed; opacity:.4}
+.dep-traffic{display:flex; height:30px; border-radius:8px; overflow:hidden; border:1px solid var(--line); margin-top:4px; font:700 12px var(--f-mono)}
+.dep-traffic span{display:flex; align-items:center; justify-content:center; white-space:nowrap; overflow:hidden; transition:flex .5s; min-width:0}
+.dep-traffic .v1{background:var(--violet-soft)}
+.dep-traffic .v2{background:var(--good-soft)}

@@ -1,0 +1,39 @@
+{
+  "id": "ai-engineering",
+  "file": "ai-engineering.html",
+  "title": "AI Engineering: LLMs, RAG & MCP",
+  "short": "AI Engineering",
+  "icon": "ai",
+  "tagline": "How LLMs work, RAG from basic to advanced, agents, tool calling and MCP.",
+  "description": "A visual study book for AI engineering: how large language models work, tokens and sampling, prompt engineering, embeddings and vector databases, retrieval-augmented generation from basic to advanced, evaluation, tool calling and agents, the Model Context Protocol, Spring AI, and running AI systems in production.",
+  "story": "Ramu hires an AI assistant",
+  "searchHint": "Find a topic (e.g. embeddings, RAG, MCP)",
+  "topics": [
+    "Tokens & attention",
+    "Prompting",
+    "Embeddings",
+    "Vector databases",
+    "RAG",
+    "Chunking",
+    "Reranking",
+    "Evaluation",
+    "Tool calling",
+    "Agents",
+    "MCP",
+    "Spring AI"
+  ],
+  "theme": {
+    "light": {
+      "accent": "#6D28D9",
+      "accentInk": "#5B21B6",
+      "accentSoft": "#EEE8FB",
+      "hero": "#6D28D9"
+    },
+    "dark": {
+      "accent": "#B9A0FF",
+      "accentInk": "#D4C6FF",
+      "accentSoft": "#251A45",
+      "hero": "#4C1D95"
+    }
+  }
+}

@@ -1,0 +1,182 @@
+<section class="chapter" id="ch-oop" data-title="The four pillars of OOP">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>LLD · Foundations</div>
+    <h2>The four pillars of object-oriented programming</h2>
+    <p class="ch-oneline"><b>OOP organises code around objects that bundle data with the behaviour that acts on it.</b> Four ideas make that work: encapsulation, abstraction, inheritance and polymorphism.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu orders automatic chai machines for every branch. A staff member presses <strong>"Make Masala Chai"</strong>; they never touch the boiler or the valve timings. The machine protects its insides (<strong>encapsulation</strong>) and offers simple buttons that hide the steps (<strong>abstraction</strong>). The new "Masala" model is built from the basic model plus a spice dispenser (<strong>inheritance</strong>). And every model has the same big "Brew" button, but each one brews its own way (<strong>polymorphism</strong>).</p></div>
+
+  <h3>Class vs object</h3>
+  <div class="cards">
+    <div class="card"><h5>Class = the blueprint</h5><p>The cookie cutter. Describes what data (fields) and behaviour (methods) every object of this kind has. <code>class ChaiMachine</code>.</p></div>
+    <div class="card"><h5>Object = a real thing made from it</h5><p>The actual cookies. Each has its own values. <code>new ChaiMachine("Kolkata-01")</code>.</p></div>
+  </div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 200" role="img" aria-label="The four pillars of OOP drawn as four columns holding up a roof labelled clean, changeable code">
+      <path d="M40 60 L410 15 L780 60 Z" class="d-acc"/><text x="410" y="50" text-anchor="middle" class="d-tl">Clean, changeable code</text>
+      <rect x="60" y="70" width="140" height="100" rx="6" class="d-box"/><text x="130" y="105" text-anchor="middle" class="d-t">Encapsulation</text><text x="130" y="125" text-anchor="middle" class="d-xs">hide the data,</text><text x="130" y="139" text-anchor="middle" class="d-xs">guard it with methods</text>
+      <rect x="240" y="70" width="140" height="100" rx="6" class="d-box"/><text x="310" y="105" text-anchor="middle" class="d-t">Abstraction</text><text x="310" y="125" text-anchor="middle" class="d-xs">show what it does,</text><text x="310" y="139" text-anchor="middle" class="d-xs">hide how</text>
+      <rect x="440" y="70" width="140" height="100" rx="6" class="d-box"/><text x="510" y="105" text-anchor="middle" class="d-t">Inheritance</text><text x="510" y="125" text-anchor="middle" class="d-xs">reuse a parent's</text><text x="510" y="139" text-anchor="middle" class="d-xs">fields and methods</text>
+      <rect x="620" y="70" width="140" height="100" rx="6" class="d-box"/><text x="690" y="105" text-anchor="middle" class="d-t">Polymorphism</text><text x="690" y="125" text-anchor="middle" class="d-xs">one interface,</text><text x="690" y="139" text-anchor="middle" class="d-xs">many behaviours</text>
+      <rect x="30" y="170" width="760" height="16" rx="3" class="d-ink2"/>
+    </svg></div>
+  </figure>
+
+  <h3>1. Encapsulation: protect your insides</h3>
+  <div class="box def"><div class="box-tag">Definition</div><p>Bundle data and the methods that operate on it in one unit, and restrict direct access to the data (private fields), exposing only controlled operations that keep it valid.</p></div>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: anyone can set any value">
+public class Wallet {
+    public double balance;          // public field: no protection
+}
+
+// Somewhere far away in the codebase...
+wallet.balance = -5000;             // negative balance, nobody stopped it
+wallet.balance = wallet.balance - 15.1 - 0.0001; // double for money: rounding bugs
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: private state, guarded behaviour">
+public class Wallet {
+    private BigDecimal balance = BigDecimal.ZERO;  // hidden; BigDecimal for money
+
+    public BigDecimal getBalance() { return balance; }   // read-only view
+
+    public void deposit(BigDecimal amount) {
+        requirePositive(amount);
+        balance = balance.add(amount);
+    }
+
+    public void withdraw(BigDecimal amount) {
+        requirePositive(amount);
+        if (balance.compareTo(amount) < 0)               // the rule lives HERE,
+            throw new InsufficientFundsException();      // in one place only
+        balance = balance.subtract(amount);
+    }
+
+    private static void requirePositive(BigDecimal a) {
+        if (a.signum() <= 0) throw new IllegalArgumentException("amount must be > 0");
+    }
+}
+// No setter for balance: the only way to change it is through valid operations.
+</script>
+</div>
+
+  <h3>2. Abstraction: show what, hide how</h3>
+  <div class="box def"><div class="box-tag">Definition</div><p>Expose only the essential features of something through a simple interface, hiding implementation details. In Java: interfaces and abstract classes.</p></div>
+  <div class="box layman"><div class="box-tag">In plain words</div><p>You drive a car with a steering wheel and two pedals. You don't need to know about fuel injection. If the company swaps a petrol engine for an electric one, you still drive the same way. Encapsulation is about <em>protecting</em> the engine; abstraction is about <em>simplifying</em> how you use it.</p></div>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="An abstraction: callers know &quot;pay&quot;, not &quot;how&quot;">
+public interface PaymentMethod {
+    PaymentResult pay(BigDecimal amount);   // WHAT it does
+}
+
+public class UpiPayment implements PaymentMethod {
+    @Override
+    public PaymentResult pay(BigDecimal amount) {
+        // HOW: build a collect request, call the NPCI gateway, poll status...
+        return PaymentResult.success("UPI-" + UUID.randomUUID());
+    }
+}
+
+public class CashPayment implements PaymentMethod {
+    @Override
+    public PaymentResult pay(BigDecimal amount) {
+        // HOW: open the drawer, record in the cash book
+        return PaymentResult.success("CASH");
+    }
+}
+
+// The checkout code depends only on the abstraction:
+public void checkout(Order order, PaymentMethod method) {
+    PaymentResult r = method.pay(order.total());   // works for any payment type
+}
+</script>
+
+  <h3>3. Inheritance: an "is-a" relationship</h3>
+  <div class="box def"><div class="box-tag">Definition</div><p>A class (child/subclass) acquires the fields and methods of another (parent/superclass) using <code>extends</code>, and can add or override behaviour. Use it only for a true "is-a" relationship.</p></div>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Inheritance: MasalaChai is-a Chai">
+public abstract class Chai {
+    protected final String name;
+    protected Chai(String name) { this.name = name; }
+
+    // Template shared by all chai: the order of steps never changes
+    public final void prepare() {
+        boilWater();
+        addTeaLeaves();
+        addExtras();            // the one step children customise
+        addMilkAndSugar();
+    }
+    private void boilWater()       { System.out.println("Boiling water"); }
+    private void addTeaLeaves()    { System.out.println("Adding Assam leaves"); }
+    protected void addMilkAndSugar() { System.out.println("Milk + sugar"); }
+    protected abstract void addExtras();   // MUST be supplied by each child
+}
+
+public class MasalaChai extends Chai {
+    public MasalaChai() { super("Masala"); }        // call the parent constructor
+    @Override protected void addExtras() { System.out.println("Ginger, cardamom, clove"); }
+}
+
+public class LemonTea extends Chai {
+    public LemonTea() { super("Lemon"); }
+    @Override protected void addExtras() { System.out.println("Lemon juice"); }
+    @Override protected void addMilkAndSugar() { System.out.println("Honey, no milk"); }
+}
+</script>
+  <div class="box pitfall"><div class="box-tag">Common trap</div><p>Using inheritance just to reuse code ("<code>Stack extends ArrayList</code>" so I get <code>add()</code> for free). Now a Stack exposes <code>add(index, x)</code>, which breaks stack rules. Deep hierarchies also become fragile: a change in a parent ripples to every child. Prefer <strong>composition</strong> ("has-a") unless it's truly "is-a" ({{ref:ch-beyond}}).</p></div>
+
+  <h3>4. Polymorphism: one call, many behaviours</h3>
+  <div class="cards">
+    <div class="card"><span class="k">compile-time</span><h5>Overloading</h5><p>Same method name, different parameters, in one class. The compiler picks: <code>price(Chai c)</code>, <code>price(Chai c, Size s)</code>.</p></div>
+    <div class="card"><span class="k">runtime</span><h5>Overriding</h5><p>A child redefines a parent's method. The JVM picks the version based on the <em>actual object</em> at runtime (dynamic dispatch).</p></div>
+  </div>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: type checks everywhere">
+public double area(Object shape) {
+    if (shape instanceof Circle c)      return Math.PI * c.r * c.r;
+    else if (shape instanceof Square s) return s.side * s.side;
+    else if (shape instanceof Triangle t) return 0.5 * t.b * t.h;
+    // every new shape = edit this method (and every other method like it)
+    throw new IllegalArgumentException();
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: each type knows its own behaviour">
+public interface Shape { double area(); }
+
+public record Circle(double r)            implements Shape {
+    public double area() { return Math.PI * r * r; }
+}
+public record Square(double side)         implements Shape {
+    public double area() { return side * side; }
+}
+public record Triangle(double b, double h) implements Shape {
+    public double area() { return 0.5 * b * h; }
+}
+
+double total = shapes.stream().mapToDouble(Shape::area).sum();
+// The right area() runs for each object. A new shape = a new class, no edits here.
+</script>
+</div>
+
+  <h3>Abstract class vs interface</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Abstract class</th><th>Interface</th></tr>
+    <tr><td>Meaning</td><td>"Is a kind of" with shared base code</td><td>"Can do" a capability / contract</td></tr>
+    <tr><td>State (fields)</td><td>Yes, instance fields</td><td>Only constants (<code>static final</code>)</td></tr>
+    <tr><td>Constructors</td><td>Yes</td><td>No</td></tr>
+    <tr><td>Method bodies</td><td>Yes, any</td><td><code>default</code> and <code>static</code> methods (Java 8+), <code>private</code> (Java 9+)</td></tr>
+    <tr><td>How many?</td><td>A class extends only one</td><td>A class implements many</td></tr>
+    <tr><td>Example</td><td><code>abstract class Chai</code></td><td><code>interface Payable</code>, <code>Comparable</code>, <code>Runnable</code></td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">"A PIE": Abstraction, Polymorphism, Inheritance, Encapsulation.</p>
+    <p><strong>Encapsulation</strong> protects (private fields + validating methods). <strong>Abstraction</strong> simplifies (interfaces). <strong>Inheritance</strong> reuses for "is-a" only. <strong>Polymorphism</strong> replaces <code>if (type == …)</code> chains with overridden methods.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What's the difference between encapsulation and abstraction?</summary><div class="ans"><p>Encapsulation is about <em>hiding data</em> and protecting an object's internal state (implementation level: private fields, getters, validation). Abstraction is about <em>hiding complexity</em> and exposing only what's needed to use something (design level: interfaces, abstract methods). Encapsulation is how you achieve the information hiding that abstraction promises.</p></div></details>
+    <details><summary>Can you override a static or private method?</summary><div class="ans"><p>No. Private methods aren't visible to subclasses, so a same-named method in a child is a new method. Static methods belong to the class; a same-signature static method in a child <em>hides</em> the parent's (method hiding), and which one runs depends on the reference type at compile time, not the object.</p></div></details>
+  </div>
+  {{done}}
+</section>

@@ -1,0 +1,113 @@
+/* Landing page. Builds on shared tokens/base/layout/components; each book card brings its own colour via --c / --c-d. */
+.landing{padding-block:0 60px}
+.l-wrap{max-width:1180px; margin:0 auto; padding-left:max(20px,env(safe-area-inset-left,0px)); padding-right:max(20px,env(safe-area-inset-right,0px))}
+.hide-sm{} @media (max-width:560px){ .hide-sm{display:none} }
+.topbar .tb-btn{text-decoration:none}
+
+/* per-item colour, switching with the theme */
+.book-card,.spine,.roadmap li,.ss,.l-res-item,.cont-card{--k:var(--c); --ks:var(--c-soft, color-mix(in srgb, var(--c) 12%, var(--card))); --on-k:#FFFFFF}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) :is(.book-card,.spine,.roadmap li,.ss,.l-res-item,.cont-card){--k:var(--c-d); --ks:var(--c-soft-d, color-mix(in srgb, var(--c-d) 16%, var(--card))); --on-k:#0A1322} }
+:root[data-theme="dark"] :is(.book-card,.spine,.roadmap li,.ss,.l-res-item,.cont-card){--k:var(--c-d); --ks:var(--c-soft-d, color-mix(in srgb, var(--c-d) 16%, var(--card))); --on-k:#0A1322}
+
+/* ---------- hero ---------- */
+.l-hero{padding-block:56px 30px; overflow:hidden}
+.l-hero-grid{display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr); gap:48px; align-items:end}
+@media (max-width:900px){ .l-hero-grid{grid-template-columns:1fr; gap:30px} }
+.l-hero h1{font-size:clamp(42px,6vw,84px); font-weight:800; letter-spacing:-.04em; line-height:.95; margin:14px 0 20px}
+.hl-word{background:linear-gradient(transparent 58%,var(--hl) 58%); padding:0 .08em}
+.l-hero .lead{max-width:600px}
+.l-search{position:relative; margin-top:26px; max-width:620px}
+.l-search svg{position:absolute; left:16px; top:50%; width:20px; height:20px; transform:translateY(-50%); color:var(--ink-3)}
+.l-search input{width:100%; font:500 16px var(--f-body); color:var(--ink); background:var(--card); border:1.5px solid var(--line); border-radius:14px; padding:15px 16px 15px 46px; box-shadow:var(--shadow)}
+.l-search input:focus{outline:none; border-color:var(--accent)}
+.l-results{max-width:620px; margin-top:8px; background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:6px; max-height:420px; overflow:auto}
+.l-res-item{display:flex; gap:12px; align-items:flex-start; padding:10px 12px; border-radius:10px; text-decoration:none; color:var(--ink)}
+.l-res-item:hover,.l-res-item:focus-visible{background:var(--ks)}
+.l-res-item .rb{font:700 10.5px var(--f-body); letter-spacing:.06em; text-transform:uppercase; color:var(--on-k); background:var(--k); border-radius:6px; padding:3px 7px; white-space:nowrap; margin-top:2px}
+.l-res-item b{display:block; font-weight:650}
+.l-res-item small{display:block; color:var(--ink-2); font-size:13px; line-height:1.45}
+.l-res-empty{padding:12px; color:var(--ink-2); font-size:14px}
+.l-stats{display:flex; flex-wrap:wrap; gap:14px 30px; margin-top:28px}
+.l-stats b{display:block; font:800 30px/1 var(--f-display); letter-spacing:-.02em}
+.l-stats span{font-size:13px; color:var(--ink-2)}
+
+/* ---------- the bookshelf ---------- */
+.l-shelf{position:relative}
+.shelf-books{display:flex; align-items:flex-end; justify-content:center; gap:10px; height:360px; padding:0 10px}
+.spine{position:relative; flex:0 1 74px; height:var(--h); min-width:52px; border-radius:7px 7px 3px 3px; text-decoration:none; color:var(--on-k);
+  background:linear-gradient(90deg, color-mix(in srgb,var(--k) 78%,#000) 0 6px, var(--k) 6px calc(100% - 8px), color-mix(in srgb,var(--k) 82%,#000) calc(100% - 8px));
+  box-shadow:0 10px 24px -12px color-mix(in srgb,var(--k) 70%,transparent), inset 0 0 0 1px rgba(255,255,255,.12);
+  display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:14px 0 16px;
+  transform-origin:bottom center; animation:sway 6s ease-in-out infinite; animation-delay:calc(var(--d,0) * 1s); transition:translate .25s}
+.spine:nth-child(2){--d:.6} .spine:nth-child(3){--d:1.2} .spine:nth-child(4){--d:1.8} .spine:nth-child(5){--d:2.4}
+.spine::before,.spine::after{content:""; position:absolute; left:8px; right:10px; height:2px; background:rgba(255,255,255,.35)}
+.spine::before{top:44px} .spine::after{bottom:52px}
+.spine:hover,.spine:focus-visible{translate:0 -16px}
+.sp-no{font:700 12px var(--f-mono); opacity:.85}
+.sp-t{writing-mode:vertical-rl; transform:rotate(180deg); font:800 clamp(18px,2.1vw,24px)/1 var(--f-display); letter-spacing:-.01em; white-space:nowrap}
+.sp-icon{width:24px; height:24px; display:block} .sp-icon svg{width:100%; height:100%}
+@keyframes sway{0%,100%{rotate:0deg} 50%{rotate:-.8deg}}
+.shelf-board{height:16px; border-radius:4px; background:linear-gradient(var(--ink-2),var(--ink)); box-shadow:0 14px 26px -14px rgba(0,0,0,.5); margin-top:-1px}
+.shelf-note{font-size:13px; color:var(--ink-3); text-align:center; margin-top:12px}
+@media (max-width:560px){ .shelf-books{height:270px; gap:6px} .spine{min-width:44px} }
+
+/* ---------- continue reading ---------- */
+.l-continue{margin-top:10px}
+.cont-card{display:flex; gap:16px; align-items:center; flex-wrap:wrap; text-decoration:none; color:var(--ink); background:var(--card); border:1px solid var(--line); border-left:5px solid var(--k); border-radius:14px; padding:14px 18px; box-shadow:var(--shadow)}
+.cont-card .cc-label{font:700 11.5px var(--f-body); letter-spacing:.09em; text-transform:uppercase; color:var(--k)}
+.cont-card b{font:700 18px var(--f-display)}
+.cont-card span.cc-go{margin-left:auto; font-weight:650; color:var(--k)}
+
+/* ---------- sections ---------- */
+.l-section{padding-top:84px}
+.l-head{max-width:720px; margin-bottom:28px}
+.l-head h2{font-size:clamp(32px,4.4vw,48px); font-weight:800; margin:8px 0 10px}
+
+/* ---------- book cards ---------- */
+.book-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:20px}
+.book-card{--rx:0deg; --ry:0deg; --mx:50%; --my:0%; position:relative; display:flex; flex-direction:column; gap:12px; text-decoration:none; color:var(--ink);
+  background:var(--card); border:1px solid var(--line); border-radius:20px; padding:22px 22px 18px; overflow:hidden; isolation:isolate;
+  transform:perspective(900px) rotateX(var(--rx)) rotateY(var(--ry)); transition:transform .18s ease-out, box-shadow .25s, border-color .25s;
+  animation:rise .7s cubic-bezier(.2,.7,.2,1) both; animation-delay:calc(var(--i) * 90ms); box-shadow:var(--shadow)}
+.book-card::before{content:""; position:absolute; inset:0 0 auto; height:6px; background:var(--k)}
+.book-card .bc-glow{position:absolute; inset:-1px; z-index:-1; border-radius:inherit; opacity:0; transition:opacity .3s;
+  background:radial-gradient(420px circle at var(--mx) var(--my), color-mix(in srgb,var(--k) 22%,transparent), transparent 60%)}
+.book-card:hover,.book-card:focus-visible{border-color:color-mix(in srgb,var(--k) 55%,var(--line)); box-shadow:0 22px 48px -24px color-mix(in srgb,var(--k) 60%,transparent)}
+.book-card:hover .bc-glow,.book-card:focus-visible .bc-glow{opacity:1}
+@keyframes rise{from{transform:perspective(900px) translateY(26px) scale(.98)}}
+.bc-top{display:flex; justify-content:space-between; align-items:center}
+.bc-no{font:700 12px var(--f-mono); letter-spacing:.06em; color:var(--k); text-transform:uppercase}
+.bc-icon{width:52px; height:52px; border-radius:14px; background:var(--ks); color:var(--k); display:grid; place-items:center; transition:transform .35s}
+.bc-icon svg{width:28px; height:28px}
+.book-card:hover .bc-icon{transform:rotate(-8deg) scale(1.08)}
+.book-card h3{margin:2px 0 0; font-size:25px; font-weight:800}
+.bc-tag{color:var(--ink-2); font-size:15px; margin:0}
+.bc-topics{list-style:none; padding:0; margin:2px 0 0; display:flex; flex-wrap:wrap; gap:6px}
+.bc-topics li{margin:0; font:600 12px var(--f-body); color:var(--k); background:var(--ks); border-radius:99px; padding:3px 10px}
+.bc-stats{display:flex; flex-wrap:wrap; gap:4px 14px; font-size:13px; color:var(--ink-2); margin-top:auto; padding-top:8px; border-top:1px dashed var(--line)}
+.bc-stats b{color:var(--ink); font-variant-numeric:tabular-nums}
+.bc-progress{height:6px; border-radius:99px; background:var(--paper-2); overflow:hidden}
+.bc-progress i{display:block; height:100%; width:0; background:var(--k); border-radius:inherit; transition:width .8s cubic-bezier(.2,.7,.2,1)}
+.bc-foot{display:flex; justify-content:space-between; align-items:center; font-size:13.5px}
+.bc-prog-txt{color:var(--ink-2)}
+.bc-cta{font-weight:700; color:var(--k)}
+.bc-cta span{display:inline-block; transition:transform .25s}
+.book-card:hover .bc-cta span{transform:translateX(5px)}
+
+/* ---------- roadmap ---------- */
+.roadmap{list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; counter-reset:none; position:relative}
+.roadmap li{margin:0; background:var(--card); border:1px solid var(--line); border-top:4px solid var(--k); border-radius:14px; padding:14px 16px; display:flex; flex-direction:column; gap:6px}
+.rm-week{font:700 11.5px var(--f-mono); letter-spacing:.06em; text-transform:uppercase; color:var(--k)}
+.roadmap b{font:800 19px var(--f-display)}
+.roadmap p{font-size:14px; color:var(--ink-2); margin:0; flex:1}
+.roadmap a{font-weight:650; font-size:14px; color:var(--k); text-decoration:none}
+
+/* ---------- story strip + legend ---------- */
+.story-strip{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px}
+.ss{background:var(--ks); border-radius:14px; padding:16px 18px; border:1px solid color-mix(in srgb,var(--k) 25%,transparent)}
+.ss b{font:800 17px var(--f-display); color:var(--k)}
+.ss p{font-size:14.5px; margin:6px 0 0}
+.ss em{font-style:normal; font-weight:650}
+.legend{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px}
+.legend .box{margin:0}
+.l-foot{margin-top:80px; padding-top:22px; border-top:2px solid var(--ink); font-size:14px; color:var(--ink-2)}

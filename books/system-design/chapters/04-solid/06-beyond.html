@@ -1,0 +1,85 @@
+<section class="chapter" id="ch-beyond" data-title="Beyond SOLID: DRY, KISS, YAGNI, composition">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Design principles</div>
+    <h2>Beyond SOLID: DRY, KISS, YAGNI, composition and Demeter</h2>
+    <p class="ch-oneline"><b>A handful of short rules that every reviewer will quote at you.</b> Know each one, its meaning, and when it's misused.</p>
+  </header>
+
+  <div class="cards">
+    <div class="card"><span class="k">DRY</span><h5>Don't Repeat Yourself</h5><p>Every piece of <em>knowledge</em> (a rule, a formula) should live in one place. GST rate in five files = five bugs waiting. But don't merge code that only looks alike yet changes for different reasons.</p></div>
+    <div class="card"><span class="k">KISS</span><h5>Keep It Simple, Stupid</h5><p>The simplest design that works is usually best. A <code>for</code> loop beats a clever 4-level stream pipeline nobody can read.</p></div>
+    <div class="card"><span class="k">YAGNI</span><h5>You Aren't Gonna Need It</h5><p>Don't build features or abstractions for imagined futures. Build them when the need is real.</p></div>
+    <div class="card"><span class="k">SoC</span><h5>Separation of Concerns</h5><p>Keep UI, business logic and data access in separate layers.</p></div>
+    <div class="card"><span class="k">TDA</span><h5>Tell, Don't Ask</h5><p>Tell an object to do something instead of pulling its data out and deciding for it: <code>wallet.withdraw(x)</code>, not <code>if (wallet.getBalance() &gt;= x) wallet.setBalance(…)</code>.</p></div>
+    <div class="card"><span class="k">Fail fast</span><h5>Fail fast</h5><p>Validate early and throw clear errors at the boundary, instead of letting bad data travel deep into the system.</p></div>
+  </div>
+
+  <h3>Composition over inheritance</h3>
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu's nephew designed menu classes by inheritance: <code>Chai</code>, <code>GingerChai</code>, <code>GingerElaichiChai</code>, <code>GingerElaichiSugarFreeChai</code>, <code>IcedGingerElaichiSugarFreeChai</code>… Thirty classes later, every new flavour doubled the count. The fix: one <code>Chai</code> that <strong>has</strong> a list of add-ons. Build any combination at runtime.</p></div>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: class explosion through inheritance">
+class Chai { BigDecimal cost() { return bd(15); } }
+class GingerChai extends Chai { BigDecimal cost() { return super.cost().add(bd(5)); } }
+class ElaichiChai extends Chai { BigDecimal cost() { return super.cost().add(bd(5)); } }
+class GingerElaichiChai extends GingerChai { /* duplicate elaichi logic again */ }
+class SugarFreeGingerElaichiChai extends GingerElaichiChai { /* ... */ }
+// n add-ons -> up to 2^n classes. Can't add ginger to a chai at runtime.
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: compose behaviour from parts">
+public interface AddOn { String name(); BigDecimal price(); }
+public record Ginger()  implements AddOn { public String name(){return "ginger";}  public BigDecimal price(){return bd(5);} }
+public record Elaichi() implements AddOn { public String name(){return "elaichi";} public BigDecimal price(){return bd(5);} }
+
+public class Chai {
+    private final BigDecimal base = bd(15);
+    private final List<AddOn> addOns = new ArrayList<>();   // HAS-A, not IS-A
+
+    public Chai with(AddOn a) { addOns.add(a); return this; } // combine at runtime
+
+    public BigDecimal cost() {
+        return addOns.stream().map(AddOn::price).reduce(base, BigDecimal::add);
+    }
+}
+
+Chai order = new Chai().with(new Ginger()).with(new Elaichi());   // ₹25
+// New add-on = one small class. Any combination, zero new subclasses.
+</script>
+</div>
+
+  <h3>Law of Demeter: talk only to your friends</h3>
+  <p>A method should only call methods on: itself, its fields, its parameters, and objects it creates. Not on objects returned by those ("don't talk to strangers").</p>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: a train wreck of getters">
+// The shopkeeper reaches into the customer's pocket, opens the wallet, takes cash
+BigDecimal paid = customer.getWallet().getCash().subtract(price);
+customer.getWallet().setCash(paid);
+// Now this code depends on Customer, Wallet AND how Wallet stores cash.
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: ask the object to do it">
+// The shopkeeper asks; the customer decides how to pay
+Payment p = customer.pay(price);
+// Customer may use a wallet, UPI or a card; the caller doesn't know or care.
+</script>
+</div>
+
+  <h3>SOLID on one page</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Letter</th><th>Principle</th><th>One line</th><th>Chai picture</th><th>Smell</th></tr>
+    <tr><td>S</td><td>Single Responsibility</td><td>One reason to change</td><td>Cook, cashier, accountant</td><td>God class, "Manager", "And"</td></tr>
+    <tr><td>O</td><td>Open/Closed</td><td>Extend by adding, not editing</td><td>Slot menu board</td><td>Growing <code>switch</code> on type</td></tr>
+    <tr><td>L</td><td>Liskov Substitution</td><td>Subtypes keep the parent's promises</td><td>Delivery boy who can't ride</td><td><code>UnsupportedOperationException</code>, <code>instanceof</code></td></tr>
+    <tr><td>I</td><td>Interface Segregation</td><td>Small, role-based interfaces</td><td>Role cards</td><td>Empty / throwing implementations</td></tr>
+    <tr><td>D</td><td>Dependency Inversion</td><td>Depend on abstractions you own</td><td>Standard socket</td><td><code>new Concrete()</code> in business code</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">"Some Old Lions Instantly Dance": S·O·L·I·D</p>
+    <p>Plus: <strong>DRY</strong> the knowledge, <strong>KISS</strong> the code, <strong>YAGNI</strong> the speculation, <strong>compose</strong> rather than inherit, and <strong>don't talk to strangers</strong>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>When does DRY go wrong?</summary><div class="ans"><p>When two pieces of code look the same by coincidence but represent different knowledge. Merging them into one shared function couples two features; when one changes, you add flags and <code>if</code>s to the shared code until it's worse than the duplication. "Duplication is far cheaper than the wrong abstraction." (Sandi Metz)</p></div></details>
+    <details><summary>Can SOLID principles conflict with KISS or YAGNI?</summary><div class="ans"><p>Yes. Over-applying SOLID creates interfaces with one implementation, factories for everything and deep indirection. Apply SOLID where change is expected or testing needs it; keep the rest simple. Principles are tools for managing change, not goals in themselves.</p></div></details>
+  </div>
+  {{done}}
+</section>

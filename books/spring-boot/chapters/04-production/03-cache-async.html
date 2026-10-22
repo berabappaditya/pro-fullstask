@@ -1,0 +1,88 @@
+<section class="chapter" id="ch-cache-async" data-title="Caching, async, scheduling and events">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Production</div>
+    <h2>Caching, async, scheduling and events</h2>
+    <p class="ch-oneline"><b>Four annotations that remove plumbing:</b> @Cacheable skips repeat work, @Async runs it on another thread, @Scheduled runs it on a timer, and application events decouple who-did-what from who-reacts.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>The price of masala chai rarely changes, so the clerk keeps it <strong>on a sticky note</strong> instead of asking the owner every time (cache), and replaces the note when the price changes (evict). Sending the customer an SMS receipt is handed to a <strong>runner</strong> so the queue keeps moving (async). Every night at 2 am someone <strong>counts the stock</strong> (scheduled). When an order is paid, a bell rings and whoever cares reacts: kitchen, loyalty desk, accounts (events).</p></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Caching with Redis (or Caffeine)">
+@SpringBootApplication
+@EnableCaching
+public class ChaiApplication { }
+
+@Service
+public class MenuService {
+    @Cacheable(value = "menu", key = "#branchId", unless = "#result.isEmpty()")   // hit → method skipped
+    public List<MenuItem> menu(long branchId) { return repo.findByBranch(branchId); }
+
+    @CachePut(value = "menu", key = "#branchId")          // always runs, refreshes the cache
+    public List<MenuItem> reload(long branchId) { return repo.findByBranch(branchId); }
+
+    @CacheEvict(value = "menu", key = "#item.branchId")   // remove on change
+    public void update(MenuItem item) { repo.save(item); }
+}
+// spring.cache.type=redis + spring-boot-starter-data-redis  → shared across all instances
+// spring.cache.redis.time-to-live=10m                      → always set a TTL
+// Local, per-instance: Caffeine (fastest; fine for config-like data)
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="@Async, @Scheduled and events">
+@Configuration
+@EnableAsync
+@EnableScheduling
+class AsyncConfig {
+    @Bean ThreadPoolTaskExecutor taskExecutor() {          // bounded pool (see the Java book, Part 5)
+        var ex = new ThreadPoolTaskExecutor();
+        ex.setCorePoolSize(4); ex.setMaxPoolSize(8); ex.setQueueCapacity(200);
+        ex.setThreadNamePrefix("async-"); ex.initialize();
+        return ex;
+    }
+}   // Or spring.threads.virtual.enabled=true: @Async and Tomcat use virtual threads
+
+@Service
+class Notifications {
+    @Async                                                  // returns immediately; runs on async-N
+    public CompletableFuture<Void> sendReceipt(Order o) { sms.send(o.phone(), "Paid ₹" + o.total()); return CompletableFuture.completedFuture(null); }
+}
+
+@Component
+class NightlyJobs {
+    @Scheduled(cron = "0 0 2 * * *", zone = "Asia/Kolkata")   // sec min hour day month weekday: 2 AM daily
+    void stockCount() { ... }
+
+    @Scheduled(fixedDelay = 30_000, initialDelay = 10_000)    // 30s AFTER the previous run finishes
+    void retryFailedWebhooks() { ... }
+}   // With 3 instances this runs 3 times! Use ShedLock or a single scheduler instance.
+
+public record OrderPaid(long orderId, BigDecimal amount) {}
+
+@Service
+class PaymentService {
+    private final ApplicationEventPublisher events;
+    PaymentService(ApplicationEventPublisher events) { this.events = events; }
+    @Transactional
+    public void markPaid(Order o) { o.pay(); events.publishEvent(new OrderPaid(o.getId(), o.getTotal())); }
+}
+
+@Component
+class LoyaltyListener {
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)   // only if the payment committed
+    void addPoints(OrderPaid e) { ... }
+}
+</script>
+
+  <div class="box pitfall"><div class="box-tag">Same proxy rules</div><p>All four rely on proxies: self-invocation skips them, private methods are ignored. Plus: @Async loses the caller's ThreadLocals (SecurityContext, MDC, transaction), so pass what you need as arguments; a void @Async method's exception is only logged unless you configure an AsyncUncaughtExceptionHandler; @Cacheable keys must be stable and values serialisable for Redis.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Sticky note, runner, night shift, a bell.</p>
+    <p>@Cacheable skips on hit, @CachePut refreshes, @CacheEvict removes, <span class="hl">always a TTL</span>. @Async on a bounded pool. Cron = sec min hour day month weekday. AFTER_COMMIT listeners for side effects.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How do you keep a cache consistent with the database?</summary><div class="ans"><p>Cache-aside with TTL: read through @Cacheable, evict (not update) on writes after commit, keep TTLs short for changing data. Accept brief staleness, or for critical data skip caching. Beware stampedes on hot keys (Caffeine's refreshAfterWrite, locking or request coalescing). Details in the System Design book's caching chapter.</p></div></details>
+    <details><summary>A @Scheduled job runs on every pod. How do you run it once?</summary><div class="ans"><p>Use a distributed lock (ShedLock with a DB/Redis lock table), a leader election, a dedicated single-replica worker deployment, or move it out to a platform scheduler (Kubernetes CronJob, Cloud Scheduler, EventBridge) that calls an endpoint or runs a job.</p></div></details>
+  </div>
+  {{done}}
+</section>

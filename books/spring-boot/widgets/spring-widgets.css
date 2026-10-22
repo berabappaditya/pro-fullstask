@@ -1,0 +1,57 @@
+/* Styles for the Spring Boot simulators. */
+
+/* Bean lifecycle */
+.lc-track{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px}
+.lc-step{font:600 12px var(--f-body); color:var(--ink-2); background:var(--paper); border:1.5px solid var(--line); border-radius:99px; padding:5px 11px 5px 5px; cursor:pointer; display:inline-flex; align-items:center; gap:6px}
+.lc-step span{width:20px; height:20px; border-radius:50%; display:grid; place-items:center; background:var(--card); border:1px solid var(--line); font:700 11px var(--f-mono)}
+.lc-step.done{border-color:var(--accent); color:var(--accent-ink)}
+.lc-step.done span{background:var(--accent); color:var(--on-accent); border-color:var(--accent)}
+.lc-step.on{background:var(--accent); border-color:var(--accent); color:var(--on-accent)}
+.lc-step.on span{background:var(--on-accent); color:var(--accent); border-color:transparent}
+.lc-step.proxy{border-style:dashed}
+.lc-detail{display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:14px}
+@media (max-width:680px){ .lc-detail{grid-template-columns:1fr} }
+.lc-text h5{margin:0 0 6px; font:700 17px var(--f-display)}
+.lc-text p{margin:0; font-size:15px}
+.lc-side{display:flex; flex-direction:column; gap:10px}
+.lc-bean{border:2px solid var(--accent); border-radius:12px; padding:10px 14px; background:var(--accent-soft); display:flex; flex-direction:column; gap:2px; transition:all .3s}
+.lc-bean small{font:600 11px var(--f-body); text-transform:uppercase; letter-spacing:.07em; color:var(--ink-3)}
+.lc-bean b{font:700 16px var(--f-mono)}
+.lc-bean em{font-style:normal; font-size:13px; color:var(--ink-2)}
+.lc-bean.wrapped{box-shadow:0 0 0 6px var(--amber-soft), 0 0 0 8px var(--amber)}
+.lc-bean.gone{opacity:.5; border-style:dashed}
+.lc-console{margin:0; font:12px/1.6 var(--f-mono); background:var(--code-bg); color:var(--code-fg); border-radius:10px; padding:10px 12px; min-height:90px; white-space:pre-wrap; overflow-wrap:anywhere}
+
+/* Auto-configuration evaluator */
+.ac-inputs{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-bottom:12px}
+.ac-group{border:1.5px solid var(--line); border-radius:10px; padding:8px 12px 10px; margin:0; background:var(--paper); min-width:0}
+.ac-group legend{font:700 11.5px var(--f-body); text-transform:uppercase; letter-spacing:.07em; color:var(--ink-3); padding:0 4px}
+.ac-opt{display:flex; gap:8px; align-items:center; font:500 13.5px var(--f-mono); padding:3px 0; cursor:pointer; overflow-wrap:anywhere}
+.ac-out{display:flex; flex-direction:column; gap:6px}
+.ac-okmsg{font-size:13px; color:var(--good); font-weight:600}
+.ac-fail{border:2px solid var(--bad); background:var(--bad-soft); border-radius:10px; padding:10px 12px; font:12.5px/1.55 var(--f-mono); color:var(--ink)}
+.ac-fail small{font-family:var(--f-body); color:var(--ink-2)}
+.ac-row{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; align-items:center; border:1.5px solid var(--line); border-left-width:5px; border-radius:10px; padding:8px 12px; background:var(--card)}
+@media (max-width:640px){ .ac-row{grid-template-columns:1fr} }
+.ac-row.ok{border-left-color:var(--good)}
+.ac-row.skip{border-left-color:var(--line); opacity:.75}
+.ac-row.backoff{border-left-color:var(--amber)}
+.ac-name b{display:block; font:700 13px var(--f-mono); overflow-wrap:anywhere}
+.ac-name small{font-size:12.5px; color:var(--ink-2)}
+.ac-beans{display:flex; flex-wrap:wrap; gap:5px}
+.ac-beans span{font:600 11.5px var(--f-mono); background:var(--good-soft); color:var(--ink); border-radius:6px; padding:3px 7px; overflow-wrap:anywhere}
+.ac-beans em{font-style:normal; font-size:12.5px; color:var(--ink-3)}
+
+/* Transaction propagation */
+.prop-stage{display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:14px; align-items:start}
+@media (max-width:680px){ .prop-stage{grid-template-columns:1fr} }
+.prop-log{margin:0; padding:10px 12px 10px 30px; background:var(--paper); border:1px solid var(--line); border-radius:10px; font:12.5px/1.6 var(--f-mono)}
+.prop-log li{margin:2px 0}
+.prop-log li.acc{color:var(--accent-ink)} .prop-log li.good{color:var(--good)} .prop-log li.bad{color:var(--bad)} .prop-log li.warn{color:var(--amber)}
+.prop-result{display:flex; flex-direction:column; gap:8px}
+.prop-result div{border:2px solid var(--line); border-radius:10px; padding:8px 12px; display:flex; flex-direction:column}
+.prop-result small{font:600 11px var(--f-body); text-transform:uppercase; letter-spacing:.07em; color:var(--ink-3)}
+.prop-result b{font:700 15px var(--f-display); overflow-wrap:anywhere}
+.prop-result .ok{border-color:var(--good); background:var(--good-soft)}
+.prop-result .lost{border-color:var(--bad); background:var(--bad-soft)}
+.prop-explain{margin-top:10px; font-size:14.5px; color:var(--ink-2)}

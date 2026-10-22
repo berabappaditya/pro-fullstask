@@ -1,0 +1,29 @@
+<section class="chapter" id="ch-cost" data-title="Cost optimisation (FinOps)">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Operate</div>
+    <h2>Cost optimisation: pay for what you actually use</h2>
+    <p class="ch-oneline"><b>Most cloud waste is idle or oversized resources, forgotten environments, and data transfer.</b> Measure by team with tags, then right-size, commit, and automate.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>The first month's bill shocks Ramu: <strong>stoves left burning overnight</strong> in the test kitchen, a giant fridge holding one bottle of milk, and porters charging for every trip between buildings. He labels every appliance with the branch that uses it, switches off the test kitchen at night, buys smaller fridges, and signs a yearly contract for the stoves he always needs.</p></div>
+
+  <div class="cards">
+    <div class="card"><span class="k">1 · see</span><h5>Visibility</h5><p>Tag everything (team, service, env); Cost Explorer / Billing reports; budgets and anomaly alerts.</p></div>
+    <div class="card"><span class="k">2 · cut waste</span><h5>Idle and orphaned</h5><p>Unattached disks, old snapshots, idle load balancers, dev environments running at night (schedule them off), unused Elastic IPs.</p></div>
+    <div class="card"><span class="k">3 · right-size</span><h5>Fit the workload</h5><p>Use utilisation data (Compute Optimizer / Recommender); Kubernetes requests that match reality; ARM (Graviton/Axion) instances.</p></div>
+    <div class="card"><span class="k">4 · commit</span><h5>Discounts</h5><p>Savings Plans / committed-use discounts for the steady baseline; spot for interruptible work.</p></div>
+    <div class="card"><span class="k">5 · architecture</span><h5>Design for cost</h5><p>Cache to cut DB size, S3 lifecycle tiers, VPC endpoints instead of NAT for S3 traffic, keep chatty services in one AZ/region, serverless for low traffic.</p></div>
+  </div>
+
+  <div class="box pitfall"><div class="box-tag">Hidden bills</div><p><strong>NAT gateway data processing</strong> (pulling images and calling S3 through NAT), <strong>cross-AZ and internet egress</strong>, CloudWatch log ingestion from verbose DEBUG logs, high-cardinality custom metrics, provisioned IOPS you don't use, and forgotten snapshots.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Label, switch off, shrink, sign a contract for the basics.</p>
+    <p>Tag → find waste → <span class="hl">right-size → commit (Savings Plans) → spot</span> → design for cost. Watch data transfer and logs.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Your AWS bill jumped 40% this month. What do you do?</summary><div class="ans"><p>Break down by service, account and tag in Cost Explorer to find the driver; check anomalies (new resources, data transfer, NAT, logs); identify the owner via tags; fix the cause (scale down, lifecycle rules, endpoints, log levels). Then prevent: budgets with alerts, anomaly detection, tagging policies, and cost reviews in the team's routine.</p></div></details>
+  </div>
+  {{done}}
+</section>

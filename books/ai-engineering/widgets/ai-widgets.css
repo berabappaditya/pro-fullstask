@@ -1,0 +1,31 @@
+/* Styles for the AI Engineering simulators. */
+.tp-slider{display:flex; align-items:center; gap:8px; font:600 13px var(--f-body); flex:1 1 200px}
+.tp-slider input{flex:1; accent-color:var(--accent); min-width:80px}
+.tp-slider b{font-family:var(--f-mono); min-width:2.6em; text-align:right}
+
+/* Temperature */
+.temp-bars{display:flex; flex-direction:column; gap:6px}
+.tp-row{display:grid; grid-template-columns:90px minmax(0,1fr) 56px 44px; gap:8px; align-items:center; font:600 13px var(--f-mono); transition:opacity .2s}
+.tp-row.cut{opacity:.35}
+.tp-tok{overflow:hidden; text-overflow:ellipsis}
+.tp-bar{height:18px; border-radius:6px; background:var(--paper); border:1px solid var(--line); overflow:hidden}
+.tp-bar i{display:block; height:100%; background:var(--accent); transition:width .3s}
+.tp-pct{text-align:right} .tp-cnt{color:var(--ink-3); text-align:right}
+
+/* Embeddings */
+.emb-wrap{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:14px; align-items:start}
+@media (max-width:700px){ .emb-wrap{grid-template-columns:1fr} }
+#embSvg{width:100%; height:auto; background:var(--paper); border:1px solid var(--line); border-radius:12px}
+.emb-q{font-size:14px; margin-bottom:6px}
+.emb-list ol{margin:0; padding-left:22px; font:13px var(--f-mono)}
+.emb-list li{display:flex; justify-content:space-between; gap:10px; padding:3px 6px; border-radius:6px}
+.emb-list li.hit{background:var(--good-soft)}
+.emb-list li span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+/* Chunking */
+.chk-doc{display:flex; flex-direction:column; gap:6px; margin-bottom:6px}
+.chk-chunk{border:1.5px solid var(--line); border-left-width:5px; border-radius:8px; padding:7px 10px; font-size:14px; background:var(--paper); animation:pop .25s}
+.chk-chunk small{display:block; font:600 11px var(--f-mono); color:var(--ink-3); margin-bottom:3px}
+.chk-chunk.c0{border-left-color:var(--accent)} .chk-chunk.c1{border-left-color:var(--amber)} .chk-chunk.c2{border-left-color:var(--good)} .chk-chunk.c3{border-left-color:var(--teal)}
+.chk-chunk.cut{border-style:dashed; border-left-style:solid}
+.chk-tip{flex-basis:100%; font-size:13.5px}

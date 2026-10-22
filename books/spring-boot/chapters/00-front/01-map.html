@@ -1,0 +1,25 @@
+<section class="chapter" id="ch-map" data-title="How this book works" data-num="00">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">00</span>Orientation</div>
+    <h2>How this book works</h2>
+    <p class="ch-oneline"><b>Four parts: how Spring thinks, building REST APIs, working with data, and running in production.</b> Every annotation is explained by what it makes Spring do behind your back.</p>
+  </header>
+  <div class="box story"><div class="box-tag">The Ramu Chai franchise kit</div>
+    <p>Ramu's chai is so popular that he sells <strong>franchises</strong>. A new owner gets a kit: a stove already fitted (embedded Tomcat), a <strong>manager</strong> who hires staff and tells each one who they work with (the IoC container), standard recipes that work out of the box but can be changed (auto-configuration), a <strong>front-desk host</strong> who sends each customer to the right counter (DispatcherServlet), and a <strong>security guard</strong> at the door (Spring Security). The owner only writes what's special about their branch.</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>In the franchise</th><th>In Spring Boot</th><th>Chapter</th></tr>
+    <tr><td>The kit with a fitted stove and standard recipes</td><td>Spring Boot: starters + auto-configuration + embedded server</td><td>{{n:ch-spring-vs-boot}}</td></tr>
+    <tr><td>Front-desk host routing customers</td><td>DispatcherServlet</td><td>{{n:ch-architecture}}</td></tr>
+    <tr><td>The manager who hires staff and introduces them</td><td>IoC container and dependency injection</td><td>{{n:ch-ioc}}</td></tr>
+    <tr><td>A staff member's first day to last day</td><td>Bean lifecycle and scopes</td><td>{{n:ch-lifecycle}}</td></tr>
+    <tr><td>"If there's a gas line, fit a gas stove"</td><td>@Conditional auto-configuration</td><td>{{n:ch-autoconfig}}</td></tr>
+    <tr><td>The order form customers fill in</td><td>DTO + validation</td><td>{{n:ch-dto}}, {{n:ch-validation}}</td></tr>
+    <tr><td>All-or-nothing: take payment and serve, or neither</td><td>@Transactional</td><td>{{n:ch-transactions}}</td></tr>
+    <tr><td>The guard checking membership cards</td><td>Security filter chain + JWT</td><td>{{n:ch-security}}</td></tr>
+    <tr><td>A personal assistant who stands in for you</td><td>AOP proxies</td><td>{{n:ch-aop}}</td></tr>
+  </table></div>
+
+  <div class="box tip"><div class="box-tag">Spring Boot 4 note</div><p>This book is written for <strong>Spring Boot 4.x</strong> (Spring Framework 7, Java 17–25, Jakarta EE 11), while pointing out where Boot 3 differs, since many companies still run 3.x. The full list of changes is in {{ref:ch-boot4}}. Java concepts this book builds on (proxies, ThreadLocal, thread pools) are in {{xref:java-core/ch-executors}} and nearby chapters.</p></div>
+  {{done}}
+</section>

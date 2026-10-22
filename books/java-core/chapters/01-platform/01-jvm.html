@@ -1,0 +1,79 @@
+<section class="chapter" id="ch-jvm" data-title="How Java runs: JDK, JRE, JVM">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Platform</div>
+    <h2>How Java runs: JDK, JRE and the JVM</h2>
+    <p class="ch-oneline"><b>javac turns your code into bytecode; the JVM loads that bytecode and runs it</b>, first by interpreting it, then by compiling the hot parts to native machine code.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>Ramu writes his recipes in Bengali. His new branches are in Chennai, Pune and Delhi, where cooks speak different languages. Instead of writing the recipe four times, he translates it once into a <strong>universal kitchen picture-language</strong> that every head cook in every city has been trained to read. Each head cook then reads the pictures and tells their own team what to do. Recipes the cook makes 500 times a day, he memorises completely so he no longer needs to look at the card.</p>
+    <p>Bengali recipe = <code>.java</code> source. Picture-language = <strong>bytecode</strong>. The trained head cook in each city = the <strong>JVM</strong> for each operating system. Memorising the popular recipes = the <strong>JIT compiler</strong>.</p></div>
+
+  <h3>JDK, JRE, JVM: three boxes, one inside the other</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg viewBox="0 0 640 250" role="img" aria-label="The JDK contains the JRE plus development tools; the JRE contains the JVM plus class libraries">
+      <rect x="10" y="10" width="620" height="230" rx="16" class="d-acc"/><text x="30" y="36" class="d-tl">JDK · Java Development Kit</text><text x="30" y="56" class="d-s">for developers: javac, jar, javadoc, jdb, jshell, jcmd, jstack…</text>
+      <rect x="40" y="72" width="560" height="152" rx="14" class="d-amb"/><text x="60" y="96" class="d-tl">JRE · Java Runtime Environment</text><text x="60" y="116" class="d-s">to run apps: JVM + standard class library (java.lang, java.util, …)</text>
+      <rect x="70" y="130" width="500" height="80" rx="12" class="d-good"/><text x="90" y="156" class="d-tl">JVM · Java Virtual Machine</text><text x="90" y="178" class="d-s">class loader · bytecode verifier · interpreter · JIT · garbage collector</text><text x="90" y="196" class="d-s">memory areas: heap, stacks, metaspace</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Since Java 11 there's no separate JRE download; you install a JDK (Temurin, Oracle, Corretto…) and can build a slim runtime with <code>jlink</code>. The concepts still matter in interviews.</figcaption>
+  </figure>
+
+  <h3>From source to running program</h3>
+  <ol class="steps">
+    <li><b>Compile</b><code>javac Order.java</code> checks types and produces <code>Order.class</code>, containing platform-independent <strong>bytecode</strong>.</li>
+    <li><b>Load</b>When the class is first needed, a <strong>class loader</strong> finds the .class file (bootstrap → platform → application loaders, parent first) and loads it into memory.</li>
+    <li><b>Link</b>The verifier checks the bytecode is safe; static fields get default values; symbolic references are resolved.</li>
+    <li><b>Initialise</b>Static initialisers run, once per class.</li>
+    <li><b>Execute</b>The interpreter runs bytecode immediately. Methods called often become "hot" and the <strong>JIT</strong> (C1, then C2) compiles them to optimised native code.</li>
+    <li><b>Manage</b>While running, the garbage collector reclaims objects no one references.</li>
+  </ol>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="plain" data-title="Order.java (what you write)">
+public class Order {
+    public static void main(String[] args) {
+        int cups = 3;                       // a local variable on main's stack
+        int price = cups * 15;              // arithmetic on the stack
+        System.out.println("Total: " + price);
+    }
+}
+</script>
+<script type="text/x-code" data-lang="text" data-variant="plain" data-title="javap -c Order (the bytecode the JVM actually runs)">
+public static void main(java.lang.String[]);
+  Code:
+     0: iconst_3          // push the int 3
+     1: istore_1          // store it in local slot 1 (cups)
+     2: iload_1           // push cups
+     3: bipush 15         // push 15
+     5: imul              // multiply the top two values
+     6: istore_2          // store in slot 2 (price)
+     7: getstatic  #7     // System.out
+    10: iload_2
+    11: invokedynamic #13 // build "Total: " + price
+    16: invokevirtual #17 // println
+    19: return
+</script>
+</div>
+
+  <h3>Why the JIT matters</h3>
+  <div class="cards">
+    <div class="card"><h5>Interpreter</h5><p>Starts instantly, runs every bytecode one by one. Slow for loops that run millions of times.</p></div>
+    <div class="card"><h5>JIT (C1 → C2)</h5><p>Profiles the running code and compiles hot methods to native code with optimisations: inlining, loop unrolling, escape analysis, removing unused locks.</p></div>
+    <div class="card"><h5>Warm-up</h5><p>A Java service is slower for its first seconds; that's why load tests "warm up" first. Java 25 adds ahead-of-time profiling to shorten this.</p></div>
+    <div class="card"><h5>GraalVM native image</h5><p>Compiles the whole app ahead of time into a native binary: very fast startup, lower memory, no JIT. Popular for serverless.</p></div>
+  </div>
+
+  <div class="box pitfall"><div class="box-tag">Common trap</div><p>"Java is interpreted, so it's slow." Modern JVMs compile hot code to native machine code, often as fast as C++ for long-running servers. What Java pays is <em>startup</em> time and memory, not steady-state speed.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Write, Compile, Load, Link, Init, Run, JIT.</p>
+    <p><strong>JDK</strong> ⊃ <strong>JRE</strong> ⊃ <strong>JVM</strong>. Bytecode is the portable middle layer; the JVM per OS is what makes "write once, run anywhere" true. Hot code gets <span class="hl">JIT-compiled to native</span>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Is Java compiled or interpreted?</summary><div class="ans"><p>Both. javac compiles source to bytecode ahead of time. At runtime the JVM interprets bytecode, and the JIT compiles frequently executed methods to native code. So it's a hybrid.</p></div></details>
+    <details><summary>What is a class loader and what is parent delegation?</summary><div class="ans"><p>A class loader finds and loads .class files. Java has bootstrap (core classes), platform, and application (your classpath) loaders. Before loading a class, a loader first asks its parent; only if the parent can't find it does it load it itself. This stops your code from replacing core classes like <code>java.lang.String</code>.</p></div></details>
+    <details><summary>Why is the main method <code>public static void main(String[] args)</code>?</summary><div class="ans"><p>public so the JVM can call it from outside the class, static so it can be called without creating an object, void because the exit code is returned via <code>System.exit</code>, and <code>String[]</code> for command-line arguments. (Java 25 also allows simpler instance <code>main()</code> methods in compact source files, mainly for learning and scripts.)</p></div></details>
+  </div>
+  {{done}}
+</section>

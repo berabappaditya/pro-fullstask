@@ -1,0 +1,127 @@
+<title>{{handbook.title}}</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="{{handbook.tagline}}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<!-- The landing page reuses the shared design tokens and base styles, then adds its own layout. -->
+<link rel="stylesheet" href="shared/css/tokens.css" data-inline>
+<link rel="stylesheet" href="shared/css/base.css" data-inline>
+<link rel="stylesheet" href="shared/css/layout.css" data-inline>
+<link rel="stylesheet" href="shared/css/components.css" data-inline>
+<link rel="stylesheet" href="landing/landing.css" data-inline>
+<!-- @body (everything below goes into <body>) -->
+{{svgDefs}}
+<header class="topbar">
+  <a class="brand" href="#top">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M13 4h5.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H13z"/><path d="M7 8h1.5M7 11h1.5M16 8h1.5M16 11h1.5"/></svg></span>
+    <span class="brand-text">SDE-2 Handbook<small>{{bookcount}} books</small></span></a>
+  <span class="spacer"></span>
+  <a class="tb-btn" href="#books">Books</a>
+  <a class="tb-btn hide-sm" href="#roadmap">Roadmap</a>
+  <button class="tb-btn" id="themeBtn" aria-label="Switch light or dark theme">
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg><span id="themeLbl">Theme</span></button>
+  <div class="progress"><span id="readBar"></span></div>
+</header>
+
+<main class="landing" id="top">
+
+<section class="l-hero">
+  <div class="l-wrap l-hero-grid">
+    <div class="l-hero-copy">
+      <p class="eyebrow">Java · Spring Boot · System Design · Cloud · AI</p>
+      <h1>The Full&#8209;Stack <span class="hl-word">SDE&#8209;2</span> Handbook</h1>
+      <p class="lead">{{handbook.tagline}} Every idea is drawn as a diagram, explained with one running story, shown in Java code, and tested with an interview question.</p>
+      <div class="l-search" role="search">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M13 13l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <input id="lSearch" type="search" placeholder="Search all {{total.chapters}} chapters: HashMap, @Transactional, Kafka, RAG…" aria-label="Search every book" autocomplete="off">
+      </div>
+      <div class="l-results" id="lResults" hidden></div>
+      <div class="l-stats">
+        <div><b>{{total.chapters}}</b><span>chapters</span></div>
+        <div><b>{{total.diagrams}}</b><span>diagrams</span></div>
+        <div><b>{{total.widgets}}</b><span>live simulators</span></div>
+        <div><b>{{total.quiz}}</b><span>quiz questions</span></div>
+        <div><b>{{total.bank}}</b><span>interview answers</span></div>
+      </div>
+    </div>
+    <div class="l-shelf" aria-label="Bookshelf">
+      <div class="shelf-books">
+{{spines}}
+      </div>
+      <div class="shelf-board"></div>
+      <p class="shelf-note">Pick a book from the shelf, or scroll for details.</p>
+    </div>
+  </div>
+</section>
+
+<section class="l-continue l-wrap" id="lContinue" hidden></section>
+
+<section class="l-section l-wrap" id="books">
+  <div class="l-head">
+    <p class="eyebrow">The five books</p>
+    <h2>One shelf for every interview round</h2>
+    <p class="lead">Read them in order, or jump to the round you're preparing for. Your progress in each book is saved in this browser and shows up here.</p>
+  </div>
+  <div class="book-grid">
+{{cards}}
+  </div>
+</section>
+
+<section class="l-section l-wrap" id="roadmap">
+  <div class="l-head">
+    <p class="eyebrow">A ten-week plan</p>
+    <h2>The roadmap</h2>
+    <p class="lead">About an hour a day. Each week ends with that book's quiz; the last week is pure revision with the interview banks.</p>
+  </div>
+  <ol class="roadmap">
+    <li style="--c:#E8721C;--c-d:#FFB070"><span class="rm-week">Weeks 1–2</span><b>Java Core</b><p>The JVM, OOP in Java, collections internals, streams, then concurrency: threads, locks, executors and CompletableFuture.</p><a href="java-core.html">Open Java Core →</a></li>
+    <li style="--c:#15803D;--c-d:#5FD68F"><span class="rm-week">Weeks 3–4</span><b>Spring Boot</b><p>IoC and beans, the request flow, JPA and transactions, security with JWT, testing, then Spring Boot 4 and microservices.</p><a href="spring-boot.html">Open Spring Boot →</a></li>
+    <li style="--c:#2952C4;--c-d:#86ABFF"><span class="rm-week">Weeks 5–7</span><b>System Design</b><p>HLD building blocks, the case studies (Netflix, UPI, Stripe, JioHotstar), SOLID, design patterns and the LLD projects.</p><a href="system-design.html">Open System Design →</a></li>
+    <li style="--c:#0E7490;--c-d:#5CCFE6"><span class="rm-week">Week 8</span><b>Cloud &amp; DevOps</b><p>AWS and GCP core services, Docker, Kubernetes, CI/CD, deploying a Spring Boot app, and the Linux commands you'll use every day.</p><a href="cloud-devops.html">Open Cloud &amp; DevOps →</a></li>
+    <li style="--c:#7C3AED;--c-d:#B9A0FF"><span class="rm-week">Week 9</span><b>AI Engineering</b><p>How LLMs work, embeddings, RAG from basic to advanced, agents and tool calling, MCP, and building it all in Java with Spring AI.</p><a href="ai-engineering.html">Open AI Engineering →</a></li>
+    <li style="--c:#25324A;--c-d:#C9D3E6"><span class="rm-week">Week 10</span><b>Revision</b><p>Each book's cheat sheet, the interview question banks ("I can answer this" ticks), and the quizzes in "retry my mistakes" mode.</p><a href="#books">Back to the books →</a></li>
+  </ol>
+</section>
+
+<section class="l-section l-wrap">
+  <div class="l-head">
+    <p class="eyebrow">One story, five books</p>
+    <h2>Ramu's chai business teaches everything</h2>
+    <p class="lead">Ramu starts with a tea stall in Medinipur. In each book his business grows a little, and every problem he hits is a real engineering problem in disguise.</p>
+  </div>
+  <div class="story-strip">
+    <div class="ss" style="--c:#E8721C;--c-d:#FFB070"><b>Java Core</b><p>Ramu's <em>kitchen</em>: chefs are threads, the order board is shared memory, and two chefs grabbing the same pan is a deadlock.</p></div>
+    <div class="ss" style="--c:#15803D;--c-d:#5FD68F"><b>Spring Boot</b><p>The <em>franchise kit</em>: head office hires and wires your staff (IoC), and the kit arrives pre-assembled (auto-configuration).</p></div>
+    <div class="ss" style="--c:#2952C4;--c-d:#86ABFF"><b>System Design</b><p>The <em>national chain</em>: more stalls (scaling), a manager at the gate (load balancer), flasks on the counter (cache).</p></div>
+    <div class="ss" style="--c:#0E7490;--c-d:#5CCFE6"><b>Cloud &amp; DevOps</b><p>Ramu <em>rents kitchens</em> in a food court instead of building his own, and ships a sealed tiffin box (container) to each one.</p></div>
+    <div class="ss" style="--c:#7C3AED;--c-d:#B9A0FF"><b>AI Engineering</b><p>Ramu hires an <em>AI assistant</em> that reads his recipe book before answering (RAG) and plugs into his tools through one standard socket (MCP).</p></div>
+  </div>
+</section>
+
+<section class="l-section l-wrap">
+  <div class="l-head">
+    <p class="eyebrow">How every chapter teaches</p>
+    <h2>Same shape, every time</h2>
+  </div>
+  <div class="legend">
+    <div class="box story"><div class="box-tag">The story</div><p>The running analogy that makes the idea stick.</p></div>
+    <div class="box def"><div class="box-tag">Definition</div><p>The precise, interview-ready meaning.</p></div>
+    <div class="box layman"><div class="box-tag">In plain words</div><p>The same idea for someone who has never coded.</p></div>
+    <div class="box remember"><div class="box-tag">Lock it in</div><p>A mnemonic and the one thing to remember.</p></div>
+    <div class="box pitfall"><div class="box-tag">Common trap</div><p>The mistake people make in code and interviews.</p></div>
+    <div class="box tip"><div class="box-tag">Interview tip</div><p>What interviewers listen for.</p></div>
+  </div>
+</section>
+
+<footer class="l-foot l-wrap">
+  <p><strong>{{handbook.title}}.</strong> Plain HTML, CSS and JavaScript, built from one source project with <code>node build.js</code>. Every page works offline; your progress lives in this browser only.</p>
+</footer>
+</main>
+
+{{data}}
+<script>window.SDB = { book: { id: "landing", title: "Handbook" } };</script>
+<script src="shared/js/core/utils.js" data-inline></script>
+<script src="shared/js/core/theme.js" data-inline></script>
+<script src="landing/landing.js" data-inline></script>
+<script src="shared/js/app.js" data-inline></script>

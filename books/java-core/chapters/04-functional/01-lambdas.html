@@ -1,0 +1,74 @@
+<section class="chapter" id="ch-lambdas" data-title="Lambdas and functional interfaces">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Functional</div>
+    <h2>Lambdas and functional interfaces</h2>
+    <p class="ch-oneline"><b>A lambda is a short way to pass "a piece of behaviour" as a value.</b> It fills in the one abstract method of a functional interface.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>Instead of hiring a whole new chef (a class) every time he needs "add extra ginger", Ramu writes the instruction on a <strong>sticky note</strong> and hands it to whichever chef is free. The sticky note is a lambda; the slot on the chef's clipboard that accepts exactly one instruction is the functional interface.</p></div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before Java 8: anonymous inner class">
+Collections.sort(dishes, new Comparator<Dish>() {
+    @Override
+    public int compare(Dish a, Dish b) {
+        return Integer.compare(a.price(), b.price());
+    }
+});   // 6 lines of ceremony around 1 line of logic
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Java 8+: lambda, then method reference">
+dishes.sort((a, b) -> Integer.compare(a.price(), b.price()));  // lambda
+dishes.sort(Comparator.comparingInt(Dish::price));             // method reference: even clearer
+</script>
+</div>
+
+  <h3>The six interfaces to know by heart</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Interface</th><th>Method</th><th>Shape</th><th>Example</th></tr>
+    <tr><td><code>Supplier&lt;T&gt;</code></td><td><code>get()</code></td><td>() → T</td><td><code>() -&gt; new Order()</code></td></tr>
+    <tr><td><code>Consumer&lt;T&gt;</code></td><td><code>accept(t)</code></td><td>T → void</td><td><code>o -&gt; log.info(o)</code></td></tr>
+    <tr><td><code>Function&lt;T,R&gt;</code></td><td><code>apply(t)</code></td><td>T → R</td><td><code>Order::total</code></td></tr>
+    <tr><td><code>Predicate&lt;T&gt;</code></td><td><code>test(t)</code></td><td>T → boolean</td><td><code>o -&gt; o.total() &gt; 100</code></td></tr>
+    <tr><td><code>BiFunction&lt;T,U,R&gt;</code></td><td><code>apply(t,u)</code></td><td>(T,U) → R</td><td><code>(a, b) -&gt; a + b</code></td></tr>
+    <tr><td><code>UnaryOperator&lt;T&gt;</code> / <code>BinaryOperator&lt;T&gt;</code></td><td><code>apply</code></td><td>T → T / (T,T) → T</td><td><code>String::trim</code>, <code>Integer::sum</code></td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Your own functional interface, composition, and the four method-reference kinds">
+@FunctionalInterface                          // compiler checks: exactly ONE abstract method
+interface DiscountRule { int apply(int price); }
+
+DiscountRule festive = p -> p * 90 / 100;     // 10% off
+DiscountRule flat20  = p -> Math.max(0, p - 20);
+
+Predicate<Order> big  = o -> o.total() > 500;
+Predicate<Order> paid = Order::isPaid;
+Predicate<Order> bigUnpaid = big.and(paid.negate());     // compose predicates
+
+Function<String, String> clean = String::trim;
+Function<String, String> cleanUpper = clean.andThen(String::toUpperCase);
+
+// Method references:
+//   Math::max            static method
+//   order::total         method on a specific object
+//   Order::total         method on whichever object is passed in
+//   Order::new           constructor
+</script>
+
+  <div class="box def"><div class="box-tag">Effectively final</div><p>A lambda can read local variables from the surrounding method only if they're never reassigned. The lambda captures the <em>value</em>, and allowing changes would create confusing races between threads. Fields and objects' contents can still change.</p></div>
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Won't compile">
+int count = 0;
+orders.forEach(o -> count++);   // error: count must be effectively final
+// Use: long count = orders.stream().count();   or an AtomicInteger if you truly must
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Supply, Consume, Function, Predicate.</p>
+    <p>A lambda implements the <span class="hl">single abstract method</span> of a functional interface. Captured locals must be effectively final.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Is a lambda the same as an anonymous class?</summary><div class="ans"><p>No. A lambda doesn't create a new scope (<code>this</code> refers to the enclosing object), can only implement functional interfaces, and is compiled with <code>invokedynamic</code> rather than generating a separate .class file per use, which is lighter.</p></div></details>
+    <details><summary>Can a functional interface have default methods?</summary><div class="ans"><p>Yes, any number of default and static methods; it must have exactly one abstract method. <code>Predicate.and</code>, <code>Function.andThen</code> are default methods.</p></div></details>
+  </div>
+  {{done}}
+</section>

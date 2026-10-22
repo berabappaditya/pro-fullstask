@@ -1,0 +1,84 @@
+<section class="chapter" id="ch-cf" data-title="CompletableFuture: async pipelines">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Concurrency</div>
+    <h2>CompletableFuture: async pipelines without blocking</h2>
+    <p class="ch-oneline"><b>A Future you can chain:</b> "when this finishes, do that", combine several results, and handle errors, all without a thread sitting and waiting.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>With a plain Future, the head chef hands out a ticket and then <strong>stands at the counter staring</strong> until it's ready (<code>get()</code> blocks). With CompletableFuture he leaves a <strong>note on the ticket</strong>: "when the rice is done, add the dal; when both rice and curry are done, plate the thali; if anything burns, serve plain roti". Then he goes off to do other work.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 230" role="img" aria-label="Product page: fetch product, then in parallel fetch price and reviews, combine, with exception fallback">
+      <rect x="10" y="90" width="140" height="50" rx="10" class="d-vio"/><text x="80" y="112" text-anchor="middle" class="d-t">supplyAsync</text><text x="80" y="128" text-anchor="middle" class="d-xs">load product</text>
+      <path d="M150 115 C190 115,190 60,228 60" class="d-lacc" marker-end="url(#aa)"/><path d="M150 115 C190 115,190 170,228 170" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="230" y="36" width="160" height="48" rx="10" class="d-box"/><text x="310" y="57" text-anchor="middle" class="d-t">thenCompose</text><text x="310" y="73" text-anchor="middle" class="d-xs">price service (async)</text>
+      <rect x="230" y="146" width="160" height="48" rx="10" class="d-box"/><text x="310" y="167" text-anchor="middle" class="d-t">supplyAsync</text><text x="310" y="183" text-anchor="middle" class="d-xs">reviews service</text>
+      <path d="M390 60 C440 60,440 115,478 115" class="d-lacc" marker-end="url(#aa)"/><path d="M390 170 C440 170,440 115,478 115" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="480" y="90" width="150" height="50" rx="10" class="d-acc"/><text x="555" y="112" text-anchor="middle" class="d-t">thenCombine</text><text x="555" y="128" text-anchor="middle" class="d-xs">build page DTO</text>
+      <path d="M630 115 H668" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="670" y="90" width="170" height="50" rx="10" class="d-amb"/><text x="755" y="112" text-anchor="middle" class="d-t">exceptionally</text><text x="755" y="128" text-anchor="middle" class="d-xs">fallback page</text>
+      <text x="430" y="222" text-anchor="middle" class="d-s">Total latency ≈ product + max(price, reviews), not the sum of all three.</text>
+    </svg></div></figure>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: sequential blocking calls (~900 ms)">
+public ProductPage page(long id) {
+    Product p = productClient.get(id);          // 300 ms
+    Price price = priceClient.get(p.sku());     // 300 ms, waits for product first (needed)
+    List<Review> r = reviewClient.get(id);      // 300 ms, but did NOT need to wait!
+    return new ProductPage(p, price, r);
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: independent calls in parallel (~600 ms)">
+public CompletableFuture<ProductPage> page(long id) {
+    CompletableFuture<Product> product =
+            CompletableFuture.supplyAsync(() -> productClient.get(id), ioPool);  // ALWAYS pass a pool
+
+    CompletableFuture<Price> price =
+            product.thenCompose(p ->                                  // depends on product: chain it
+                    CompletableFuture.supplyAsync(() -> priceClient.get(p.sku()), ioPool));
+
+    CompletableFuture<List<Review>> reviews =
+            CompletableFuture.supplyAsync(() -> reviewClient.get(id), ioPool);   // starts NOW, in parallel
+
+    return product
+            .thenCombine(price, (p, pr) -> new Partial(p, pr))       // when both are done
+            .thenCombine(reviews, (part, r) -> new ProductPage(part.p(), part.price(), r))
+            .orTimeout(2, TimeUnit.SECONDS)                           // Java 9+: fail if too slow
+            .exceptionally(ex -> ProductPage.fallback(id));           // any failure → degraded page
+}
+</script>
+</div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Method</th><th>Like</th><th>Use when</th></tr>
+    <tr><td><code>thenApply(f)</code></td><td>map</td><td>transform the result synchronously</td></tr>
+    <tr><td><code>thenCompose(f)</code></td><td>flatMap</td><td>the next step is itself async (returns a CompletableFuture)</td></tr>
+    <tr><td><code>thenCombine(other, f)</code></td><td>zip</td><td>combine two independent results</td></tr>
+    <tr><td><code>thenAccept / thenRun</code></td><td>forEach</td><td>side effect at the end</td></tr>
+    <tr><td><code>allOf(...)</code> / <code>anyOf(...)</code></td><td>wait for all / first</td><td>fan-out over many calls</td></tr>
+    <tr><td><code>exceptionally / handle / whenComplete</code></td><td>catch / finally</td><td>recover, or inspect result + error</td></tr>
+    <tr><td><code>orTimeout / completeOnTimeout</code></td><td>timeout</td><td>never wait forever</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Fan out over a list and collect all results">
+List<CompletableFuture<Quote>> calls = vendors.stream()
+        .map(v -> CompletableFuture.supplyAsync(() -> v.quote(item), ioPool))
+        .toList();
+CompletableFuture.allOf(calls.toArray(CompletableFuture[]::new)).join();  // wait for every call
+List<Quote> quotes = calls.stream().map(CompletableFuture::join).toList(); // all done: join won't block
+</script>
+
+  <div class="box pitfall"><div class="box-tag">Common trap</div><p>Without an executor argument, <code>supplyAsync</code> runs on <code>ForkJoinPool.commonPool()</code>, shared by the whole JVM including parallel streams. Blocking I/O there starves everything else. Always pass your own I/O pool (or a virtual-thread executor). Also: <code>join()</code> throws unchecked <code>CompletionException</code>; <code>get()</code> throws checked <code>ExecutionException</code>.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Apply transforms, Compose chains, Combine joins, allOf waits.</p>
+    <p>Start independent work <span class="hl">at the same time</span>, pass your own executor, add a timeout and a fallback.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Future vs CompletableFuture?</summary><div class="ans"><p>Future only lets you check or block (<code>get()</code>). CompletableFuture can be completed manually, chained with callbacks, combined with others, and has built-in error handling and timeouts, enabling non-blocking pipelines.</p></div></details>
+    <details><summary>thenApply vs thenApplyAsync?</summary><div class="ans"><p>thenApply runs the function on whichever thread completed the previous stage (or the caller, if already complete). thenApplyAsync submits it to an executor (the common pool, or the one you pass), which is useful when the next step is heavy.</p></div></details>
+  </div>
+  {{done}}
+</section>

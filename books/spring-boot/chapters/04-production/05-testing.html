@@ -1,0 +1,99 @@
+<section class="chapter" id="ch-testing" data-title="Testing Spring Boot apps">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Production</div>
+    <h2>Testing: unit, slice and integration tests</h2>
+    <p class="ch-oneline"><b>Many fast unit tests, some slice tests that load one layer, a few full integration tests with real dependencies in containers.</b></p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>Taste each <strong>ingredient alone</strong> (unit tests: quick, cheap, many). Test the <strong>counter</strong> with a pretend kitchen behind it (slice test with mocks). Once a week, run a <strong>full rehearsal</strong> with real gas and real milk (integration test with Testcontainers).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg viewBox="0 0 780 230" role="img" aria-label="Test pyramid: many unit tests at the base, slice tests in the middle, few integration tests at the top">
+      <path d="M320 20 L420 90 L220 90 Z" class="d-bad"/><text x="320" y="72" text-anchor="middle" class="d-t">few</text>
+      <path d="M220 96 L420 96 L500 150 L140 150 Z" class="d-amb"/><text x="320" y="128" text-anchor="middle" class="d-t">some</text>
+      <path d="M140 156 L500 156 L590 214 L50 214 Z" class="d-good"/><text x="320" y="190" text-anchor="middle" class="d-t">many</text>
+      <text x="440" y="60" class="d-xs">@SpringBootTest + Testcontainers</text>
+      <text x="515" y="126" class="d-xs">@WebMvcTest, @DataJpaTest</text>
+      <text x="20" y="190" class="d-xs">JUnit 6 + Mockito</text>
+    </svg></div></figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Test type</th><th>Loads</th><th>Speed</th><th>Use for</th></tr>
+    <tr><td>Plain JUnit + Mockito</td><td>nothing</td><td>ms</td><td>service logic</td></tr>
+    <tr><td><code>@WebMvcTest(X.class)</code></td><td>MVC for one controller, advice, filters</td><td>~1 s</td><td>status codes, JSON, validation, security rules</td></tr>
+    <tr><td><code>@DataJpaTest</code></td><td>JPA, repositories, a test DB; rolls back each test</td><td>~2 s</td><td>queries, mappings</td></tr>
+    <tr><td><code>@SpringBootTest</code></td><td>the whole application</td><td>seconds</td><td>wiring, end-to-end flows</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Unit test: no Spring at all">
+@ExtendWith(MockitoExtension.class)
+class StudentServiceTest {
+    @Mock StudentRepository repo;
+    @InjectMocks StudentService service;               // constructor injection makes this trivial
+
+    @Test
+    void create_rejectsDuplicateEmail() {
+        when(repo.existsByEmail("aman@ramu.in")).thenReturn(true);
+        assertThatThrownBy(() -> service.create(new StudentRequest("Aman", "aman@ramu.in", 21)))
+                .isInstanceOf(ConflictException.class);
+        verify(repo, never()).save(any());
+    }
+}
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Controller slice test (Spring Boot 4 annotations)">
+@WebMvcTest(StudentController.class)                    // org.springframework.boot.webmvc.test.autoconfigure
+class StudentControllerTest {
+    @Autowired MockMvcTester mvc;                        // AssertJ-style MockMvc (Framework 6.2+)
+    @MockitoBean StudentService service;                 // replaces the bean in the context
+                                                         // (@MockBean was removed in Boot 4)
+    @Test
+    void get_returns200AndJson() {
+        when(service.get(1L)).thenReturn(new StudentResponse(1L, "Aman", "aman@ramu.in", 21));
+        assertThat(mvc.get().uri("/api/students/1"))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.name").isEqualTo("Aman");
+    }
+
+    @Test
+    void create_invalidBody_returns400() {
+        assertThat(mvc.post().uri("/api/students").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"\",\"email\":\"bad\",\"age\":5}"))
+                .hasStatus(HttpStatus.BAD_REQUEST);
+    }
+}
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Integration test with a real PostgreSQL in Docker (Testcontainers)">
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Testcontainers
+class StudentApiIT {
+    @Container
+    @ServiceConnection                                   // Boot wires the datasource to the container
+    static PostgreSQLContainer<?> db = new PostgreSQLContainer<>("postgres:17");
+
+    @LocalServerPort int port;
+
+    @Test
+    void createThenFetch() {
+        RestClient client = RestClient.create("http://localhost:" + port);
+        StudentResponse created = client.post().uri("/api/students")
+                .body(new StudentRequest("Aman", "aman@ramu.in", 21)).retrieve().body(StudentResponse.class);
+        assertThat(client.get().uri("/api/students/{id}", created.id()).retrieve()
+                .body(StudentResponse.class).name()).isEqualTo("Aman");
+    }
+}
+// Boot 4 also offers RestTestClient for fluent request/response assertions in tests.
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Taste ingredients, test the counter, rehearse once a week.</p>
+    <p>Unit → slice (<code>@WebMvcTest</code>, <code>@DataJpaTest</code>) → <code>@SpringBootTest</code>. <span class="hl">@MockitoBean</span> replaces beans in the context (Boot 4); @Mock is plain Mockito. Real DBs via Testcontainers, not H2.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>@Mock vs @MockitoBean (@MockBean)?</summary><div class="ans"><p>@Mock creates a Mockito mock with no Spring involvement (unit tests). @MockitoBean (Spring Framework 6.2+; replaces Boot's @MockBean, removed in Boot 4) creates a mock and puts it into the Spring ApplicationContext in place of the real bean, for slice and integration tests. Each distinct set of mocked beans creates a new cached context, so keep them consistent.</p></div></details>
+    <details><summary>Why Testcontainers instead of H2 for repository tests?</summary><div class="ans"><p>H2 behaves differently from PostgreSQL/MySQL (SQL dialect, JSON types, locking, constraints), so tests pass and production fails. Testcontainers runs the real database version in Docker, and @ServiceConnection removes the connection boilerplate.</p></div></details>
+  </div>
+  {{done}}
+</section>

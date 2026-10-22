@@ -1,0 +1,11 @@
+{
+  "name": "sde2-handbook",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Full-Stack SDE-2 Handbook: five visual study books (Java, Spring Boot, System Design, Cloud & DevOps, AI Engineering) built into self-contained HTML pages.",
+  "scripts": {
+    "build": "node build.js",
+    "watch": "node build.js --watch"
+  },
+  "engines": { "node": ">=18" }
+}

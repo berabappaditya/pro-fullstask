@@ -1,0 +1,75 @@
+<section class="chapter" id="ch-cap" data-title="CAP, PACELC and consistency">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Data</div>
+    <h2>CAP, PACELC and consistency models</h2>
+    <p class="ch-oneline"><b>When the network between your servers breaks, you must choose:</b> refuse some requests to stay correct, or answer everything and risk being out of date.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>A storm cuts the phone line between the Kharagpur and Kolkata branches. A customer in Kolkata asks, "How many loyalty points do I have? I want to redeem 100." The Kolkata branch can't check with Kharagpur, where he might have spent points this morning.</p>
+    <p>Choice 1: <strong>"Sorry, our system is down, come back later."</strong> Correct but unhelpful. That's choosing <strong>Consistency</strong>. Choice 2: <strong>"Your balance as of last night is 250, enjoy!"</strong> Helpful but maybe wrong. That's choosing <strong>Availability</strong>. He can't have both while the line is cut, and the line cut is the <strong>Partition</strong>.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg viewBox="0 0 640 360" role="img" aria-label="CAP triangle with Consistency, Availability and Partition tolerance at the corners; CP and AP edges are the real choices">
+      <path d="M320 30 L590 290 L50 290 Z" class="d-paper"/>
+      <circle cx="320" cy="40" r="40" class="d-acc"/><text x="320" y="38" text-anchor="middle" class="d-t">C</text><text x="320" y="54" text-anchor="middle" class="d-xs">Consistency</text>
+      <circle cx="70" cy="280" r="40" class="d-good"/><text x="70" y="278" text-anchor="middle" class="d-t">A</text><text x="70" y="294" text-anchor="middle" class="d-xs">Availability</text>
+      <circle cx="570" cy="280" r="40" class="d-amb"/><text x="570" y="278" text-anchor="middle" class="d-t">P</text><text x="570" y="294" text-anchor="middle" class="d-xs">Partition tol.</text>
+      <text x="485" y="150" text-anchor="middle" class="d-ta">CP</text><text x="485" y="168" text-anchor="middle" class="d-xs">refuse when unsure</text><text x="485" y="182" text-anchor="middle" class="d-xs">HBase, ZooKeeper, etcd,</text><text x="485" y="196" text-anchor="middle" class="d-xs">MongoDB (majority), banks</text>
+      <text x="320" y="270" text-anchor="middle" class="d-tg">AP</text><text x="320" y="286" text-anchor="middle" class="d-xs">answer, maybe stale: Cassandra, DynamoDB, DNS, CouchDB</text>
+      <text x="155" y="150" text-anchor="middle" class="d-tb">CA</text><text x="155" y="168" text-anchor="middle" class="d-xs">only possible on</text><text x="155" y="182" text-anchor="middle" class="d-xs">a single machine,</text><text x="155" y="196" text-anchor="middle" class="d-xs">not a real option</text>
+      <text x="320" y="350" text-anchor="middle" class="d-s">Networks always fail eventually, so P is not optional. The real choice is C or A during a partition.</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> The CAP theorem: in a distributed system, during a network partition you can guarantee consistency or availability, not both.</figcaption>
+  </figure>
+
+  <div class="cards">
+    <div class="card"><span class="k">C</span><h5>Consistency</h5><p>Every read sees the most recent write (or gets an error). All nodes show the same data at the same time.</p></div>
+    <div class="card"><span class="k">A</span><h5>Availability</h5><p>Every request to a working node gets a non-error response, even if it's not the latest data.</p></div>
+    <div class="card"><span class="k">P</span><h5>Partition tolerance</h5><p>The system keeps running even when messages between nodes are lost or delayed.</p></div>
+  </div>
+
+  <h3>Which to choose?</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>System</th><th>Choice</th><th>Why</th></tr>
+    <tr><td>Bank transfer, stock trading, seat booking</td><td>CP</td><td>Showing a wrong balance or selling one seat twice is worse than a short error</td></tr>
+    <tr><td>Social feed, likes count, product reviews</td><td>AP</td><td>A like count that's 2 seconds old harms nobody; downtime loses users</td></tr>
+    <tr><td>Shopping cart (Amazon's Dynamo paper)</td><td>AP</td><td>Always let people add to cart; merge conflicting carts later</td></tr>
+    <tr><td>Configuration / leader election (etcd, ZooKeeper)</td><td>CP</td><td>Two nodes both believing they're leader is catastrophic</td></tr>
+  </table></div>
+
+  <h3>PACELC: the part CAP forgets</h3>
+  <div class="box def"><div class="box-tag">Definition</div>
+    <p><strong>If P</strong>artition: choose <strong>A</strong> or <strong>C</strong>. <strong>E</strong>lse (normal operation): choose <strong>L</strong>atency or <strong>C</strong>onsistency. Even with a healthy network, waiting for replicas to agree makes every request slower.</p></div>
+  <p>DynamoDB and Cassandra are <strong>PA/EL</strong> (available in partitions, fast normally). Traditional SQL with synchronous replicas and Google Spanner are <strong>PC/EC</strong> (consistent always, paying latency). MongoDB is configurable.</p>
+
+  <h3>The consistency ladder</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 800 240" role="img" aria-label="Consistency models from strongest to weakest: linearizable, sequential, causal, read-your-writes, monotonic reads, eventual">
+      <path d="M40 210 L760 30" class="d-lacc" marker-end="url(#aa)"/>
+      <g>
+        <rect x="610" y="20" width="170" height="44" rx="8" class="d-acc"/><text x="695" y="40" text-anchor="middle" class="d-t">Linearizable (strong)</text><text x="695" y="55" text-anchor="middle" class="d-xs">like one single copy</text>
+        <rect x="470" y="60" width="160" height="44" rx="8" class="d-box"/><text x="550" y="80" text-anchor="middle" class="d-t">Sequential</text><text x="550" y="95" text-anchor="middle" class="d-xs">same order for everyone</text>
+        <rect x="330" y="98" width="160" height="44" rx="8" class="d-box"/><text x="410" y="118" text-anchor="middle" class="d-t">Causal</text><text x="410" y="133" text-anchor="middle" class="d-xs">cause before effect</text>
+        <rect x="190" y="136" width="160" height="44" rx="8" class="d-box"/><text x="270" y="156" text-anchor="middle" class="d-t">Read-your-writes</text><text x="270" y="171" text-anchor="middle" class="d-xs">you see your own changes</text>
+        <rect x="20" y="176" width="180" height="44" rx="8" class="d-good"/><text x="110" y="196" text-anchor="middle" class="d-t">Eventual</text><text x="110" y="211" text-anchor="middle" class="d-xs">all copies agree… eventually</text>
+      </g>
+      <text x="760" y="110" text-anchor="end" class="d-s">stronger = easier to reason about, slower, less available</text>
+      <text x="40" y="236" class="d-s">weaker = faster, more available, more surprises</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.2</b> Consistency is a dial, not a switch. Most user-facing features need only read-your-writes or causal consistency, which are much cheaper than linearizability.</figcaption>
+  </figure>
+
+  <div class="box pitfall"><div class="box-tag">Common trap</div>
+    <p>"We'll pick CA." In a system spread over more than one machine, partitions <em>will</em> happen, so CA isn't a real option. Also, the C in CAP (linearizability) is <strong>not</strong> the C in ACID (integrity rules). Same letter, different meaning.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Phone line cut? Be Correct or be Kind.</p>
+    <p>P is forced on you. During a partition choose <strong>CP</strong> (money, bookings, locks) or <strong>AP</strong> (feeds, likes, carts). PACELC adds: <span class="hl">even without failures, consistency costs latency</span>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Is Cassandra CP or AP?</summary><div class="ans"><p>By default AP: any replica can accept writes and reads return what that replica has. But it's tunable per query: with <code>QUORUM</code> reads and writes (R + W &gt; N) you get strong consistency for that data, at the cost of availability if too many replicas are unreachable.</p></div></details>
+    <details><summary>For a ticket booking system, which parts are CP and which AP?</summary><div class="ans"><p>Seat reservation and payment are CP: never double-book; it's fine to show "try again". Browsing events, showing approximate seats left, reviews and recommendations are AP: stale by a few seconds is fine, downtime is not. Mixing guarantees per feature is the mature answer.</p></div></details>
+  </div>
+  {{done}}
+</section>

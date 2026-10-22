@@ -1,0 +1,196 @@
+<section class="chapter" id="ch-cache" data-title="Caching and CDNs">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Building blocks</div>
+    <h2>Caching and CDNs</h2>
+    <p class="ch-oneline"><b>A cache keeps a copy of frequently used data somewhere faster and closer</b>, so you don't redo slow work for every request.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Brewing each cup from scratch takes 4 minutes. But 80% of customers order the same plain masala chai. So every morning Ramu brews a big batch and keeps it hot in flasks on the counter. A masala chai order is now served in 10 seconds. Rare orders (green tea with honey) are still made fresh.</p>
+    <p>The flasks are a <strong>cache</strong>. Finding chai in the flask is a <strong>cache hit</strong>; having to brew is a <strong>cache miss</strong>. Throwing out tea older than 2 hours is a <strong>TTL</strong> (time to live). When the flask shelf is full and he removes the flavour nobody ordered recently, that's <strong>LRU eviction</strong>.</p></div>
+
+  <h3>Where caches live</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 190" role="img" aria-label="Caches exist at every layer: browser, CDN, load balancer or reverse proxy, application memory, distributed cache like Redis, and the database buffer pool">
+      <g>
+        <rect x="10" y="50" width="120" height="70" rx="10" class="d-vio"/><text x="70" y="80" text-anchor="middle" class="d-t">Browser</text><text x="70" y="98" text-anchor="middle" class="d-xs">HTTP cache</text>
+        <rect x="150" y="50" width="120" height="70" rx="10" class="d-teal"/><text x="210" y="80" text-anchor="middle" class="d-t">CDN edge</text><text x="210" y="98" text-anchor="middle" class="d-xs">images, JS, video</text>
+        <rect x="290" y="50" width="120" height="70" rx="10" class="d-box"/><text x="350" y="80" text-anchor="middle" class="d-t">Reverse proxy</text><text x="350" y="98" text-anchor="middle" class="d-xs">Nginx / Varnish</text>
+        <rect x="430" y="50" width="120" height="70" rx="10" class="d-box"/><text x="490" y="80" text-anchor="middle" class="d-t">App memory</text><text x="490" y="98" text-anchor="middle" class="d-xs">Caffeine, HashMap</text>
+        <rect x="570" y="50" width="130" height="70" rx="10" class="d-amb"/><text x="635" y="80" text-anchor="middle" class="d-t">Distributed cache</text><text x="635" y="98" text-anchor="middle" class="d-xs">Redis, Memcached</text>
+        <rect x="720" y="50" width="130" height="70" rx="10" class="d-good"/><text x="785" y="80" text-anchor="middle" class="d-t">Database</text><text x="785" y="98" text-anchor="middle" class="d-xs">buffer pool, query cache</text>
+      </g>
+      <path d="M130 85 H150 M270 85 H290 M410 85 H430 M550 85 H570 M700 85 H720" class="d-line" marker-end="url(#ah)"/>
+      <path d="M20 150 H850" class="d-lacc" marker-end="url(#aa)"/>
+      <text x="20" y="172" class="d-ta">closer to user · fastest · least fresh</text><text x="850" y="172" text-anchor="end" class="d-ta">source of truth · slowest · always fresh</text>
+      <text x="430" y="30" text-anchor="middle" class="d-s">The earlier a request is answered, the less work every layer behind it does.</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Caching happens at every layer. Interviews usually focus on the distributed cache (Redis) and the CDN.</figcaption>
+  </figure>
+
+  <h3>Caching strategies: who updates the cache, and when</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 230" role="img" aria-label="Cache-aside: the app checks the cache, on a miss reads the database and writes the result into the cache">
+      <text x="410" y="22" text-anchor="middle" class="d-tl">Cache-aside (lazy loading): the most common pattern</text>
+      <rect x="60" y="80" width="140" height="70" rx="12" class="d-box"/><text x="130" y="112" text-anchor="middle" class="d-t">Application</text><text x="130" y="130" text-anchor="middle" class="d-xs">owns the logic</text>
+      <rect x="380" y="40" width="150" height="60" rx="12" class="d-amb"/><text x="455" y="75" text-anchor="middle" class="d-t">Cache</text>
+      <rect x="620" y="130" width="150" height="60" rx="12" class="d-good"/><text x="695" y="165" text-anchor="middle" class="d-t">Database</text>
+      <path d="M200 95 C270 70,320 62,378 64" class="d-lamb" marker-end="url(#am)"/><text x="285" y="62" text-anchor="middle" class="d-xs">① GET key</text>
+      <path d="M378 82 C320 90,270 100,202 108" class="d-lamb d-dash" marker-end="url(#am)"/><text x="290" y="112" text-anchor="middle" class="d-xs">② hit → return  /  miss → null</text>
+      <path d="M200 140 C350 170,500 170,618 160" class="d-lgood" marker-end="url(#ag)"/><text x="420" y="182" text-anchor="middle" class="d-xs">③ on miss: SELECT from DB</text>
+      <path d="M210 128 C300 135,330 110,380 98" class="d-lamb" marker-end="url(#am)"/><text x="345" y="140" text-anchor="middle" class="d-xs">④ SET key value TTL</text>
+      <text x="410" y="218" text-anchor="middle" class="d-s">On write: update the DB, then DELETE the cache key (don't update it) so the next read reloads fresh data.</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.2</b> In cache-aside the application talks to both. Only data that is actually requested gets cached.</figcaption>
+  </figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Strategy</th><th>How it works</th><th>Good</th><th>Bad</th></tr>
+    <tr><td>Cache-aside</td><td>App reads cache; on miss reads DB and fills cache</td><td>Simple; cache failure isn't fatal; only hot data cached</td><td>First request is slow; data can be stale until TTL</td></tr>
+    <tr><td>Read-through</td><td>Cache itself loads from DB on miss</td><td>App code is simpler</td><td>Needs a cache library/provider that supports it</td></tr>
+    <tr><td>Write-through</td><td>Every write goes to cache and DB together</td><td>Cache always fresh</td><td>Slower writes; caches data nobody reads</td></tr>
+    <tr><td>Write-behind (write-back)</td><td>Write to cache now, flush to DB later in batches</td><td>Very fast writes</td><td>Data loss if cache dies before flushing</td></tr>
+    <tr><td>Write-around</td><td>Write only to DB; cache fills on next read</td><td>Avoids filling cache with write-once data</td><td>Recent writes miss the cache</td></tr>
+  </table></div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: every request hits the database">
+@Service
+public class MenuService {
+    private final MenuRepository repo;
+
+    public MenuService(MenuRepository repo) { this.repo = repo; }
+
+    public Menu getMenu(long stallId) {
+        // 10,000 requests/second = 10,000 identical SQL queries/second.
+        // The menu changes once a day. The DB does the same work over and over.
+        return repo.findByStallId(stallId);
+    }
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: cache-aside with Redis and a TTL">
+@Service
+public class MenuService {
+    private static final Duration TTL = Duration.ofMinutes(10);
+    private final MenuRepository repo;
+    private final RedisTemplate<String, Menu> redis;
+
+    public MenuService(MenuRepository repo, RedisTemplate<String, Menu> redis) {
+        this.repo = repo; this.redis = redis;
+    }
+
+    public Menu getMenu(long stallId) {
+        String key = "menu:" + stallId;                 // namespaced cache key
+        Menu cached = redis.opsForValue().get(key);     // ① try the cache first
+        if (cached != null) return cached;              // ② HIT: ~1 ms, no DB work
+
+        Menu fresh = repo.findByStallId(stallId);       // ③ MISS: go to the DB once
+        redis.opsForValue().set(key, fresh, TTL);       // ④ store it for next time
+        return fresh;
+    }
+
+    @Transactional
+    public void updateMenu(long stallId, Menu menu) {
+        repo.save(menu);                                // write the source of truth first
+        redis.delete("menu:" + stallId);                // then INVALIDATE, don't overwrite:
+    }                                                   // avoids racing writers leaving stale data
+}
+</script>
+</div>
+  <p class="small">Spring shortcut: the same thing with annotations is <code>@Cacheable("menu")</code> on <code>getMenu</code> and <code>@CacheEvict("menu")</code> on <code>updateMenu</code>, with Redis configured as the cache manager.</p>
+
+  <h3>Eviction: what to throw out when the cache is full</h3>
+  <div class="cards">
+    <div class="card"><h5>LRU: Least Recently Used</h5><p>Remove what hasn't been touched for the longest time. The default choice.</p></div>
+    <div class="card"><h5>LFU: Least Frequently Used</h5><p>Remove what's used least often. Good when popularity is stable.</p></div>
+    <div class="card"><h5>FIFO</h5><p>Remove the oldest inserted item, regardless of use. Simple, rarely best.</p></div>
+    <div class="card"><h5>TTL</h5><p>Every entry expires after a fixed time. Controls staleness rather than space.</p></div>
+  </div>
+
+  <div class="widget" id="w-lru">
+    <div class="widget-head"><span class="live">Live</span>LRU cache with capacity 4</div>
+    <div class="widget-body">
+      <div class="controls" id="lruKeys"></div>
+      <div class="lru-label">Most recent → least recent</div>
+      <div class="lru-row" id="lruRow"></div>
+      <div class="statrow" id="lruStats"></div>
+      <div class="wlog" id="lruLog" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <p>LRU is also a classic LLD coding question. The trick: a <strong>HashMap</strong> for O(1) lookup plus a <strong>doubly linked list</strong> for O(1) "move to front" and "remove last".</p>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="LRU cache in O(1): HashMap + doubly linked list">
+public class LRUCache<K, V> {
+    private final class Node {                 // one entry in the usage list
+        K key; V value; Node prev, next;
+        Node(K k, V v) { key = k; value = v; }
+    }
+    private final int capacity;
+    private final Map<K, Node> map = new HashMap<>();   // key -> node, O(1) lookup
+    private final Node head = new Node(null, null);     // sentinel: most recent side
+    private final Node tail = new Node(null, null);     // sentinel: least recent side
+
+    public LRUCache(int capacity) {
+        this.capacity = capacity;
+        head.next = tail; tail.prev = head;             // empty list: head <-> tail
+    }
+
+    public synchronized V get(K key) {
+        Node n = map.get(key);
+        if (n == null) return null;                     // miss
+        unlink(n); addFront(n);                         // touched -> now most recent
+        return n.value;
+    }
+
+    public synchronized void put(K key, V value) {
+        Node n = map.get(key);
+        if (n != null) {                                // existing key: update + move
+            n.value = value; unlink(n); addFront(n); return;
+        }
+        if (map.size() == capacity) {                   // full: evict the LRU entry
+            Node lru = tail.prev;                       // the node just before tail
+            unlink(lru); map.remove(lru.key);
+        }
+        Node fresh = new Node(key, value);
+        addFront(fresh); map.put(key, fresh);
+    }
+
+    private void unlink(Node n) { n.prev.next = n.next; n.next.prev = n.prev; }
+    private void addFront(Node n) {
+        n.next = head.next; n.prev = head;
+        head.next.prev = n; head.next = n;
+    }
+}
+// Shortcut in real code: new LinkedHashMap<>(16, 0.75f, true) with removeEldestEntry().
+</script>
+
+  <h3>The four classic cache disasters</h3>
+  <div class="cards">
+    <div class="card bad"><h5>Stampede (thundering herd)</h5><p>A hot key expires; 5,000 requests miss at once and all hit the DB.</p><ul><li>Fix: lock so one request rebuilds, others wait</li><li>Refresh before expiry; add random jitter to TTLs</li></ul></div>
+    <div class="card bad"><h5>Penetration</h5><p>Requests for keys that don't exist (e.g. id=-1) always miss and always hit the DB.</p><ul><li>Fix: cache the "not found" result briefly</li><li>Bloom filter in front ({{ref:ch-toolbox}})</li></ul></div>
+    <div class="card bad"><h5>Avalanche</h5><p>Many keys expire at the same moment, or the cache cluster restarts; the DB is flooded.</p><ul><li>Fix: randomise TTLs</li><li>Replicated cache cluster, warm-up on start</li></ul></div>
+    <div class="card bad"><h5>Hot key</h5><p>One celebrity key gets millions of reads and overloads a single cache node.</p><ul><li>Fix: local in-process cache layer</li><li>Replicate the key as key#1…key#N</li></ul></div>
+  </div>
+
+  <h3>CDN: a cache spread across the planet</h3>
+  <p>A <strong>Content Delivery Network</strong> is a set of servers ("edge locations") in hundreds of cities that keep copies of your static files. A user in Chennai downloads your logo from a Chennai edge server instead of your origin in Mumbai or Virginia.</p>
+  <div class="cards">
+    <div class="card"><h5>Pull CDN</h5><p>Edge fetches from your origin on the first request, then caches it. Easy; first user per region pays the miss. Most common (CloudFront, Cloudflare).</p></div>
+    <div class="card"><h5>Push CDN</h5><p>You upload content to the CDN in advance. More control, good for big files that rarely change (videos, game patches).</p></div>
+  </div>
+  <p>Bust stale files with <strong>versioned file names</strong> (<code>app.3f9a2c.js</code>) instead of waiting for TTLs or purging.</p>
+
+  <div class="box pitfall"><div class="box-tag">Common trap</div>
+    <p>"Just add a cache" without asking <strong>how stale is acceptable?</strong> A menu can be 10 minutes old. A bank balance or seat availability usually can't. Caching is a deliberate trade of freshness for speed; say the trade-off out loud.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Flasks on the counter: hit fast, miss once, throw out the stale.</p>
+    <p>Default answer: <strong>cache-aside + TTL + delete-on-write</strong>, Redis as the store, LRU eviction. Name the risks: stampede, penetration, avalanche, hot keys. "There are only two hard things in computer science: cache invalidation and naming things."</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>On a write, why delete the cache key instead of updating it?</summary><div class="ans"><p>Two concurrent writers can update the DB in one order and the cache in the opposite order, leaving the cache permanently wrong. Deleting is idempotent and order-safe: the next read reloads the true value from the DB. (A small race still exists with a concurrent reader; delayed double-delete or short TTLs cover it.)</p></div></details>
+    <details><summary>What should and shouldn't be cached?</summary><div class="ans"><p>Cache data that is read far more than written, expensive to compute, and tolerant of slight staleness: product pages, profiles, feeds, configuration, session data. Be careful with data needing strict correctness (balances, inventory at checkout) or that is unique per request with no reuse.</p></div></details>
+    <details><summary>Redis vs Memcached?</summary><div class="ans"><p>Both are in-memory key-value stores. Redis has rich data types (lists, sets, sorted sets, hashes, streams), persistence, replication, pub/sub and Lua scripts; it's the usual default. Memcached is simpler, multi-threaded and purely a cache of strings, good for very simple high-throughput caching.</p></div></details>
+  </div>
+  {{done}}
+</section>

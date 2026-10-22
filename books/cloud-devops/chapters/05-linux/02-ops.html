@@ -1,0 +1,78 @@
+<section class="chapter" id="ch-linux-ops" data-title="Linux II: processes, network, logs, troubleshooting">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Linux</div>
+    <h2>Linux II: processes, networking, services, logs and troubleshooting</h2>
+    <p class="ch-oneline"><b>When a server misbehaves: check load and memory, find the process, read its logs, test the network, check the disk.</b> These commands cover 90% of incidents.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>A counter is slow. Ramu checks <strong>how busy every cook is</strong> (<code>top</code>), finds the one stuck (<code>ps</code>), reads the <strong>kitchen diary</strong> (<code>journalctl</code>), checks the <strong>phone line</strong> to the supplier (<code>curl</code>, <code>dig</code>), and looks at whether the <strong>storeroom is full</strong> (<code>df</code>).</p></div>
+
+  <div class="widget" data-terminal>
+    <div class="widget-head"><span class="live">Live</span>Practice terminal: the "server is slow" runbook</div>
+    <div class="widget-body">
+<script type="application/json">
+{"prompt":"ramu@orders-vm:~$","welcome":"Users report the orders API is slow. Work through the checks.","commands":[
+{"cmd":"uptime","out":" 10:42:07 up 12 days,  3:11,  1 user,  load average: 7.82, 6.95, 4.10","note":"Load average over 1, 5 and 15 minutes. Compare to CPU count (nproc = 4 here): 7.8 on 4 cores means work is queueing, and it's rising."},
+{"cmd":"top -o %CPU","out":"top - 10:42:10 up 12 days, load average: 7.82\n%Cpu(s): 96.1 us, 2.2 sy, 0.0 id, 1.1 wa\nMiB Mem :  7841.2 total,  212.4 free,  7102.8 used\n\n  PID USER    %CPU  %MEM  COMMAND\n 4242 orders  381.0 71.3  java\n  912 root      4.1  0.3  nginx","note":"Live view sorted by CPU. 'us' = user CPU, 'wa' = waiting on I/O. Java uses ~3.8 cores and 71% RAM. (htop is a friendlier alternative.) Press q to quit."},
+{"cmd":"free -h","out":"               total   used   free   shared  buff/cache  available\nMem:           7.7Gi  6.9Gi  212Mi   12Mi    620Mi       540Mi\nSwap:             0B     0B     0B","note":"Memory. Look at 'available', not 'free' (Linux uses spare RAM as disk cache)."},
+{"cmd":"ps -eo pid,ppid,user,%cpu,%mem,etime,cmd --sort=-%cpu | head -5","out":"  PID  PPID USER   %CPU %MEM  ELAPSED CMD\n 4242     1 orders  381 71.3 12-03:10 java -Xmx5g -jar /opt/orders/app.jar\n  912     1 root    4.1  0.3 12-03:11 nginx: master process","note":"Process snapshot with chosen columns, sorted by CPU. pgrep -f app.jar finds a PID by command line."},
+{"cmd":"df -h","out":"Filesystem      Size  Used Avail Use% Mounted on\n/dev/nvme0n1p1   30G   29G  1.1G  97% /\n/dev/nvme1n1    100G   41G   59G  41% /data","note":"Disk space per filesystem. Root is 97% full: a full disk breaks logging, DB writes and deploys."},
+{"cmd":"du -sh /var/log/* | sort -rh | head -3","out":"14G\t/var/log/orders\n1.2G\t/var/log/journal\n210M\t/var/log/nginx","note":"What's using the space: summarise each directory, sort by size. Old orders logs aren't being rotated (fix logrotate)."},
+{"cmd":"sudo systemctl status orders","out":"● orders.service - Ramu Orders API\n     Loaded: loaded (/etc/systemd/system/orders.service; enabled)\n     Active: active (running) since Fri 2026-10-10 07:31:02 IST; 12 days ago\n   Main PID: 4242 (java)\n     Memory: 5.5G","note":"systemd manages services: start, stop, restart, enable (start on boot), status."},
+{"cmd":"sudo journalctl -u orders --since '15 min ago' -p warning","out":"Oct 22 10:31:55 orders-vm java[4242]: WARN  HikariPool-1 - Thread starvation or clock leap detected\nOct 22 10:38:12 orders-vm java[4242]: ERROR Connection is not available, request timed out after 30000ms","note":"Logs of one unit, last 15 minutes, warnings and above. -f follows live. The DB pool is starving: long GCs or slow queries."},
+{"cmd":"ss -tlnp","out":"State   Recv-Q  Send-Q  Local Address:Port   Process\nLISTEN  0       100     0.0.0.0:8080         users:((\"java\",pid=4242))\nLISTEN  0       511     0.0.0.0:443          users:((\"nginx\",pid=912))","note":"Listening TCP sockets with process names (older: netstat -tlnp). Is the app actually listening on the port?"},
+{"cmd":"curl -s -o /dev/null -w '%{http_code} %{time_total}s\\n' localhost:8080/actuator/health","out":"200 2.913s","note":"Call the app locally and print status + total time. Healthy but 2.9 s for a health check is very slow."},
+{"cmd":"dig +short orders-db.internal.ramu","out":"10.0.21.15","note":"DNS lookup (nslookup works too). Then test the port: nc -zv 10.0.21.15 5432."},
+{"cmd":"nc -zv 10.0.21.15 5432","out":"Connection to 10.0.21.15 5432 port [tcp/postgresql] succeeded!","note":"Is the TCP port reachable? A timeout here usually means a security group / firewall problem; 'refused' means nothing is listening."},
+{"cmd":"kill -15 4242","out":"","note":"Send SIGTERM: ask the process to shut down gracefully. kill -9 (SIGKILL) only as a last resort: no cleanup, in-flight work lost."},
+{"cmd":"ssh -i ~/.ssh/ramu.pem ubuntu@10.0.11.23","out":"Welcome to Ubuntu 24.04 LTS\nubuntu@ip-10-0-11-23:~$","note":"Log into another server. In the cloud prefer SSM Session Manager / IAP TCP forwarding: no open port 22, access audited."}
+]}
+</script>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Task</th><th>Commands</th></tr>
+    <tr><td>Processes</td><td><code>ps aux</code>, <code>top</code>/<code>htop</code>, <code>pgrep</code>, <code>kill -15 / -9</code>, <code>nice</code>, <code>jobs</code>, <code>fg</code>/<code>bg</code></td></tr>
+    <tr><td>Services and logs</td><td><code>systemctl start|stop|restart|status|enable</code>, <code>journalctl -u svc -f</code>, <code>tail -f file</code>, <code>/var/log</code></td></tr>
+    <tr><td>Memory and CPU</td><td><code>free -h</code>, <code>uptime</code>, <code>nproc</code>, <code>vmstat 1</code>, <code>iostat</code></td></tr>
+    <tr><td>Disk</td><td><code>df -h</code>, <code>du -sh</code>, <code>lsblk</code>, <code>mount</code>, <code>lsof +L1</code> (deleted but open files)</td></tr>
+    <tr><td>Network</td><td><code>ip a</code>, <code>ss -tulpn</code>, <code>curl -v</code>, <code>dig</code>, <code>ping</code>, <code>traceroute</code>/<code>mtr</code>, <code>nc -zv</code>, <code>tcpdump</code></td></tr>
+    <tr><td>Users and access</td><td><code>whoami</code>, <code>id</code>, <code>sudo</code>, <code>useradd</code>, <code>passwd</code>, <code>ssh</code>, <code>scp</code>/<code>rsync</code></td></tr>
+    <tr><td>Packages</td><td><code>apt update &amp;&amp; apt install</code> (Debian/Ubuntu), <code>dnf install</code> (RHEL/Amazon Linux)</td></tr>
+    <tr><td>Scheduling</td><td><code>crontab -e</code> (<code>m h dom mon dow cmd</code>), systemd timers</td></tr>
+    <tr><td>Java on Linux</td><td><code>jps</code>, <code>jcmd PID Thread.print</code>, <code>jstat -gcutil</code> (see {{xref:java-core/ch-troubleshoot}})</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="text" data-variant="good" data-title="/etc/systemd/system/orders.service: run the jar as a proper service">
+[Unit]
+Description=Ramu Orders API
+After=network-online.target
+
+[Service]
+User=orders
+WorkingDirectory=/opt/orders
+Environment=SPRING_PROFILES_ACTIVE=prod
+ExecStart=/usr/bin/java -XX:MaxRAMPercentage=75 -jar /opt/orders/app.jar
+SuccessExitStatus=143          # 128 + SIGTERM(15): a graceful stop is not a failure
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536              # file descriptors: sockets count too
+
+[Install]
+WantedBy=multi-user.target
+# sudo systemctl daemon-reload && sudo systemctl enable --now orders
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">How busy, who's stuck, what does the diary say, is the line up, is the store full?</p>
+    <p><code>uptime top free ps</code> → <code>journalctl / tail -f</code> → <code>ss curl dig nc</code> → <code>df du</code>. <span class="hl">SIGTERM before SIGKILL.</span> Services via systemd.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>A Linux server is slow. Walk through your first five minutes.</summary><div class="ans"><p><code>uptime</code> (load vs cores), <code>top</code>/<code>htop</code> (which process, user vs I/O wait), <code>free -h</code> (memory, swap), <code>df -h</code> (full disks), <code>iostat</code>/<code>vmstat</code> (disk and CPU saturation), the service's logs (<code>journalctl</code>), network checks (<code>ss</code>, <code>curl</code> to dependencies). For Java, thread dumps and GC stats. Compare with metrics history to see when it started.</p></div></details>
+    <details><summary>df shows the disk full but du can't find the big files. Why?</summary><div class="ans"><p>A process still has a deleted file open (often a log deleted instead of rotated); the space isn't freed until the file descriptor closes. Find it with <code>lsof +L1</code> and restart that process or truncate via <code>/proc/PID/fd</code>. Use logrotate with copytruncate or proper reopen signals.</p></div></details>
+    <details><summary>SIGTERM vs SIGKILL?</summary><div class="ans"><p>SIGTERM (15) asks the process to exit; it can catch it and clean up (Spring Boot graceful shutdown finishes in-flight requests). SIGKILL (9) can't be caught: the kernel kills it immediately. Docker and Kubernetes send SIGTERM, wait a grace period, then SIGKILL.</p></div></details>
+  </div>
+  {{done}}
+</section>

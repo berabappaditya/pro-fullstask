@@ -1,0 +1,255 @@
+<section class="chapter" id="ch-iam" data-title="LLD project: multi-level IAM and auth">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>LLD · Project</div>
+    <h2>LLD project: a multi-level IAM and authentication system</h2>
+    <p class="ch-oneline"><b>Identity and Access Management answers two questions on every request:</b> who is this, and how sure are we (authentication), and what may they do on this exact resource (authorization), with permissions that flow down an organisation's hierarchy.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu Chai Pvt Ltd now has a finance department and an operations department, each with projects (payroll, the Kolkata branch). Ramu's rules: the <strong>owner</strong> can do anything anywhere. The <strong>finance team</strong> can view everything in finance and edit payroll. <strong>Contractors</strong> may edit operations files but may <em>never</em> delete anything there. And approving salary payouts needs not just a password but also the OTP on your phone; if you logged in with only a password, you're asked for the OTP right then.</p>
+    <p>"Permissions flow down the hierarchy", "a deny beats any allow", and "sensitive actions need a stronger login" are the three ideas behind AWS IAM, Google Cloud IAM and every serious enterprise access system.</p></div>
+
+  <h3>Step 1 · Requirements</h3>
+  <div class="cards">
+    <div class="card"><h5>Authentication (multi-level)</h5><ul><li>Password login (level 1)</li><li>One-time password / TOTP (level 2)</li><li>Hardware security key (level 3)</li><li>Step-up: raise the level mid-session for sensitive actions</li><li>Sessions expire; lock out after repeated failures</li></ul></div>
+    <div class="card"><h5>Authorization (multi-level)</h5><ul><li>Resource hierarchy: organisation → department → project → resource</li><li>Roles bundle permissions (Viewer, Editor, Admin, PayrollApprover)</li><li>Bind roles to users or groups at any level; they inherit downward</li><li>Explicit deny policies override allows</li><li>Conditions (required auth level, time, network)</li><li>Default deny; every decision explainable and audited</li></ul></div>
+  </div>
+
+  <h3>Step 2 · The two halves</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 880 210" role="img" aria-label="Authentication produces a session with an assurance level; authorization evaluates the session, the permission and the resource against inherited policies to return allow, deny or step-up">
+      <rect x="10" y="40" width="120" height="70" rx="10" class="d-vio"/><text x="70" y="70" text-anchor="middle" class="d-t">User</text><text x="70" y="88" text-anchor="middle" class="d-xs">credentials</text>
+      <rect x="170" y="20" width="250" height="110" rx="12" class="d-acc"/><text x="295" y="44" text-anchor="middle" class="d-tl">Authentication</text>
+      <text x="295" y="66" text-anchor="middle" class="d-xs">chain: password → OTP → security key</text><text x="295" y="84" text-anchor="middle" class="d-xs">"who are you, and how sure are we?"</text>
+      <rect x="215" y="96" width="160" height="26" rx="6" class="d-box"/><text x="295" y="114" text-anchor="middle" class="d-m">Session{user, level=2}</text>
+      <rect x="470" y="20" width="250" height="110" rx="12" class="d-amb"/><text x="595" y="44" text-anchor="middle" class="d-tl">Authorization</text>
+      <text x="595" y="66" text-anchor="middle" class="d-xs">check(session, "payout.approve",</text><text x="595" y="82" text-anchor="middle" class="d-xs">/org/finance/payroll/payout-api)</text>
+      <text x="595" y="104" text-anchor="middle" class="d-xs">walk up the tree · deny wins · default deny</text>
+      <rect x="760" y="10" width="110" height="36" rx="18" class="d-good"/><text x="815" y="33" text-anchor="middle" class="d-t">ALLOW</text>
+      <rect x="760" y="57" width="110" height="36" rx="18" class="d-bad"/><text x="815" y="80" text-anchor="middle" class="d-t">DENY</text>
+      <rect x="760" y="104" width="110" height="36" rx="18" class="d-amb"/><text x="815" y="127" text-anchor="middle" class="d-t">STEP UP</text>
+      <path d="M130 75 H168" class="d-lacc" marker-end="url(#aa)"/><path d="M420 75 H468" class="d-lamb" marker-end="url(#am)"/>
+      <path d="M720 60 C740 50,745 30,758 28 M720 75 H758 M720 90 C740 100,745 118,758 122" class="d-line" marker-end="url(#ah)"/>
+      <path d="M815 140 C815 190,300 200,295 132" class="d-lamb d-dash" marker-end="url(#am)"/><text x="560" y="196" text-anchor="middle" class="d-tam">step up: ask for OTP, raise the session level, try again</text>
+    </svg></div>
+  </figure>
+
+  <h3>Step 3 · Permissions flow down the hierarchy</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 880 330" role="img" aria-label="Resource tree for Ramu Chai: organisation, finance and operations departments, payroll and Kolkata branch projects, with role bindings at each level">
+      <rect x="350" y="10" width="180" height="50" rx="10" class="d-acc"/><text x="440" y="32" text-anchor="middle" class="d-t">org: ramu-chai</text><text x="440" y="50" text-anchor="middle" class="d-xs">Asha → Admin</text>
+      <rect x="140" y="100" width="210" height="56" rx="10" class="d-box"/><text x="245" y="122" text-anchor="middle" class="d-t">dept: finance</text><text x="245" y="142" text-anchor="middle" class="d-xs">group finance-team → Viewer</text>
+      <rect x="530" y="100" width="230" height="56" rx="10" class="d-box"/><text x="645" y="122" text-anchor="middle" class="d-t">dept: operations</text><text x="645" y="142" text-anchor="middle" class="d-xs">contractors → Editor · DENY delete</text>
+      <rect x="120" y="196" width="250" height="56" rx="10" class="d-box"/><text x="245" y="218" text-anchor="middle" class="d-t">project: payroll</text><text x="245" y="238" text-anchor="middle" class="d-xs">Ravi → Editor, PayrollApprover (needs MFA)</text>
+      <rect x="530" y="196" width="230" height="56" rx="10" class="d-box"/><text x="645" y="218" text-anchor="middle" class="d-t">project: kolkata-branch</text><text x="645" y="238" text-anchor="middle" class="d-xs">Bablu → Viewer</text>
+      <rect x="60" y="280" width="140" height="40" rx="8" class="d-good"/><text x="130" y="305" text-anchor="middle" class="d-s">salary-sheet</text>
+      <rect x="220" y="280" width="140" height="40" rx="8" class="d-good"/><text x="290" y="305" text-anchor="middle" class="d-s">payout-api</text>
+      <rect x="520" y="280" width="120" height="40" rx="8" class="d-good"/><text x="580" y="305" text-anchor="middle" class="d-s">menu</text>
+      <rect x="660" y="280" width="140" height="40" rx="8" class="d-good"/><text x="730" y="305" text-anchor="middle" class="d-s">sales-report</text>
+      <path d="M410 60 L270 98 M470 60 L620 98 M245 156 V194 M645 156 V194 M200 252 L135 278 M290 252 L290 278 M620 252 L585 278 M670 252 L725 278" class="d-line"/>
+      <path d="M820 30 V300" class="d-lacc" marker-end="url(#aa)"/><text x="830" y="160" class="d-ta" transform="rotate(90 830 160)" text-anchor="middle">bindings inherit downward</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> A binding on a node applies to everything beneath it. To decide a request on <code>payout-api</code>, the engine collects bindings from <code>payout-api</code>, <code>payroll</code>, <code>finance</code> and <code>ramu-chai</code>. This tree is a <strong>Composite</strong> ({{ref:ch-structural}}).</figcaption>
+  </figure>
+
+  <h3>Step 4 · How a decision is made</h3>
+  <ol class="steps">
+    <li><b>Collect</b>Walk from the resource up to the root, collecting every binding whose principal is this user or one of their groups.</li>
+    <li><b>Deny first</b>If any matching <em>deny</em> binding grants this permission and its condition holds → <strong>DENY</strong>. Nothing can override an explicit deny.</li>
+    <li><b>Then allow</b>If an <em>allow</em> binding grants the permission and all its conditions hold → <strong>ALLOW</strong>.</li>
+    <li><b>Step up?</b>If an allow would match except that the session's authentication level is too low → <strong>STEP_UP_REQUIRED</strong> (ask for OTP or a security key, then retry).</li>
+    <li><b>Default deny</b>Nothing matched → <strong>DENY</strong>. Access must always be granted on purpose.</li>
+    <li><b>Explain and audit</b>Return the reason and the trace (which binding decided), and log the decision.</li>
+  </ol>
+
+  <div class="widget" id="w-iam">
+    <div class="widget-head"><span class="live">Live</span>IAM policy playground</div>
+    <div class="widget-body">
+      <div class="iam-form">
+        <label>Who<select class="btn" id="iamUser"></select></label>
+        <label>Action<select class="btn" id="iamAction"></select></label>
+        <label>Resource<select class="btn" id="iamRes"></select></label>
+        <label>Logged in with<select class="btn" id="iamLevel"><option value="1">Password only (level 1)</option><option value="2">Password + OTP (level 2)</option><option value="3">+ Security key (level 3)</option></select></label>
+      </div>
+      <div class="iam-out">
+        <div class="iam-decision" id="iamDecision">—</div>
+        <ol class="iam-trace" id="iamTrace"></ol>
+      </div>
+      <p class="small">Try: Meera deleting <code>sales-report</code> (explicit deny beats her Editor role); Ravi approving a payout with password only (step-up), then with OTP; Bablu writing to <code>menu</code> (default deny).</p>
+    </div>
+  </div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: permission logic copy-pasted into every endpoint">
+@DeleteMapping("/reports/{id}")
+public void delete(@PathVariable long id, @AuthenticationPrincipal User u) {
+    Report r = reports.get(id);
+    // Hard-coded, scattered and inconsistent: every endpoint does it slightly differently.
+    if (u.getRole().equals("ADMIN")
+        || (u.getRole().equals("EDITOR") && !u.isContractor())
+        || r.getOwnerId().equals(u.getId())) {
+        reports.delete(id);
+    } else throw new AccessDeniedException("no");
+    // New rule "contractors can't delete in operations" = edit 40 controllers.
+    // No hierarchy, no MFA requirement, no audit of WHY a request was allowed.
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: one policy engine, declarative checks at the edge">
+@DeleteMapping("/reports/{id}")
+@RequiresPermission(value = "reports.delete", resource = "#id")   // enforced by an AOP proxy
+public void delete(@PathVariable long id) {
+    reports.delete(id);                     // the controller only does its real job (SRP)
+}
+
+@Aspect @Component
+class PermissionAspect {                    // Proxy pattern: checks before the real call
+    @Before("@annotation(rp)")
+    void enforce(JoinPoint jp, RequiresPermission rp) {
+        Session s = SessionContext.current();
+        Resource r = resources.resolve(rp.resource(), jp);       // e.g. /org/operations/kolkata/sales-report
+        Decision d = engine.check(s, rp.value(), r);
+        audit.record(s, rp.value(), r, d);                       // every decision is logged with its reason
+        switch (d.outcome()) {
+            case ALLOW -> { }
+            case STEP_UP_REQUIRED -> throw new StepUpRequiredException(d.requiredLevel());  // client asks for OTP
+            case DENY -> throw new AccessDeniedException(d.reason());
+        }
+    }
+}
+</script>
+</div>
+
+  <h3>Step 5 · The core model and the policy engine</h3>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Authentication: a chain of steps raising the assurance level">
+public enum AuthLevel { NONE, PASSWORD, MFA, HARDWARE_KEY;
+    public boolean atLeast(AuthLevel o) { return compareTo(o) >= 0; } }
+
+public interface AuthStep {                     // Chain of Responsibility / Strategy per factor
+    AuthLevel grants();
+    boolean verify(User u, Credentials c);
+}
+public class PasswordStep implements AuthStep {
+    public AuthLevel grants() { return AuthLevel.PASSWORD; }
+    public boolean verify(User u, Credentials c) { return bcrypt.matches(c.password(), u.passwordHash()); }
+}
+public class TotpStep implements AuthStep {
+    public AuthLevel grants() { return AuthLevel.MFA; }
+    public boolean verify(User u, Credentials c) { return totp.isValid(u.totpSecret(), c.otp(), Instant.now()); }
+}
+
+public final class Session {
+    private final String userId; private final Set<String> groups;
+    private volatile AuthLevel level; private final Instant expiresAt;
+    // ...constructor/getters
+    void raiseTo(AuthLevel l) { if (l.atLeast(level)) level = l; }   // never lowers
+}
+
+public class AuthenticationService {
+    private final Map<AuthLevel, AuthStep> steps;
+    private final LoginAttempts attempts;        // lockout after 5 failures in 15 minutes
+
+    public Session login(String username, Credentials c) {
+        User u = users.byUsername(username).orElseThrow(BadCredentialsException::new);
+        attempts.ensureNotLocked(u);
+        if (!steps.get(AuthLevel.PASSWORD).verify(u, c)) { attempts.fail(u); throw new BadCredentialsException(); }
+        attempts.reset(u);
+        Session s = sessions.create(u, AuthLevel.PASSWORD, Duration.ofHours(8));
+        if (u.mfaEnforced()) stepUp(s, AuthLevel.MFA, c);          // org policy may demand MFA at login
+        return s;
+    }
+
+    public void stepUp(Session s, AuthLevel wanted, Credentials c) {
+        AuthStep step = steps.get(wanted);
+        if (!step.verify(users.get(s.userId()), c)) throw new BadCredentialsException();
+        s.raiseTo(step.grants());                                   // e.g. PASSWORD -> MFA
+    }
+}
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Authorization: resources, roles, bindings and the evaluation algorithm">
+public final class Resource {                                 // Composite: a node in the tree
+    private final String name; private final Resource parent;
+    private final List<Binding> bindings = new CopyOnWriteArrayList<>();
+    public Resource(String name, Resource parent) { this.name = name; this.parent = parent; }
+    public Resource child(String n) { return new Resource(n, this); }
+    public void bind(Binding b) { bindings.add(b); }
+    public List<Resource> selfAndAncestors() {                 // payout-api, payroll, finance, org
+        List<Resource> out = new ArrayList<>();
+        for (Resource r = this; r != null; r = r.parent) out.add(r);
+        return out;
+    }
+    public List<Binding> bindings() { return bindings; }
+    public String name() { return name; }
+}
+
+public record Role(String name, Set<String> permissions) {
+    public boolean grants(String perm) {                        // supports wildcards: "reports.*"
+        return permissions.stream().anyMatch(p -> p.equals(perm) || p.equals("*")
+            || (p.endsWith(".*") && perm.startsWith(p.substring(0, p.length() - 1))));
+    }
+}
+
+public enum Effect { ALLOW, DENY }
+public record Binding(String principal, Role role, Effect effect, AuthLevel minLevel) {
+    boolean appliesTo(Session s) {                              // "user:ravi" or "group:finance-team"
+        return principal.equals("user:" + s.userId())
+            || s.groups().stream().anyMatch(g -> principal.equals("group:" + g));
+    }
+}
+
+public enum Outcome { ALLOW, DENY, STEP_UP_REQUIRED }
+public record Decision(Outcome outcome, String reason, AuthLevel requiredLevel) { }
+
+public class PolicyEngine {
+    public Decision check(Session s, String perm, Resource target) {
+        List<Map.Entry<Resource, Binding>> found = new ArrayList<>();
+        for (Resource r : target.selfAndAncestors())             // 1. collect, walking upward
+            for (Binding b : r.bindings())
+                if (b.appliesTo(s) && b.role().grants(perm)) found.add(Map.entry(r, b));
+
+        for (var e : found)                                       // 2. explicit deny wins
+            if (e.getValue().effect() == Effect.DENY)
+                return new Decision(Outcome.DENY, "denied by " + e.getValue().principal()
+                        + " on " + e.getKey().name(), null);
+
+        AuthLevel needed = null;
+        for (var e : found) {                                     // 3. any satisfied allow
+            Binding b = e.getValue();
+            if (s.level().atLeast(b.minLevel()))
+                return new Decision(Outcome.ALLOW, b.role().name() + " on " + e.getKey().name(), null);
+            needed = needed == null || b.minLevel().compareTo(needed) < 0 ? b.minLevel() : needed;
+        }
+        if (needed != null)                                       // 4. allowed, but login too weak
+            return new Decision(Outcome.STEP_UP_REQUIRED, "requires " + needed, needed);
+        return new Decision(Outcome.DENY, "no binding grants " + perm, null);  // 5. default deny
+    }
+}
+</script>
+
+  <h3>Step 6 · Making it fast and safe in production</h3>
+  <div class="cards">
+    <div class="card"><h5>Cache decisions</h5><p>Cache (user, permission, resource) → decision for a short TTL, and bump a policy version on every change so caches invalidate instantly. Authorization runs on every request, so it must be cheap. ({{ref:ch-cache}})</p></div>
+    <div class="card"><h5>Central engine, local enforcement</h5><p>Services call a shared policy engine (or embed a library fed with policies), and enforce at a single choke point: the API gateway or an aspect.</p></div>
+    <div class="card"><h5>Tokens carry identity, not permissions</h5><p>Put the user ID, groups and auth level in a short-lived signed token; look permissions up at check time so revoking a role takes effect quickly. ({{ref:ch-security}})</p></div>
+    <div class="card"><h5>Least privilege + audit</h5><p>Default deny, narrow roles, time-limited elevated access, and an immutable log of every decision with its reason.</p></div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Interviewer asks</th><th>Answer</th><th>Principle / pattern</th></tr>
+    <tr><td>"Add attribute-based rules, e.g. only from the office network."</td><td>Give <code>Binding</code> a list of <code>Condition</code> objects (IP range, time window, device trust); all must pass.</td><td>Strategy / Specification, OCP</td></tr>
+    <tr><td>"Role A should include everything role B has."</td><td>Role composition: a role holds permissions plus parent roles; resolve the closure once and cache it.</td><td>Composite</td></tr>
+    <tr><td>"Why is Meera allowed?" from a support engineer.</td><td>The <code>Decision</code> carries the reason and the trace; expose a policy simulator (like the playground above).</td><td>Explainability</td></tr>
+    <tr><td>"10 million checks per second."</td><td>Decision caching, precomputed group membership, policies loaded in memory on each node, versioned invalidation via pub/sub.</td><td>{{ref:ch-cache}}, {{ref:ch-queue}}</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Who and how sure → what, where, and walk up the tree. Deny wins. Silence means no.</p>
+    <p><strong>Authentication</strong> is a chain of factors that raises a session's level; <strong>authorization</strong> collects inherited bindings, applies <span class="hl">explicit deny → conditional allow → step-up → default deny</span>, and explains every decision.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>RBAC vs ABAC?</summary><div class="ans"><p>Role-Based Access Control grants permissions through roles assigned to users or groups; simple to reason about and audit. Attribute-Based Access Control evaluates attributes of the user, resource, action and environment (department, owner, time, IP, MFA) against rules; more expressive but harder to audit. Most real systems use RBAC with conditions, i.e. a hybrid.</p></div></details>
+    <details><summary>What is step-up authentication?</summary><div class="ans"><p>Asking an already logged-in user for a stronger factor only when they attempt a sensitive action (approve a payout, change bank details). The session's assurance level rises for a limited time. It balances security with convenience: no OTP for reading a menu, OTP for moving money.</p></div></details>
+    <details><summary>Why must deny override allow?</summary><div class="ans"><p>Allows come from many places (inherited org roles, groups, project roles), so it's easy to grant something accidentally. A deny is a guardrail that must hold no matter which allow exists, e.g. "contractors may never delete in operations". If allows could override it, any new broad role would silently break the guardrail.</p></div></details>
+  </div>
+  {{done}}
+</section>

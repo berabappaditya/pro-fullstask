@@ -1,0 +1,30 @@
+<section class="chapter" id="ch-managed-containers" data-title="Where to run containers: ECS, EKS, GKE, Cloud Run">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Delivery</div>
+    <h2>Where to run containers: ECS, Fargate, EKS, GKE or Cloud Run</h2>
+    <p class="ch-oneline"><b>Same container, different amounts of platform you manage.</b> Choose the simplest option that meets your needs.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>Ramu can hand his tiffins to the <strong>food court's own serving service</strong> and never see a stove (Cloud Run, Fargate), or hire a <strong>floor manager</strong> and run his own counters with full control (EKS/GKE). The first is easier; the second is more flexible.</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Cloud Run</th><th>ECS on Fargate</th><th>GKE Autopilot</th><th>EKS / GKE Standard</th></tr>
+    <tr><td>You manage</td><td>image + a few settings</td><td>task definitions, services</td><td>Kubernetes objects</td><td>Kubernetes + node groups/upgrades</td></tr>
+    <tr><td>Scale to zero</td><td class="yes">yes</td><td class="no">no</td><td class="no">no (pods)</td><td class="no">no</td></tr>
+    <tr><td>Kubernetes API</td><td class="no">no (Knative-style)</td><td class="no">no</td><td class="yes">yes</td><td class="yes">yes</td></tr>
+    <tr><td>Billing</td><td>per request/instance time</td><td>per task vCPU/GB-second</td><td>per pod resource requests</td><td>per node (VM)</td></tr>
+    <tr><td>Good for</td><td>APIs, small teams, bursty traffic</td><td>AWS shops wanting simple containers</td><td>Kubernetes without node ops</td><td>many services, custom networking, operators, GPUs</td></tr>
+  </table></div>
+
+  <div class="box tip"><div class="box-tag">Interview answer</div><p>"For a handful of stateless services I'd start on Cloud Run or ECS Fargate: no cluster to patch, autoscaling built in. Once we have many services, need service mesh, custom operators, GPUs or portability across clouds, a managed Kubernetes (EKS or GKE Autopilot) pays for its complexity."</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">The food court's serving service, or your own floor manager.</p>
+    <p>Cloud Run ≈ Fargate (serverless containers) &lt; GKE Autopilot &lt; EKS/GKE Standard in <span class="hl">control and operational effort</span>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>ECS vs EKS?</summary><div class="ans"><p>ECS is AWS's own simpler orchestrator tightly integrated with AWS (IAM per task, ALB, CloudWatch); EKS is managed Kubernetes with the full open ecosystem (Helm, operators, portability) but more concepts and upgrades to manage. Both run on EC2 nodes or Fargate.</p></div></details>
+  </div>
+  {{done}}
+</section>

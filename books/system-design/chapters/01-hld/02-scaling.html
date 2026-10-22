@@ -1,0 +1,131 @@
+<section class="chapter" id="ch-scaling" data-title="Scaling: up vs out">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Foundations</div>
+    <h2>Scaling: bigger machine or more machines?</h2>
+    <p class="ch-oneline"><b>Scalability is the ability to handle more load by adding resources.</b> You either buy a bigger machine (scale up) or add more machines (scale out).</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>With 2,000 customers a day, Ramu has two choices. <strong>Option A:</strong> buy a giant 50-litre kettle and a faster stove. Simple, but there's a limit to how big a kettle gets, it's expensive, and if that one stove breaks, nobody gets tea. <strong>Option B:</strong> open three more identical stalls next to each other, each with an ordinary kettle. More to coordinate, but he can keep adding stalls, and if one breaks the others keep serving.</p>
+    <p>Option A is <strong>vertical scaling</strong>. Option B is <strong>horizontal scaling</strong>.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 260" role="img" aria-label="Vertical scaling grows one server taller; horizontal scaling adds more servers of the same size behind a load balancer">
+      <text x="190" y="24" text-anchor="middle" class="d-tl">Vertical: scale UP</text>
+      <rect x="60" y="170" width="70" height="50" rx="6" class="d-box"/><text x="95" y="200" text-anchor="middle" class="d-xs">4 CPU 8 GB</text>
+      <path d="M140 195 H180" class="d-line" marker-end="url(#ah)"/>
+      <rect x="190" y="60" width="120" height="160" rx="8" class="d-acc"/><text x="250" y="130" text-anchor="middle" class="d-t">64 CPU</text><text x="250" y="148" text-anchor="middle" class="d-t">512 GB</text>
+      <text x="250" y="240" text-anchor="middle" class="d-s">one huge, costly box</text>
+      <line x1="410" y1="20" x2="410" y2="240" class="d-line d-dash"/>
+      <text x="620" y="24" text-anchor="middle" class="d-tl">Horizontal: scale OUT</text>
+      <rect x="565" y="50" width="110" height="38" rx="8" class="d-amb"/><text x="620" y="74" text-anchor="middle" class="d-t">Load balancer</text>
+      <g>
+        <rect x="455" y="160" width="70" height="50" rx="6" class="d-box"/><rect x="545" y="160" width="70" height="50" rx="6" class="d-box"/>
+        <rect x="635" y="160" width="70" height="50" rx="6" class="d-box"/><rect x="725" y="160" width="70" height="50" rx="6" class="d-box d-pulse" style="stroke-dasharray:4 3"/>
+        <text x="490" y="190" text-anchor="middle" class="d-xs">4 CPU</text><text x="580" y="190" text-anchor="middle" class="d-xs">4 CPU</text><text x="670" y="190" text-anchor="middle" class="d-xs">4 CPU</text><text x="760" y="190" text-anchor="middle" class="d-xs">+ add</text>
+      </g>
+      <path d="M600 88 L490 158 M612 88 L580 158 M628 88 L670 158 M640 88 L760 158" class="d-line" marker-end="url(#ah)"/>
+      <text x="625" y="240" text-anchor="middle" class="d-s">many ordinary boxes; add more when needed</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Vertical scaling makes one machine stronger. Horizontal scaling adds more machines and needs a load balancer in front.</figcaption>
+  </figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Vertical (scale up)</th><th>Horizontal (scale out)</th></tr>
+    <tr><td>How</td><td>More CPU, RAM, faster disk on the same machine</td><td>More machines sharing the work</td></tr>
+    <tr><td>Limit</td><td>Hard ceiling: the biggest machine money can buy</td><td>Practically unlimited</td></tr>
+    <tr><td>Failure</td><td>Single point of failure</td><td>One machine dies, others continue</td></tr>
+    <tr><td>Complexity</td><td>Very low; no code changes</td><td>Needs load balancing, stateless code, distributed data</td></tr>
+    <tr><td>Cost curve</td><td>Gets expensive fast at the top end</td><td>Roughly linear with commodity hardware</td></tr>
+    <tr><td>Good for</td><td>Early stage, relational DB primary, quick fix</td><td>Web/app tiers, big data, anything that must stay up</td></tr>
+  </table></div>
+
+  <h3>The catch: servers must be stateless</h3>
+  <p>Ramu remembers that Priya takes less sugar. When there are four stalls, Priya might go to stall 3 tomorrow, and stall 3 has never met her. If each stall keeps its own memory, customers get inconsistent service.</p>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 230" role="img" aria-label="Stateful servers keep session data locally so the user loses it when routed elsewhere; stateless servers keep sessions in a shared Redis store">
+      <text x="200" y="22" text-anchor="middle" class="d-tb">Stateful: memory lives inside each server</text>
+      <rect x="40" y="50" width="130" height="70" rx="8" class="d-box"/><text x="105" y="75" text-anchor="middle" class="d-t">Server A</text><rect x="58" y="88" width="94" height="22" rx="4" class="d-bad"/><text x="105" y="103" text-anchor="middle" class="d-xs">Priya: less sugar</text>
+      <rect x="230" y="50" width="130" height="70" rx="8" class="d-box"/><text x="295" y="75" text-anchor="middle" class="d-t">Server B</text><rect x="248" y="88" width="94" height="22" rx="4" class="d-paper"/><text x="295" y="103" text-anchor="middle" class="d-xs">who is Priya?</text>
+      <text x="200" y="160" text-anchor="middle" class="d-s">Server A dies, or Priya is routed to B:</text><text x="200" y="178" text-anchor="middle" class="d-s">her session (cart, login) is gone.</text>
+      <line x1="410" y1="20" x2="410" y2="210" class="d-line d-dash"/>
+      <text x="620" y="22" text-anchor="middle" class="d-tg">Stateless: memory moved to a shared store</text>
+      <rect x="450" y="50" width="110" height="50" rx="8" class="d-box"/><text x="505" y="80" text-anchor="middle" class="d-t">Server A</text>
+      <rect x="580" y="50" width="110" height="50" rx="8" class="d-box"/><text x="635" y="80" text-anchor="middle" class="d-t">Server B</text>
+      <rect x="710" y="50" width="100" height="50" rx="8" class="d-box"/><text x="760" y="80" text-anchor="middle" class="d-t">Server C</text>
+      <rect x="540" y="150" width="170" height="50" rx="10" class="d-amb"/><text x="625" y="172" text-anchor="middle" class="d-t">Session store (Redis)</text><text x="625" y="189" text-anchor="middle" class="d-xs">Priya: less sugar</text>
+      <path d="M505 100 L590 150 M635 100 L625 150 M760 100 L670 150" class="d-lamb"/>
+      <text x="625" y="222" text-anchor="middle" class="d-s">Any server can serve anyone. Add or kill servers freely.</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.2</b> Move session data out of the app server into a shared store (Redis, a database, or a signed token the client carries). Then app servers become interchangeable "cattle, not pets".</figcaption>
+  </figure>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Stateful: session kept in this server&#x27;s memory">
+@RestController
+public class CartController {
+    // This map lives in ONE JVM. Server B has its own, different map.
+    private final Map<String, Cart> carts = new HashMap<>();
+
+    @PostMapping("/cart/{userId}/items")
+    public Cart add(@PathVariable String userId, @RequestBody Item item) {
+        // If the load balancer sends the next request to another server,
+        // this cart is invisible there. If this server restarts, it's lost.
+        Cart cart = carts.computeIfAbsent(userId, id -> new Cart());
+        cart.add(item);
+        return cart;
+    }
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Stateless: session kept in a shared Redis store">
+@RestController
+public class CartController {
+    private final RedisTemplate<String, Cart> redis;   // shared by every server
+
+    public CartController(RedisTemplate<String, Cart> redis) {
+        this.redis = redis;                             // injected by Spring
+    }
+
+    @PostMapping("/cart/{userId}/items")
+    public Cart add(@PathVariable String userId, @RequestBody Item item) {
+        String key = "cart:" + userId;                  // one key per user
+        Cart cart = Optional.ofNullable(redis.opsForValue().get(key))
+                            .orElseGet(Cart::new);      // new cart if none yet
+        cart.add(item);
+        redis.opsForValue().set(key, cart, Duration.ofDays(7)); // expire old carts
+        return cart;                                    // any server could answer this
+    }
+}
+</script>
+</div>
+
+  <h3>Latency vs throughput</h3>
+  <div class="cards">
+    <div class="card"><h5>Latency: how long one trip takes</h5><p>Time from request to response, in milliseconds. "My chai arrived in 2 minutes."</p></div>
+    <div class="card"><h5>Throughput: how many per second</h5><p>Requests (or bytes) handled per unit of time. "The stall serves 600 cups an hour."</p></div>
+  </div>
+  <p>Think of a highway: the speed limit is latency, the number of lanes is throughput. Adding lanes (more servers) raises throughput but doesn't make one car faster. Caching and better algorithms reduce latency.</p>
+  <p><strong>Measure latency with percentiles, not averages.</strong> p50 (median) = half the requests are faster than this. p99 = 99% are faster; the slowest 1% are slower. If your p50 is 80 ms but p99 is 4 seconds, 1 in 100 users is having a terrible time, and the average hides it.</p>
+
+  <h3>Latency numbers every engineer should know</h3>
+  <p>Rough, rounded numbers. The right-hand column stretches time so that one L1 cache read takes 1 second, which makes the differences easy to feel.</p>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Operation</th><th>Real time</th><th>If L1 cache = 1 second</th></tr>
+    <tr><td>L1 CPU cache read</td><td class="num">0.5 ns</td><td>1 second</td></tr>
+    <tr><td>Main memory (RAM) read</td><td class="num">100 ns</td><td>3 minutes</td></tr>
+    <tr><td>Read 1 MB sequentially from RAM</td><td class="num">~3 µs</td><td>2 hours</td></tr>
+    <tr><td>SSD random read</td><td class="num">~16–100 µs</td><td>9 hours to 2 days</td></tr>
+    <tr><td>Round trip inside one data centre</td><td class="num">0.5 ms</td><td>12 days</td></tr>
+    <tr><td>HDD disk seek</td><td class="num">10 ms</td><td>8 months</td></tr>
+    <tr><td>Round trip India ↔ US</td><td class="num">~200 ms</td><td>12 years</td></tr>
+  </table></div>
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Memory is a minute, disk is a day, the network is a voyage.</p>
+    <p>RAM is ~1000× faster than SSD; crossing the planet is slower than everything. That is why we <strong>cache in memory</strong>, <strong>avoid chatty network calls</strong>, and <strong>put data near users</strong>. Scale up first when it's cheap; scale out when you need no ceiling and no single point of failure. Scale-out needs <span class="hl">stateless servers</span>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Your single server is at 90% CPU. What do you do?</summary><div class="ans"><p>First find out why (profiling, slow queries, missing cache). Short term, scaling up is the fastest fix. Long term, make the app stateless, put a load balancer in front and scale horizontally, with auto-scaling based on CPU or request rate. Also look at caching hot reads so less work reaches the server at all.</p></div></details>
+    <details><summary>Why are percentiles better than averages for latency?</summary><div class="ans"><p>Latency distributions have long tails. A few very slow requests barely move the average but hurt real users, and in a microservice call chain the slowest dependency decides the total. p95/p99 expose the tail, so SLOs are written in percentiles.</p></div></details>
+  </div>
+  {{done}}
+</section>

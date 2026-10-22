@@ -1,0 +1,161 @@
+<section class="chapter" id="ch-db" data-title="Databases: SQL, NoSQL, ACID, indexes">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Data</div>
+    <h2>Databases: SQL, NoSQL, ACID and indexes</h2>
+    <p class="ch-oneline"><b>The database is the source of truth.</b> Choosing the right kind, and using transactions and indexes well, decides whether your data is correct and fast.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu keeps a big ledger: customers on one page, orders on another, stock on a third, all with neat columns and cross-references ("Order 512 → Customer 88"). That's a <strong>relational (SQL) database</strong>.</p>
+    <p>His nephew runs the Instagram page and just throws each customer's whole story into one folder: name, photos, favourite drinks, comments, all together, every folder shaped a little differently. That's a <strong>document (NoSQL) database</strong>. Both work. They suit different jobs.</p></div>
+
+  <h3>SQL vs NoSQL</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>SQL (relational)</th><th>NoSQL (non-relational)</th></tr>
+    <tr><td>Shape of data</td><td>Tables with fixed columns; rows linked by foreign keys</td><td>Documents, key-value pairs, wide columns or graphs; flexible schema</td></tr>
+    <tr><td>Query power</td><td>Rich: JOINs, aggregations, ad-hoc SQL</td><td>Usually by key or a few fields; JOINs limited or absent</td></tr>
+    <tr><td>Guarantees</td><td>ACID transactions</td><td>Often BASE (eventual consistency); many now offer ACID per document or more</td></tr>
+    <tr><td>Scaling</td><td>Scales up easily; scaling out (sharding) is manual work</td><td>Built to scale out across many nodes</td></tr>
+    <tr><td>Examples</td><td>MySQL, PostgreSQL, Oracle, SQL Server</td><td>MongoDB, Cassandra, DynamoDB, Redis, Neo4j</td></tr>
+    <tr><td>Pick when</td><td>Relationships matter, correctness matters (payments, orders, inventory)</td><td>Huge scale, flexible/changing shape, simple access patterns (logs, feeds, sessions, IoT)</td></tr>
+  </table></div>
+
+  <h3>The four families of NoSQL</h3>
+  <div class="cards">
+    <div class="card"><span class="k">key → value</span><h5>Key-value</h5><p>A giant hash map. Fastest possible lookups by key.</p><ul><li>Redis, DynamoDB, Riak</li><li>Sessions, caches, carts</li></ul></div>
+    <div class="card"><span class="k">JSON docs</span><h5>Document</h5><p>Self-contained JSON-like documents; query on fields inside.</p><ul><li>MongoDB, Couchbase, Firestore</li><li>Catalogues, profiles, CMS</li></ul></div>
+    <div class="card"><span class="k">row key → many columns</span><h5>Wide-column</h5><p>Rows with huge numbers of columns, partitioned across nodes; very fast writes.</p><ul><li>Cassandra, HBase, Bigtable</li><li>Messages, time series, activity logs</li></ul></div>
+    <div class="card"><span class="k">nodes + edges</span><h5>Graph</h5><p>Relationships are first-class; walking connections is cheap.</p><ul><li>Neo4j, Amazon Neptune</li><li>Social graphs, recommendations, fraud rings</li></ul></div>
+  </div>
+  <p class="small">Specialists you'll also name in designs: <strong>search engines</strong> (Elasticsearch, inverted index for full-text search), <strong>time-series DBs</strong> (InfluxDB, Prometheus), and <strong>object stores</strong> (S3, for files and blobs).</p>
+
+  <h3>ACID: the promise of a transaction</h3>
+  <p>A <strong>transaction</strong> is a group of operations that must succeed or fail together. Example: Priya pays ₹15 by wallet. Two things must happen: her wallet goes down by 15, Ramu's goes up by 15.</p>
+  <div class="cards">
+    <div class="card"><span class="k">A</span><h5>Atomicity: all or nothing</h5><p>If the server crashes after debiting Priya but before crediting Ramu, the debit is rolled back. Money never vanishes.</p></div>
+    <div class="card"><span class="k">C</span><h5>Consistency: rules always hold</h5><p>Constraints (balance ≥ 0, foreign keys, unique email) are true before and after every transaction.</p></div>
+    <div class="card"><span class="k">I</span><h5>Isolation: no peeking at half-done work</h5><p>Two payments running at once behave as if they ran one after another.</p></div>
+    <div class="card"><span class="k">D</span><h5>Durability: committed means saved</h5><p>Once the DB says "committed", a power cut won't lose it (write-ahead log on disk).</p></div>
+  </div>
+  <p><strong>BASE</strong> is the looser NoSQL promise: <strong>B</strong>asically <strong>A</strong>vailable, <strong>S</strong>oft state, <strong>E</strong>ventually consistent. Replicas may disagree for a moment but converge.</p>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: two separate saves, no transaction">
+public void pay(long fromId, long toId, BigDecimal amount) {
+    Wallet from = walletRepo.findById(fromId).orElseThrow();
+    Wallet to   = walletRepo.findById(toId).orElseThrow();
+
+    from.debit(amount);
+    walletRepo.save(from);          // committed on its own
+
+    // If the app crashes HERE, Priya lost ₹15 and Ramu never got it.
+    // Two requests at once can also both read balance=20 and both debit 15.
+    to.credit(amount);
+    walletRepo.save(to);
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: one ACID transaction + optimistic locking">
+@Entity
+public class Wallet {
+    @Id private Long id;
+    private BigDecimal balance;
+    @Version private long version;  // JPA bumps this on every update; a stale
+                                    // update fails with OptimisticLockException
+    public void debit(BigDecimal amt) {
+        if (balance.compareTo(amt) < 0) throw new InsufficientFundsException();
+        balance = balance.subtract(amt);   // keeps the "balance >= 0" rule (C)
+    }
+    public void credit(BigDecimal amt) { balance = balance.add(amt); }
+}
+
+@Service
+public class PaymentService {
+    @Transactional                  // A: both updates commit together or roll back
+    @Retryable(OptimisticLockException.class)   // I: lost race? retry cleanly
+    public void pay(long fromId, long toId, BigDecimal amount) {
+        Wallet from = walletRepo.findById(fromId).orElseThrow();
+        Wallet to   = walletRepo.findById(toId).orElseThrow();
+        from.debit(amount);         // any exception -> whole transaction rolls back
+        to.credit(amount);
+    }                               // D: on return, the commit is flushed to the WAL
+}
+</script>
+</div>
+
+  <h4>Isolation levels and the anomalies they prevent</h4>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Level</th><th>Dirty read</th><th>Non-repeatable read</th><th>Phantom read</th><th>Note</th></tr>
+    <tr><td>Read uncommitted</td><td class="no">possible</td><td class="no">possible</td><td class="no">possible</td><td>Almost never used</td></tr>
+    <tr><td>Read committed</td><td class="yes">prevented</td><td class="no">possible</td><td class="no">possible</td><td>PostgreSQL, Oracle default</td></tr>
+    <tr><td>Repeatable read</td><td class="yes">prevented</td><td class="yes">prevented</td><td class="no">possible*</td><td>MySQL InnoDB default (*gap locks block most phantoms)</td></tr>
+    <tr><td>Serializable</td><td class="yes">prevented</td><td class="yes">prevented</td><td class="yes">prevented</td><td>Safest, slowest</td></tr>
+  </table></div>
+  <p class="small"><strong>Dirty read:</strong> you see another transaction's uncommitted change. <strong>Non-repeatable read:</strong> you read the same row twice and get different values. <strong>Phantom:</strong> you run the same query twice and new rows appear.</p>
+
+  <h4>Optimistic vs pessimistic locking</h4>
+  <div class="cards">
+    <div class="card"><h5>Optimistic: "conflicts are rare"</h5><p>No lock. Read a version number; on update, <code>WHERE version = ?</code>. If someone else changed it, fail and retry. Great for low contention (profile edits).</p></div>
+    <div class="card"><h5>Pessimistic: "conflicts are likely"</h5><p>Lock the row while working: <code>SELECT … FOR UPDATE</code>. Others wait. Good for hot rows (last seat on a flight, flash-sale stock).</p></div>
+  </div>
+
+  <h3>Indexes: the back-of-the-book index</h3>
+  <p>Finding "Priya" in a 10-million-row table without an index means reading every row (a <strong>full table scan</strong>). An index is a sorted structure, usually a <strong>B+ tree</strong>, that points straight to the right rows, the way a book's index points to page numbers.</p>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 800 220" role="img" aria-label="A B+ tree: a root node splits keys into ranges, internal nodes narrow further, and leaf nodes hold sorted keys with pointers to rows and links to neighbouring leaves">
+      <rect x="330" y="15" width="140" height="36" rx="6" class="d-acc"/><text x="400" y="38" text-anchor="middle" class="d-m">[ M ]</text>
+      <rect x="150" y="85" width="160" height="36" rx="6" class="d-acc"/><text x="230" y="108" text-anchor="middle" class="d-m">[ D | H ]</text>
+      <rect x="490" y="85" width="160" height="36" rx="6" class="d-acc"/><text x="570" y="108" text-anchor="middle" class="d-m">[ R | V ]</text>
+      <path d="M370 51 L250 85 M430 51 L550 85" class="d-line"/>
+      <g>
+        <rect x="20" y="160" width="110" height="36" rx="6" class="d-good"/><text x="75" y="183" text-anchor="middle" class="d-m">A B C</text>
+        <rect x="145" y="160" width="110" height="36" rx="6" class="d-good"/><text x="200" y="183" text-anchor="middle" class="d-m">D E G</text>
+        <rect x="270" y="160" width="110" height="36" rx="6" class="d-good"/><text x="325" y="183" text-anchor="middle" class="d-m">H K L</text>
+        <rect x="420" y="160" width="110" height="36" rx="6" class="d-good"/><text x="475" y="183" text-anchor="middle" class="d-m">M P Q</text>
+        <rect x="545" y="160" width="110" height="36" rx="6" class="d-amb"/><text x="600" y="183" text-anchor="middle" class="d-m">R S ▸Priya</text>
+        <rect x="670" y="160" width="110" height="36" rx="6" class="d-good"/><text x="725" y="183" text-anchor="middle" class="d-m">V X Z</text>
+      </g>
+      <path d="M180 121 L75 160 M230 121 L200 160 M280 121 L325 160 M520 121 L475 160 M570 121 L600 160 M620 121 L725 160" class="d-line"/>
+      <path d="M130 178 H145 M255 178 H270 M530 178 H545 M655 178 H670" class="d-lacc" marker-end="url(#aa)"/>
+      <text x="400" y="214" text-anchor="middle" class="d-s">Root → branch → leaf: about 3–4 disk reads find any row among millions. Linked leaves make range scans fast.</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> A B+ tree index. Each level narrows the search; the leaves are sorted and linked, so <code>BETWEEN</code> and <code>ORDER BY</code> on the indexed column are cheap.</figcaption>
+  </figure>
+
+<div class="compare">
+<script type="text/x-code" data-lang="sql" data-variant="bad" data-title="Before: no index, full table scan">
+-- orders has 20 million rows
+SELECT * FROM orders
+WHERE customer_id = 88 AND status = 'PAID'
+ORDER BY created_at DESC LIMIT 20;
+-- EXPLAIN: type=ALL, rows=20,000,000  -> reads every row, ~4 s
+</script>
+<script type="text/x-code" data-lang="sql" data-variant="good" data-title="After: a composite index matching the query">
+CREATE INDEX idx_orders_cust_status_time
+    ON orders (customer_id, status, created_at);
+-- Leftmost-prefix rule: this index helps queries on
+--   (customer_id), (customer_id, status), (customer_id, status, created_at)
+-- but NOT a query on status alone.
+-- EXPLAIN: type=ref, rows=37 -> ~2 ms, already sorted by created_at
+</script>
+</div>
+
+  <div class="box pitfall"><div class="box-tag">Common trap</div>
+    <p>Indexes are not free. Every <code>INSERT</code>/<code>UPDATE</code> must update every index too, and indexes use disk and memory. Index the columns you filter, join and sort on; don't index everything. Low-cardinality columns (gender, boolean flags) alone are usually poor indexes.</p></div>
+
+  <h3>Normalise or denormalise?</h3>
+  <div class="cards">
+    <div class="card"><h5>Normalised</h5><p>Each fact stored once (customer name lives only in <code>customers</code>). No update anomalies; needs JOINs to read. Default for OLTP systems.</p></div>
+    <div class="card"><h5>Denormalised</h5><p>Copy data where it's read (store <code>customer_name</code> inside each order). Fast reads, no JOINs; must keep copies in sync. Common at scale and in NoSQL.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">ACID = "All Conditions Isolated, Durable."</p>
+    <p>SQL when <strong>relationships and correctness</strong> rule; NoSQL when <strong>scale and flexible shape</strong> rule. Indexes turn scans into lookups at the cost of slower writes. Use <span class="hl">optimistic locking</span> for rare conflicts, <span class="hl">pessimistic</span> for hot rows.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How do you choose between SQL and NoSQL for a new feature?</summary><div class="ans"><p>Start from access patterns and guarantees. Need multi-row transactions, joins, ad-hoc reporting, strict integrity? SQL. Need massive write throughput, horizontal scale, a schema that changes often, and access mostly by key? NoSQL. Many systems use both: MySQL for orders and payments, Cassandra for activity logs, Redis for sessions, Elasticsearch for search ("polyglot persistence").</p></div></details>
+    <details><summary>Why can adding an index make a system slower?</summary><div class="ans"><p>Writes must maintain every index, so write-heavy tables slow down; indexes consume buffer-pool memory, pushing hot data out; and the optimiser might pick a poor index. Measure with EXPLAIN and real workloads.</p></div></details>
+    <details><summary>What does <code>@Transactional</code> not protect you from?</summary><div class="ans"><p>Self-invocation (calling a <code>@Transactional</code> method from the same class bypasses the Spring proxy), checked exceptions (no rollback by default), calls to other services or message brokers (those aren't in the DB transaction), and lost updates under the default isolation level unless you add locking.</p></div></details>
+  </div>
+  {{done}}
+</section>

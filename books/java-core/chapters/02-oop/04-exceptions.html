@@ -1,0 +1,72 @@
+<section class="chapter" id="ch-exceptions" data-title="Exceptions done right">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>OOP Java</div>
+    <h2>Exceptions done right</h2>
+    <p class="ch-oneline"><b>Checked exceptions are problems the caller should plan for; unchecked exceptions are bugs or unrecoverable conditions.</b> Errors are the JVM itself in trouble.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>"The milk supplier might not come" is a <strong>known risk</strong>; the recipe must say what to do (checked exception: the compiler forces you to handle or declare it). "The chef put salt instead of sugar" is a <strong>mistake</strong>; you fix the chef, not write a plan for it (unchecked). "The building is on fire" is not your recipe's problem (Error).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg viewBox="0 0 680 240" role="img" aria-label="Throwable splits into Error and Exception; Exception splits into checked exceptions and RuntimeException">
+      <rect x="270" y="14" width="140" height="40" rx="10" class="d-acc"/><text x="340" y="39" text-anchor="middle" class="d-t">Throwable</text>
+      <rect x="60" y="90" width="170" height="44" rx="10" class="d-bad"/><text x="145" y="110" text-anchor="middle" class="d-t">Error</text><text x="145" y="126" text-anchor="middle" class="d-xs">don't catch</text>
+      <rect x="430" y="90" width="170" height="44" rx="10" class="d-amb"/><text x="515" y="110" text-anchor="middle" class="d-t">Exception</text><text x="515" y="126" text-anchor="middle" class="d-xs">checked</text>
+      <path d="M145 88 C145 70,340 72,340 56" class="d-line" marker-end="url(#tri)"/><path d="M515 88 C515 70,340 72,340 56" class="d-line" marker-end="url(#tri)"/>
+      <text x="145" y="166" text-anchor="middle" class="d-xs">OutOfMemoryError</text><text x="145" y="182" text-anchor="middle" class="d-xs">StackOverflowError</text>
+      <rect x="330" y="170" width="170" height="44" rx="10" class="d-vio"/><text x="415" y="190" text-anchor="middle" class="d-t">RuntimeException</text><text x="415" y="206" text-anchor="middle" class="d-xs">unchecked</text>
+      <path d="M415 168 C415 150,515 152,515 136" class="d-line" marker-end="url(#tri)"/>
+      <text x="600" y="172" text-anchor="middle" class="d-xs">IOException</text><text x="600" y="188" text-anchor="middle" class="d-xs">SQLException</text><text x="600" y="204" text-anchor="middle" class="d-xs">InterruptedException</text>
+      <text x="230" y="232" class="d-xs">NullPointerException · IllegalArgumentException · IllegalStateException</text>
+    </svg></div></figure>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: swallowed errors and leaked files">
+public String readMenu(String path) {
+    BufferedReader r = null;
+    try {
+        r = new BufferedReader(new FileReader(path));
+        return r.readLine();
+    } catch (Exception e) {          // catches EVERYTHING, even bugs
+        return null;                 // error swallowed: caller gets a mystery null
+    } finally {
+        // forgot r.close(): file handle leaks if readLine throws
+    }
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: try-with-resources, specific catch, cause kept">
+public String readMenu(Path path) {
+    try (BufferedReader r = Files.newBufferedReader(path)) {  // AutoCloseable: closed automatically,
+        return r.readLine();                                  // even if an exception is thrown
+    } catch (NoSuchFileException e) {
+        throw new MenuNotFoundException(path, e);             // domain exception, ORIGINAL cause kept
+    } catch (IOException e) {
+        throw new UncheckedIOException("Could not read " + path, e);
+    }
+}
+// Custom unchecked exception: let it bubble to one global handler (@RestControllerAdvice)
+public class MenuNotFoundException extends RuntimeException {
+    public MenuNotFoundException(Path p, Throwable cause) { super("Menu not found: " + p, cause); }
+}
+</script>
+</div>
+
+  <div class="cards">
+    <div class="card good"><h5>Do</h5><p>Catch the most specific type. Keep the cause (<code>new X(msg, e)</code>). Use try-with-resources. Throw early (validate inputs), catch late (at a boundary that can act).</p></div>
+    <div class="card bad"><h5>Don't</h5><p>Catch <code>Throwable</code>/<code>Exception</code> and ignore it. Use exceptions for normal control flow. Return from <code>finally</code> (it hides the exception). Log and rethrow at every layer (duplicate logs).</p></div>
+  </div>
+
+  <div class="box pitfall"><div class="box-tag">Common trap</div><p>Spring's <code>@Transactional</code> rolls back only on unchecked exceptions by default. A checked exception will <em>commit</em> the transaction unless you add <code>rollbackFor = Exception.class</code>. See {{xref:spring-boot/ch-transactions}}.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Plan for checked, fix unchecked, flee from Error.</p>
+    <p><span class="hl">try-with-resources</span> for anything closable. Wrap with cause, never swallow. finally always runs (except <code>System.exit</code> or a JVM crash).</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What's the difference between <code>throw</code> and <code>throws</code>?</summary><div class="ans"><p><code>throw</code> is a statement that throws an exception object right now. <code>throws</code> in a method signature declares which checked exceptions the method may pass up to its caller.</p></div></details>
+    <details><summary>What happens if both try and finally return a value?</summary><div class="ans"><p>The finally value wins and any exception from try is discarded. That's why returning from finally is considered a bug.</p></div></details>
+    <details><summary>What are suppressed exceptions?</summary><div class="ans"><p>In try-with-resources, if the body throws and then <code>close()</code> also throws, the close exception is attached to the main one as "suppressed" (<code>e.getSuppressed()</code>) instead of replacing it.</p></div></details>
+  </div>
+  {{done}}
+</section>

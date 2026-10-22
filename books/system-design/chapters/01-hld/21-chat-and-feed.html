@@ -1,0 +1,80 @@
+<section class="chapter" id="ch-chat" data-title="Case studies: chat app and news feed">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Case study</div>
+    <h2>Case studies: a chat app and a news feed</h2>
+    <p class="ch-oneline"><b>Two classics that test real-time delivery and fan-out.</b> Same building blocks as before, assembled differently.</p>
+  </header>
+
+  <h3>A. Design a chat app (WhatsApp-style)</h3>
+  <div class="cards">
+    <div class="card"><h5>Requirements</h5><ul><li>1:1 and group chats (up to 256)</li><li>Delivered and read receipts</li><li>Messages reach offline users when they return</li><li>Online/last-seen presence</li><li>History synced across devices</li></ul></div>
+    <div class="card"><h5>Key numbers</h5><ul><li>500M DAU × 40 messages/day = 20B/day</li><li>≈ 200K messages/s avg, ~600K peak</li><li>~100 bytes each → ~2 TB/day of text</li><li>Hundreds of millions of open connections</li></ul></div>
+  </div>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 300" role="img" aria-label="Chat architecture: users hold WebSocket connections to chat servers; a session registry maps users to servers; messages are stored in Cassandra and routed through Kafka; offline users get push notifications">
+      <rect x="10" y="40" width="100" height="44" rx="9" class="d-vio"/><text x="60" y="67" text-anchor="middle" class="d-t">Asha</text>
+      <rect x="10" y="215" width="100" height="44" rx="9" class="d-vio"/><text x="60" y="242" text-anchor="middle" class="d-t">Bikram</text>
+      <rect x="180" y="35" width="150" height="54" rx="10" class="d-box"/><text x="255" y="59" text-anchor="middle" class="d-t">Chat server 7</text><text x="255" y="76" text-anchor="middle" class="d-xs">holds Asha's socket</text>
+      <rect x="180" y="210" width="150" height="54" rx="10" class="d-box"/><text x="255" y="234" text-anchor="middle" class="d-t">Chat server 3</text><text x="255" y="251" text-anchor="middle" class="d-xs">holds Bikram's socket</text>
+      <path d="M110 62 H178" class="d-lacc" style="stroke-width:4"/><path d="M110 237 H178" class="d-lacc" style="stroke-width:4"/>
+      <text x="144" y="54" text-anchor="middle" class="d-xs">WebSocket</text><text x="144" y="229" text-anchor="middle" class="d-xs">WebSocket</text>
+      <rect x="400" y="20" width="170" height="50" rx="10" class="d-amb"/><text x="485" y="42" text-anchor="middle" class="d-t">Session registry</text><text x="485" y="58" text-anchor="middle" class="d-xs">Redis: user → server</text>
+      <rect x="400" y="120" width="170" height="56" rx="10" class="d-vio"/><text x="485" y="144" text-anchor="middle" class="d-t">Message router</text><text x="485" y="161" text-anchor="middle" class="d-xs">Kafka, keyed by chat id</text>
+      <rect x="640" y="110" width="200" height="66" rx="10" class="d-good"/><text x="740" y="136" text-anchor="middle" class="d-t">Message store</text><text x="740" y="153" text-anchor="middle" class="d-xs">Cassandra · partition = chat_id</text><text x="740" y="167" text-anchor="middle" class="d-xs">clustering = message id (time)</text>
+      <rect x="640" y="220" width="200" height="50" rx="10" class="d-teal"/><text x="740" y="242" text-anchor="middle" class="d-t">Push notifications</text><text x="740" y="258" text-anchor="middle" class="d-xs">APNs / FCM if offline</text>
+      <rect x="640" y="20" width="200" height="50" rx="10" class="d-box"/><text x="740" y="42" text-anchor="middle" class="d-t">Presence service</text><text x="740" y="58" text-anchor="middle" class="d-xs">heartbeats → online/last seen</text>
+      <path d="M330 70 C370 100,370 130,398 140" class="d-lvio" marker-end="url(#av)"/><text x="356" y="106" class="d-xs">①</text>
+      <path d="M570 145 H638" class="d-lgood" marker-end="url(#ag)"/><text x="604" y="138" text-anchor="middle" class="d-xs">② persist</text>
+      <path d="M485 120 V72" class="d-lamb" marker-end="url(#am)"/><text x="492" y="100" class="d-xs">③ where is Bikram?</text>
+      <path d="M430 176 C400 220,370 232,332 235" class="d-lvio" marker-end="url(#av)"/><text x="378" y="212" class="d-xs">④ deliver</text>
+      <path d="M550 176 C580 220,600 240,638 244" class="d-lvio d-dash" marker-end="url(#av)"/><text x="592" y="212" class="d-xs">or ④' push</text>
+    </svg></div>
+  </figure>
+  <ol class="steps">
+    <li><b>Send</b>Asha's app sends the message (with a client-generated ID for dedup) over her WebSocket to chat server 7.</li>
+    <li><b>Persist and ack</b>The message gets a time-sortable ID and is written to the message store; Asha sees one tick (sent).</li>
+    <li><b>Locate</b>The router looks up Bikram in the session registry: he's on chat server 3.</li>
+    <li><b>Deliver</b>Server 3 pushes it down Bikram's socket; his app acks; Asha sees two ticks (delivered). If Bikram is offline, a push notification is sent and the message waits; when he reconnects, his app syncs everything after its last-seen message ID.</li>
+    <li><b>Read receipt</b>When Bikram opens the chat, a "read" event flows back the same way (blue ticks).</li>
+  </ol>
+  <p class="small"><strong>Groups:</strong> the router fans a message out to each member's server (small groups) via Kafka. Ordering is per chat, guaranteed by keying Kafka partitions and Cassandra partitions by <code>chat_id</code>. End-to-end encryption means servers store only ciphertext.</p>
+
+  <h3>B. Design a news feed (Instagram/Twitter-style)</h3>
+  <p>The core question: when Priya opens the app, how do we build her feed of posts from the 300 people she follows, in under 200 ms?</p>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 240" role="img" aria-label="Fan-out on write pushes a new post into every follower's precomputed feed; fan-out on read gathers posts from followees when the feed is opened">
+      <text x="200" y="22" text-anchor="middle" class="d-tl">Fan-out on write (push)</text>
+      <rect x="140" y="40" width="120" height="40" rx="8" class="d-vio"/><text x="200" y="65" text-anchor="middle" class="d-t">Ravi posts</text>
+      <rect x="20" y="150" width="105" height="40" rx="8" class="d-amb"/><text x="72" y="168" text-anchor="middle" class="d-xs">Priya's feed</text><text x="72" y="182" text-anchor="middle" class="d-xs">cache</text>
+      <rect x="147" y="150" width="105" height="40" rx="8" class="d-amb"/><text x="200" y="175" text-anchor="middle" class="d-xs">Sam's feed</text>
+      <rect x="275" y="150" width="105" height="40" rx="8" class="d-amb"/><text x="327" y="175" text-anchor="middle" class="d-xs">Tara's feed</text>
+      <path d="M180 80 L80 148 M200 80 V148 M220 80 L320 148" class="d-lvio d-flow"/>
+      <text x="200" y="215" text-anchor="middle" class="d-s">reads are instant · celebrity with 50M</text><text x="200" y="231" text-anchor="middle" class="d-s">followers = 50M writes per post</text>
+      <line x1="410" y1="15" x2="410" y2="235" class="d-line d-dash"/>
+      <text x="620" y="22" text-anchor="middle" class="d-tl">Fan-out on read (pull)</text>
+      <rect x="560" y="150" width="120" height="40" rx="8" class="d-vio"/><text x="620" y="175" text-anchor="middle" class="d-t">Priya opens app</text>
+      <rect x="440" y="45" width="105" height="40" rx="8" class="d-box"/><text x="492" y="70" text-anchor="middle" class="d-xs">Ravi's posts</text>
+      <rect x="567" y="45" width="105" height="40" rx="8" class="d-box"/><text x="620" y="70" text-anchor="middle" class="d-xs">Neha's posts</text>
+      <rect x="695" y="45" width="105" height="40" rx="8" class="d-box"/><text x="747" y="70" text-anchor="middle" class="d-xs">Shah Rukh's posts</text>
+      <path d="M600 148 L500 87 M620 148 V87 M640 148 L740 87" class="d-lacc" marker-end="url(#aa)"/>
+      <text x="620" y="215" text-anchor="middle" class="d-s">writes are cheap · every feed open</text><text x="620" y="231" text-anchor="middle" class="d-s">queries 300 timelines and merges them</text>
+    </svg></div>
+  </figure>
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Push (fan-out on write)</th><th>Pull (fan-out on read)</th><th>Hybrid (what big apps do)</th></tr>
+    <tr><td>Write cost</td><td>High (one insert per follower)</td><td>Low</td><td>Push for normal users</td></tr>
+    <tr><td>Read cost</td><td>Very low (feed is precomputed)</td><td>High (merge many timelines)</td><td>Pull for celebrities, merge at read time</td></tr>
+    <tr><td>Problem</td><td>Celebrity posts, inactive followers</td><td>Slow feed for users following many</td><td>More complex, but balanced</td></tr>
+  </table></div>
+  <p>Storage pattern: each user's feed is a <strong>Redis sorted set</strong> of post IDs scored by time (keep the latest ~800). The feed service reads IDs, then hydrates post details from a post cache, and ranks them (recency, affinity, engagement).</p>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Chat: sockets + registry + per-chat order. Feed: push for most, pull for celebrities.</p>
+    <p>Real-time = WebSockets with a <span class="hl">user → server registry</span>. Feeds = <span class="hl">hybrid fan-out</span> with precomputed sorted sets in Redis.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How do you guarantee message ordering in a chat?</summary><div class="ans"><p>Order only matters within a conversation. Assign each message a monotonically increasing ID per chat (or a time-sortable Snowflake ID plus a per-chat sequence), route all messages of a chat through the same Kafka partition, and store them in a partition keyed by chat ID sorted by message ID. Clients render by that ID, not by arrival time.</p></div></details>
+    <details><summary>How do you avoid fanning out to inactive users?</summary><div class="ans"><p>Only push into feeds of users active recently (say, the last 30 days). Inactive users get their feed built by pull when they return. This cuts write amplification dramatically.</p></div></details>
+  </div>
+  {{done}}
+</section>

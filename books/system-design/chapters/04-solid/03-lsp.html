@@ -1,0 +1,126 @@
+<section class="chapter" id="ch-lsp" data-title="L · Liskov Substitution">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>SOLID · L</div>
+    <h2>Liskov Substitution Principle</h2>
+    <p class="ch-oneline"><b>If B is a subtype of A, you must be able to use a B anywhere an A is expected, without surprises.</b> A child class must keep its parent's promises.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu's delivery boy Raju falls sick, and the agency sends a replacement: "He's a delivery boy too." Ramu hands him 20 orders and the scooter keys. Turns out the replacement can't ride a scooter; he only walks. Every delivery is 40 minutes late. On paper he <em>is</em> a delivery boy, but he <strong>can't be substituted</strong> for one, because he breaks the promise everyone relied on: "deliveries arrive within 15 minutes".</p></div>
+
+  <div class="box def"><div class="box-tag">Definition</div>
+    <p>Barbara Liskov (1987): objects of a superclass should be replaceable with objects of its subclasses without altering the correctness of the program. In practice a subclass must not:</p>
+    <ul>
+      <li><strong>Demand more</strong> (stronger preconditions): parent accepts any amount, child rejects amounts over ₹100.</li>
+      <li><strong>Promise less</strong> (weaker postconditions): parent always returns a receipt, child sometimes returns null.</li>
+      <li><strong>Break invariants</strong>: rules that must always hold for the parent (balance ≥ 0).</li>
+      <li><strong>Throw new surprises</strong>: <code>UnsupportedOperationException</code> for an inherited method.</li>
+    </ul></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 230" role="img" aria-label="Wrong hierarchy: FixedDeposit extends Account and throws on withdraw. Right hierarchy: Account base with a WithdrawableAccount sub-type for savings, and fixed deposit separate">
+      <text x="200" y="22" text-anchor="middle" class="d-tb">Breaks LSP</text>
+      <rect x="120" y="40" width="160" height="56" rx="8" class="d-box"/><text x="200" y="62" text-anchor="middle" class="d-t">Account</text><text x="200" y="80" text-anchor="middle" class="d-m">+ withdraw(amt)</text>
+      <rect x="20" y="150" width="160" height="56" rx="8" class="d-good"/><text x="100" y="172" text-anchor="middle" class="d-t">SavingsAccount</text><text x="100" y="190" text-anchor="middle" class="d-xs">withdraw works ✓</text>
+      <rect x="220" y="150" width="170" height="56" rx="8" class="d-bad"/><text x="305" y="172" text-anchor="middle" class="d-t">FixedDeposit</text><text x="305" y="190" text-anchor="middle" class="d-xs">withdraw → throws! ✗</text>
+      <path d="M100 148 L170 98 M305 148 L230 98" class="d-line" marker-end="url(#tri)"/>
+      <line x1="410" y1="15" x2="410" y2="215" class="d-line d-dash"/>
+      <text x="620" y="22" text-anchor="middle" class="d-tg">Respects LSP</text>
+      <rect x="540" y="36" width="160" height="50" rx="8" class="d-box"/><text x="620" y="58" text-anchor="middle" class="d-t">Account</text><text x="620" y="75" text-anchor="middle" class="d-m">+ balance()</text>
+      <rect x="430" y="110" width="190" height="44" rx="8" class="d-acc"/><text x="525" y="128" text-anchor="middle" class="d-t">WithdrawableAccount</text><text x="525" y="144" text-anchor="middle" class="d-m">+ withdraw(amt)</text>
+      <rect x="640" y="110" width="170" height="44" rx="8" class="d-good"/><text x="725" y="130" text-anchor="middle" class="d-t">FixedDeposit</text><text x="725" y="146" text-anchor="middle" class="d-xs">no withdraw at all</text>
+      <rect x="440" y="180" width="170" height="40" rx="8" class="d-good"/><text x="525" y="205" text-anchor="middle" class="d-t">SavingsAccount</text>
+      <path d="M525 108 L600 88 M725 108 L645 88 M525 178 V156" class="d-line" marker-end="url(#tri)"/>
+    </svg></div>
+  </figure>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: a subclass that refuses its parent&#x27;s job">
+public class Account {
+    protected BigDecimal balance;
+    public void withdraw(BigDecimal amt) {
+        if (balance.compareTo(amt) < 0) throw new InsufficientFundsException();
+        balance = balance.subtract(amt);
+    }
+}
+
+public class FixedDepositAccount extends Account {
+    @Override
+    public void withdraw(BigDecimal amt) {
+        // "is-a" Account, but cannot do what every Account promises
+        throw new UnsupportedOperationException("FD is locked until maturity");
+    }
+}
+
+// Code written against Account now explodes for one subtype:
+for (Account a : customer.accounts()) a.withdraw(monthlyFee);  // boom on FD
+// Callers start writing:  if (!(a instanceof FixedDepositAccount)) ...  <- LSP smell
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: model the capability separately">
+public abstract class Account {
+    protected BigDecimal balance = BigDecimal.ZERO;
+    public BigDecimal balance() { return balance; }        // every account can do this
+}
+
+public interface Withdrawable {                             // only for accounts that can
+    void withdraw(BigDecimal amt);
+}
+
+public class SavingsAccount extends Account implements Withdrawable {
+    @Override public void withdraw(BigDecimal amt) {
+        if (balance.compareTo(amt) < 0) throw new InsufficientFundsException();
+        balance = balance.subtract(amt);
+    }
+}
+
+public class FixedDepositAccount extends Account {          // honest: no withdraw()
+    private final LocalDate maturity;
+    public FixedDepositAccount(LocalDate maturity) { this.maturity = maturity; }
+}
+
+// Callers ask for exactly what they need, and the compiler enforces it:
+public void chargeFee(List<? extends Withdrawable> accounts, BigDecimal fee) {
+    accounts.forEach(a -> a.withdraw(fee));                 // can never hit an FD
+}
+</script>
+</div>
+
+  <h3>The famous one: is a Square a Rectangle?</h3>
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Mathematically yes, behaviourally no">
+class Rectangle {
+    protected int w, h;
+    void setWidth(int w)  { this.w = w; }
+    void setHeight(int h) { this.h = h; }
+    int area() { return w * h; }
+}
+class Square extends Rectangle {
+    @Override void setWidth(int w)  { this.w = w; this.h = w; } // keeps sides equal
+    @Override void setHeight(int h) { this.w = h; this.h = h; }
+}
+
+void resize(Rectangle r) {
+    r.setWidth(5); r.setHeight(4);
+    assert r.area() == 20;      // true for Rectangle, FAILS for Square (16)
+}
+// Fix: don't inherit. Make both implement an immutable Shape { int area(); },
+// or give Rectangle withWidth()/withHeight() that return NEW objects.
+</script>
+
+  <h3>Signs you're breaking LSP</h3>
+  <div class="cards">
+    <div class="card bad"><h5>Empty or throwing overrides</h5><p><code>throw new UnsupportedOperationException()</code> in a subclass.</p></div>
+    <div class="card bad"><h5><code>instanceof</code> checks</h5><p>Callers test the concrete type before calling a parent method.</p></div>
+    <div class="card bad"><h5>"Is-a" in English only</h5><p>Penguin is a bird, but <code>Bird.fly()</code> doesn't fit it.</p></div>
+  </div>
+  <p class="small">Even the JDK bends this rule: <code>List.of(…)</code> and <code>Collections.unmodifiableList(…)</code> are <code>List</code>s whose <code>add()</code> throws <code>UnsupportedOperationException</code>. A good interview talking point.</p>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">If it looks like a duck but needs batteries, it's the wrong abstraction.</p>
+    <p>A subtype must <strong>accept at least as much</strong>, <strong>deliver at least as much</strong>, and <strong>never surprise</strong>. Inheritance means "<span class="hl">behaves like</span>", not just "is called".</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How is LSP related to OCP?</summary><div class="ans"><p>OCP relies on swapping implementations behind an abstraction. That only works if every implementation honours the abstraction's contract, which is exactly what LSP guarantees. An LSP violation forces <code>instanceof</code> checks into the calling code, which then has to be modified for each new subtype, breaking OCP.</p></div></details>
+    <details><summary>How would you fix Bird / Penguin?</summary><div class="ans"><p>Remove <code>fly()</code> from <code>Bird</code>. Keep common behaviour (<code>eat()</code>, <code>layEggs()</code>) in <code>Bird</code>, and add a <code>Flyable</code> interface implemented only by birds that fly. Code that needs flying takes <code>Flyable</code>.</p></div></details>
+  </div>
+  {{done}}
+</section>

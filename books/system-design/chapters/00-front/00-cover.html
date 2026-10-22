@@ -1,0 +1,51 @@
+<div class="front" id="cover" data-title="Start here">
+<section class="cover">
+  <p class="eyebrow">A visual study book · HLD · LLD · SOLID · Design Patterns</p>
+  <h1>System Design <em>Blueprints</em></h1>
+  <p class="lead">Every big system you use, from UPI payments to YouTube, is built from the same few dozen ideas. This book draws each idea as a picture, explains it with one running story, shows how Netflix, UPI, Stripe and JioHotstar use it at enormous scale, and then gives you the interview questions behind it.</p>
+  <div class="cover-art">
+    <svg viewBox="0 0 900 300" role="img" aria-label="A typical web system: users reach a CDN and a load balancer, which spreads traffic over app servers that use a cache, a primary database with replicas, and a message queue feeding workers">
+      <g>
+        <rect x="18" y="50" width="70" height="40" rx="8" class="d-vio"/><text x="53" y="75" text-anchor="middle" class="d-t">Mobile</text>
+        <rect x="18" y="130" width="70" height="40" rx="8" class="d-vio"/><text x="53" y="155" text-anchor="middle" class="d-t">Web</text>
+        <rect x="18" y="210" width="70" height="40" rx="8" class="d-vio"/><text x="53" y="235" text-anchor="middle" class="d-t">Partner</text>
+        <text x="53" y="282" text-anchor="middle" class="d-xs">CLIENTS</text>
+      </g>
+      <rect x="150" y="38" width="120" height="48" rx="10" class="d-teal"/><text x="210" y="60" text-anchor="middle" class="d-t">CDN</text><text x="210" y="76" text-anchor="middle" class="d-xs">images, JS, video</text>
+      <rect x="150" y="128" width="120" height="54" rx="10" class="d-acc"/><text x="210" y="152" text-anchor="middle" class="d-t">Load Balancer</text><text x="210" y="169" text-anchor="middle" class="d-xs">spreads traffic</text>
+      <g>
+        <rect x="330" y="58" width="128" height="44" rx="9" class="d-box"/><text x="394" y="85" text-anchor="middle" class="d-t">App server 1</text>
+        <rect x="330" y="133" width="128" height="44" rx="9" class="d-box"/><text x="394" y="160" text-anchor="middle" class="d-t">App server 2</text>
+        <rect x="330" y="208" width="128" height="44" rx="9" class="d-box"/><text x="394" y="235" text-anchor="middle" class="d-t">App server 3</text>
+        <text x="394" y="282" text-anchor="middle" class="d-xs">STATELESS SERVICES</text>
+      </g>
+      <rect x="530" y="40" width="130" height="48" rx="10" class="d-amb"/><text x="595" y="62" text-anchor="middle" class="d-t">Cache (Redis)</text><text x="595" y="78" text-anchor="middle" class="d-xs">hot data in RAM</text>
+      <rect x="530" y="128" width="130" height="54" rx="10" class="d-good"/><text x="595" y="152" text-anchor="middle" class="d-t">Primary DB</text><text x="595" y="169" text-anchor="middle" class="d-xs">all writes</text>
+      <rect x="530" y="214" width="130" height="44" rx="10" class="d-vio"/><text x="595" y="241" text-anchor="middle" class="d-t">Message Queue</text>
+      <rect x="740" y="104" width="130" height="38" rx="9" class="d-good"/><text x="805" y="128" text-anchor="middle" class="d-t">Read replica</text>
+      <rect x="740" y="156" width="130" height="38" rx="9" class="d-good"/><text x="805" y="180" text-anchor="middle" class="d-t">Read replica</text>
+      <rect x="740" y="216" width="130" height="40" rx="9" class="d-box"/><text x="805" y="241" text-anchor="middle" class="d-t">Workers</text>
+      <path d="M88 70 C120 70,120 62,150 62" class="d-lacc d-flow"/>
+      <path d="M88 150 L150 155" class="d-lacc d-flow"/>
+      <path d="M88 230 C120 230,120 165,150 165" class="d-lacc d-flow"/>
+      <path d="M270 148 C300 148,300 80,330 80" class="d-line" marker-end="url(#ah)"/>
+      <path d="M270 155 L330 155" class="d-line" marker-end="url(#ah)"/>
+      <path d="M270 162 C300 162,300 230,330 230" class="d-line" marker-end="url(#ah)"/>
+      <path d="M458 80 C495 80,495 64,530 64" class="d-lamb" marker-end="url(#am)"/>
+      <path d="M458 155 L530 155" class="d-lgood" marker-end="url(#ag)"/>
+      <path d="M458 230 C495 230,495 236,530 236" class="d-lvio" marker-end="url(#av)"/>
+      <path d="M660 150 C700 150,700 123,740 123" class="d-lgood d-dash" marker-end="url(#ag)"/>
+      <path d="M660 160 C700 160,700 175,740 175" class="d-lgood d-dash" marker-end="url(#ag)"/>
+      <path d="M660 236 L740 236" class="d-lvio d-flow" marker-end="url(#av)"/>
+      <text x="700" y="100" text-anchor="middle" class="d-xs">replication</text>
+    </svg>
+  </div>
+  <div class="cover-stats">
+    <div><b>{{count}}</b>chapters</div>
+    <div><b>{{diagrams}}</b>hand-drawn diagrams</div>
+    <div><b>{{widgets}}</b>live simulators</div>
+    <div><b>{{quizcount}}</b>quiz questions</div>
+    <div><b>1</b>story that ties it all together</div>
+  </div>
+</section>
+</div>

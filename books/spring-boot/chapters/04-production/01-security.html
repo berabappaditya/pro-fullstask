@@ -1,0 +1,90 @@
+<section class="chapter" id="ch-security" data-title="Spring Security and JWT">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Production</div>
+    <h2>Spring Security: the filter chain, JWT and method security</h2>
+    <p class="ch-oneline"><b>Every request passes through a chain of security filters before it reaches your controller.</b> Authentication = who you are; authorization = what you may do.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>At the door, the <strong>guard</strong> checks your membership card (authentication). A <strong>signed wristband</strong> from the front desk lets you walk around without showing ID again (a JWT). Some rooms need a <strong>staff badge</strong> (role ADMIN) and the kitchen checks it again at the kitchen door (method security). The guard never keeps a list of who's inside: the wristband itself proves it (stateless).</p></div>
+
+  <div class="widget" data-sequence>
+    <div class="widget-head"><span class="live">Live</span>JWT login and an authenticated request, step by step</div>
+    <div class="widget-body">
+<script type="application/json">
+{"actors":[
+ {"id":"c","label":"Client","sub":"mobile app","cls":"d-vio"},
+ {"id":"f","label":"Filter chain","sub":"JwtAuthFilter","cls":"d-bad"},
+ {"id":"a","label":"AuthController","sub":"/api/auth/login","cls":"d-acc"},
+ {"id":"m","label":"AuthManager","sub":"+ UserDetailsService","cls":"d-amb"},
+ {"id":"o","label":"OrderController","sub":"@PreAuthorize","cls":"d-good"}],
+ "steps":[
+ {"from":"c","to":"f","msg":"POST /login {email, pwd}","text":"Login is a permitAll() endpoint, so the filter chain lets it through without a token. HTTPS is mandatory: the password travels in the body."},
+ {"from":"f","to":"a","msg":"forward","text":"The request reaches the AuthController."},
+ {"from":"a","to":"m","msg":"authenticate()","text":"AuthenticationManager → DaoAuthenticationProvider → UserDetailsService.loadUserByUsername(email) loads the user and roles from the DB, then PasswordEncoder.matches(raw, bcryptHash)."},
+ {"from":"m","to":"a","msg":"Authentication ✓","ret":true,"text":"Credentials are valid. A wrong password would throw BadCredentialsException → 401."},
+ {"from":"a","to":"c","msg":"200 {accessToken, refreshToken}","ret":true,"text":"The server signs a JWT: header.payload.signature with sub=user id, roles, iat, exp (15 min). A longer-lived refresh token lets the app get new access tokens. The server stores no session."},
+ {"from":"c","to":"f","msg":"GET /api/orders · Bearer eyJ…","text":"Every later request carries Authorization: Bearer &lt;token&gt;."},
+ {"from":"f","to":"f","msg":"verify signature + exp","text":"The JWT filter (or Spring's oauth2ResourceServer().jwt()) checks the signature with the key, rejects expired tokens, and puts an Authentication with the roles into the SecurityContextHolder (a ThreadLocal) for this request."},
+ {"from":"f","to":"o","msg":"authorized request","text":"authorizeHttpRequests rules run (/api/admin/** needs ROLE_ADMIN). Then @PreAuthorize on the method can check finer rules, e.g. the order belongs to this user."},
+ {"from":"o","to":"c","msg":"200 [orders]","ret":true,"text":"The response goes back; the SecurityContext is cleared when the request ends. A bad or missing token would have produced 401; a valid token without the role, 403."}]}
+</script>
+    </div>
+  </div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Stateless REST security with Spring's built-in JWT resource server">
+@Configuration
+@EnableMethodSecurity                                     // enables @PreAuthorize
+public class SecurityConfig {
+
+    @Bean
+    SecurityFilterChain api(HttpSecurity http) throws Exception {
+        http
+            .csrf(csrf -> csrf.disable())                 // no cookies → CSRF not applicable to a token API
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/**", "/actuator/health").permitAll()
+                .requestMatchers(HttpMethod.DELETE, "/api/**").hasRole("ADMIN")
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .anyRequest().authenticated())            // deny by default
+            .oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()));   // validates Bearer JWTs
+        return http.build();
+    }
+
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return PasswordEncoderFactories.createDelegatingPasswordEncoder();   // bcrypt by default, upgradable
+    }
+}
+// application.yml:  spring.security.oauth2.resourceserver.jwt.issuer-uri: https://auth.ramu.in
+//   (Keycloak, Auth0, Cognito…) or …jwt.public-key-location for your own signing key.
+
+@Service
+class OrderQueries {
+    @PreAuthorize("hasRole('ADMIN') or #userId == authentication.name")    // owner or admin
+    public List<OrderDto> ordersOf(String userId) { ... }
+}
+</script>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Session cookie</th><th>JWT bearer token</th></tr>
+    <tr><td>State</td><td>server stores the session (or Redis)</td><td>stateless: token carries the claims</td></tr>
+    <tr><td>Scaling</td><td>sticky sessions or shared session store</td><td>any instance can verify</td></tr>
+    <tr><td>Logout / revoke</td><td>delete the session: instant</td><td>hard: short expiry + refresh tokens + denylist</td></tr>
+    <tr><td>CSRF</td><td>needs CSRF protection</td><td>not needed if not stored in cookies</td></tr>
+    <tr><td>Best for</td><td>server-rendered web apps</td><td>mobile apps, SPAs, service-to-service</td></tr>
+  </table></div>
+
+  <div class="box pitfall"><div class="box-tag">Common traps</div><p>Putting secrets in the JWT payload (it's only Base64, anyone can read it). Long-lived access tokens with no revocation. Accepting <code>alg: none</code> or not checking expiry (use the library, don't parse by hand). Storing passwords with MD5/SHA-256 instead of a slow, salted hash (BCrypt, Argon2). Forgetting that role checks need the <code>ROLE_</code> prefix with <code>hasRole</code>.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Card at the door, wristband after, badge for staff rooms.</p>
+    <p>SecurityFilterChain bean, <span class="hl">deny by default</span>, STATELESS + CSRF off for token APIs, BCrypt, oauth2ResourceServer().jwt(), @PreAuthorize for ownership rules. 401 vs 403.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Explain the Spring Security filter chain.</summary><div class="ans"><p>Spring registers one servlet filter (DelegatingFilterProxy → FilterChainProxy) that delegates to the first matching SecurityFilterChain bean, an ordered list of filters: CORS, CSRF, authentication filters (form, basic, bearer token), exception translation (turns AuthenticationException into 401 and AccessDeniedException into 403), and the AuthorizationFilter that applies the URL rules. The authenticated user lives in the SecurityContextHolder for the request.</p></div></details>
+    <details><summary>How do you implement JWT authentication?</summary><div class="ans"><p>Login endpoint authenticates via AuthenticationManager and issues a signed short-lived access token (and refresh token). Each request's Bearer token is validated by the resource server support (signature, expiry, issuer, audience) which builds the Authentication with authorities from claims. Stateless session policy, HTTPS, key rotation, refresh token rotation and revocation strategy. Prefer an identity provider (Keycloak, Cognito, Auth0) for issuing tokens.</p></div></details>
+    <details><summary>Why BCrypt?</summary><div class="ans"><p>It's deliberately slow with a configurable cost factor and a per-password salt, so brute-forcing leaked hashes is expensive and rainbow tables are useless. The delegating encoder stores the algorithm id (<code>{bcrypt}…</code>) so you can upgrade to Argon2 later.</p></div></details>
+  </div>
+  {{done}}
+</section>

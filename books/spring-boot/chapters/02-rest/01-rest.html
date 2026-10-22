@@ -1,0 +1,86 @@
+<section class="chapter" id="ch-rest" data-title="REST API basics">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>REST APIs</div>
+    <h2>REST API basics: resources, methods and status codes</h2>
+    <p class="ch-oneline"><b>URLs name things (nouns), HTTP methods say what to do (verbs), status codes say what happened.</b> Every request carries everything the server needs: stateless.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>The <strong>menu board</strong> lists things: <code>/orders</code>, <code>/orders/7</code>. What you do with them is the verb: look (GET), place a new order (POST), replace your whole order (PUT), change only the sugar (PATCH), cancel (DELETE). The counter answers with a <strong>token colour</strong>: green "here you go" (200), "order placed" (201), red "we don't have that" (404).</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Method</th><th>Operation</th><th>Example</th><th>Success code</th><th>Idempotent?</th><th>Safe?</th></tr>
+    <tr><td><code>GET</code></td><td>read</td><td><code>GET /api/orders/7</code></td><td>200</td><td class="yes">yes</td><td class="yes">yes</td></tr>
+    <tr><td><code>POST</code></td><td>create</td><td><code>POST /api/orders</code></td><td>201 + Location</td><td class="no">no</td><td class="no">no</td></tr>
+    <tr><td><code>PUT</code></td><td>replace whole resource</td><td><code>PUT /api/orders/7</code></td><td>200 / 204</td><td class="yes">yes</td><td class="no">no</td></tr>
+    <tr><td><code>PATCH</code></td><td>partial update</td><td><code>PATCH /api/orders/7</code></td><td>200</td><td>not guaranteed</td><td class="no">no</td></tr>
+    <tr><td><code>DELETE</code></td><td>remove</td><td><code>DELETE /api/orders/7</code></td><td>204</td><td class="yes">yes</td><td class="no">no</td></tr>
+  </table></div>
+
+  <div class="cards">
+    <div class="card good"><span class="k">2xx</span><h5>Success</h5><p>200 OK · 201 Created · 202 Accepted (async) · 204 No Content</p></div>
+    <div class="card"><span class="k">4xx</span><h5>Client's fault</h5><p>400 bad input · 401 not logged in · 403 not allowed · 404 not found · 409 conflict · 422 business rule · 429 too many requests</p></div>
+    <div class="card bad"><span class="k">5xx</span><h5>Server's fault</h5><p>500 bug · 502 bad gateway · 503 unavailable (overloaded/maintenance) · 504 upstream timeout</p></div>
+  </div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Every common mapping in one controller">
+@RestController
+@RequestMapping("/api/orders")
+public class OrderController {
+    private final OrderService service;
+    public OrderController(OrderService service) { this.service = service; }
+
+    @GetMapping                                           // GET /api/orders?status=PAID&page=0&size=20
+    public Page<OrderDto> list(@RequestParam(required = false) Status status, Pageable pageable) {
+        return service.list(status, pageable);
+    }
+
+    @GetMapping("/{id}")                                   // GET /api/orders/7  (@PathVariable = from the path)
+    public OrderDto get(@PathVariable Long id) { return service.get(id); }
+
+    @PostMapping                                           // POST with a JSON body
+    public ResponseEntity<OrderDto> create(@Valid @RequestBody CreateOrderRequest req) {
+        OrderDto created = service.create(req);
+        URI location = URI.create("/api/orders/" + created.id());
+        return ResponseEntity.created(location).body(created);   // 201 + Location header
+    }
+
+    @PatchMapping("/{id}/status")                          // partial update of one field
+    public OrderDto changeStatus(@PathVariable Long id, @RequestBody StatusChange change) {
+        return service.changeStatus(id, change.status());
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)                 // 204, empty body
+    public void cancel(@PathVariable Long id) { service.cancel(id); }
+
+    @GetMapping("/{id}/receipt")
+    public ResponseEntity<byte[]> receipt(@PathVariable Long id,
+                                          @RequestHeader("Accept-Language") String lang) {
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
+                .body(service.receiptPdf(id, lang));       // custom content type + header input
+    }
+}
+</script>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Annotation</th><th>Reads from</th><th>Example</th></tr>
+    <tr><td><code>@PathVariable</code></td><td>URL path segment</td><td><code>/orders/<b>7</b></code></td></tr>
+    <tr><td><code>@RequestParam</code></td><td>query string / form field</td><td><code>/orders?<b>status=PAID</b></code></td></tr>
+    <tr><td><code>@RequestBody</code></td><td>request body (JSON → object)</td><td><code>{"item":"chai","qty":2}</code></td></tr>
+    <tr><td><code>@RequestHeader</code></td><td>header</td><td><code>Idempotency-Key: abc</code></td></tr>
+    <tr><td><code>@CookieValue</code></td><td>cookie</td><td><code>session=…</code></td></tr>
+  </table></div>
+
+  <div class="box tip"><div class="box-tag">Interview tip: design checklist</div><p>Plural nouns (<code>/orders</code>), nesting only for ownership (<code>/orders/7/items</code>), pagination on every list, an <code>Idempotency-Key</code> header for POSTs that move money, versioning (<code>/api/v1</code> or a header; Boot 4 has built-in API versioning, see {{ref:ch-boot4}}), and a consistent error format (RFC 9457 ProblemDetail, {{ref:ch-errors}}).</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Nouns in the URL, verbs in the method, outcome in the status.</p>
+    <p>GET/PUT/DELETE are <span class="hl">idempotent</span>, POST is not. 201 + Location for create, 204 for delete. 401 = who are you, 403 = not allowed.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>PUT vs PATCH vs POST?</summary><div class="ans"><p>POST creates a new resource (server picks the id) and isn't idempotent. PUT replaces the full resource at a known URL; repeating it gives the same state. PATCH applies a partial change; it can be idempotent (set status = PAID) or not (add 1 item), depending on the patch.</p></div></details>
+    <details><summary>What makes an API RESTful?</summary><div class="ans"><p>Resources identified by URIs, a uniform interface (standard methods and status codes), stateless requests, cacheable responses where appropriate, client–server separation and layered systems. HATEOAS (links in responses) is the strict final constraint, rarely used in practice.</p></div></details>
+  </div>
+  {{done}}
+</section>

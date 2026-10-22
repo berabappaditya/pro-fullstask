@@ -1,0 +1,53 @@
+<section class="chapter" id="ch-embeddings" data-title="Embeddings and semantic similarity">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>RAG</div>
+    <h2>Embeddings: turning meaning into numbers</h2>
+    <p class="ch-oneline"><b>An embedding model turns a piece of text into a vector so that texts with similar meaning land close together.</b> Search becomes "find the nearest vectors".</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>Ramu's old filing cabinet sorted recipes <strong>alphabetically</strong>, so "Adrak chai" and "Ginger tea" were far apart even though they're the same drink. The assistant re-arranges them on a big <strong>map by taste</strong>: spicy teas in one corner, cold drinks in another, snacks elsewhere. Now "something warm with ginger" lands right next to both. That map is an embedding space.</p></div>
+
+  <div class="widget" id="w-embed">
+    <div class="widget-head"><span class="live">Live</span>A 2-D taste map: pick a query and see what's nearest (real embeddings have ~768–3,072 dimensions)</div>
+    <div class="widget-body">
+      <div class="controls" id="embControls"></div>
+      <div class="emb-wrap"><svg id="embSvg" viewBox="0 0 520 340" role="img" aria-label="Scatter plot of menu items by meaning; the selected query and its nearest neighbours are highlighted"></svg><div class="emb-list" id="embList"></div></div>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Measure</th><th>Formula idea</th><th>Notes</th></tr>
+    <tr><td>Cosine similarity</td><td>angle between vectors (1 = same direction)</td><td>most common for text; ignores length</td></tr>
+    <tr><td>Dot product</td><td>sum of element products</td><td>same ranking as cosine when vectors are normalised; fastest</td></tr>
+    <tr><td>Euclidean (L2)</td><td>straight-line distance</td><td>used by some indexes; equivalent ranking for normalised vectors</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Embeddings in Spring AI, and cosine similarity by hand">
+float[] q = embeddingModel.embed("something warm with ginger");     // e.g. 1,536 floats
+float[] d = embeddingModel.embed("Adrak chai: tea brewed with fresh ginger and milk");
+
+static double cosine(float[] a, float[] b) {
+    double dot = 0, na = 0, nb = 0;
+    for (int i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+    return dot / (Math.sqrt(na) * Math.sqrt(nb));                   // 1.0 = same meaning, ~0 = unrelated
+}
+// Rule: embed documents and queries with the SAME model (and version). Changing the
+// model means re-embedding everything: vectors from different models aren't comparable.
+</script>
+
+  <div class="cards">
+    <div class="card"><span class="k">choose</span><h5>Picking an embedding model</h5><p>Quality on your domain and languages (check MTEB-style benchmarks, then test on your data), dimensions (storage/speed), max input length, price, hosted vs local.</p></div>
+    <div class="card"><span class="k">limits</span><h5>What embeddings miss</h5><p>Exact identifiers (order #A-7781, error codes), negation and numbers are weak spots. That's why hybrid search with keywords exists ({{n:ch-advanced-rag}}).</p></div>
+    <div class="card"><span class="k">beyond text</span><h5>Multimodal embeddings</h5><p>Images and text in one space: "red sneakers" finds product photos.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Arrange recipes on a taste map, not alphabetically.</p>
+    <p>Text → vector; <span class="hl">similar meaning = nearby vectors</span>; compare with cosine. Same model for queries and documents. Weak on exact IDs and numbers.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What is an embedding and why is it useful?</summary><div class="ans"><p>A dense vector representation produced by a model so that semantic similarity becomes geometric closeness. It enables semantic search, recommendations, clustering, deduplication and classification, and is the retrieval backbone of RAG.</p></div></details>
+  </div>
+  {{done}}
+</section>

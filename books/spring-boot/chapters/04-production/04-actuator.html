@@ -1,0 +1,72 @@
+<section class="chapter" id="ch-actuator" data-title="Actuator, logging and observability">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Production</div>
+    <h2>Actuator, logging and observability</h2>
+    <p class="ch-oneline"><b>Actuator exposes health, metrics and runtime info; Micrometer sends metrics and traces to your monitoring stack; structured logs tie it together.</b></p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>Head office can't visit every branch, so each kitchen has a <strong>status board</strong> by the door: gas OK, fridge OK, 42 orders/hour, average wait 3 min (health + metrics). Each order slip carries a <strong>tracking number</strong> so a complaint can be traced from counter to kitchen to delivery (trace id).</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Endpoint</th><th>Shows</th><th>Expose?</th></tr>
+    <tr><td><code>/actuator/health</code> (+ <code>/liveness</code>, <code>/readiness</code>)</td><td>UP/DOWN incl. DB, disk, Redis; Kubernetes probes</td><td>yes (default)</td></tr>
+    <tr><td><code>/actuator/prometheus</code></td><td>all metrics in Prometheus format</td><td>yes, internal network</td></tr>
+    <tr><td><code>/actuator/metrics</code></td><td>JVM, HTTP, Hikari, cache metrics</td><td>internal</td></tr>
+    <tr><td><code>/actuator/info</code></td><td>build, git commit</td><td>yes</td></tr>
+    <tr><td><code>/actuator/loggers</code></td><td>view/change log levels live (POST)</td><td>secured</td></tr>
+    <tr><td><code>/actuator/env</code>, <code>/beans</code>, <code>/heapdump</code>, <code>/threaddump</code></td><td>config, beans, dumps</td><td>secured only: sensitive</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="yaml" data-variant="good" data-title="Production Actuator setup">
+management:
+  server:
+    port: 8081                         # separate port, not exposed through the public load balancer
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+  endpoint:
+    health:
+      probes:
+        enabled: true                  # /actuator/health/liveness and /readiness for Kubernetes
+      show-details: when-authorized
+  tracing:
+    sampling:
+      probability: 0.1                 # trace 10% of requests (OpenTelemetry via Micrometer Tracing)
+logging:
+  structured:
+    format:
+      console: ecs                     # JSON logs (Boot 3.4+): ecs, logstash or gelf
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Custom business metrics with Micrometer">
+@Service
+class CheckoutMetrics {
+    private final Counter paid;
+    private final Timer checkout;
+    CheckoutMetrics(MeterRegistry registry) {
+        paid = Counter.builder("orders.paid").tag("channel", "app").register(registry);
+        checkout = Timer.builder("checkout.duration").publishPercentiles(0.95, 0.99).register(registry);
+    }
+    void record(Runnable work) { checkout.record(work); paid.increment(); }
+}
+// Or annotate: @Observed(name = "checkout")  → a timer + a tracing span in one go.
+</script>
+
+  <div class="cards">
+    <div class="card"><span class="k">logs</span><h5>What happened</h5><p>SLF4J API + Logback (default). Log with placeholders <code>log.info("Order {} paid", id)</code>, JSON format in prod, trace id in every line (MDC).</p></div>
+    <div class="card"><span class="k">metrics</span><h5>How much / how fast</h5><p>Micrometer → Prometheus → Grafana. Watch RED: rate, errors, duration; plus Hikari pending, JVM heap, GC.</p></div>
+    <div class="card"><span class="k">traces</span><h5>Where the time went</h5><p>Micrometer Tracing + OpenTelemetry → Tempo/Jaeger/Zipkin. Trace context propagates through RestClient and Kafka automatically.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">A status board by the door, a tracking number on every slip.</p>
+    <p>Only <span class="hl">health</span> is exposed by default. Separate management port, liveness/readiness probes, Prometheus metrics, structured logs with trace ids. DevTools is dev-only.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How do you change a log level in production without restarting?</summary><div class="ans"><p>POST to <code>/actuator/loggers/com.ramu.orders</code> with <code>{"configuredLevel":"DEBUG"}</code> (secured endpoint), or via a config server refresh. Revert afterwards.</p></div></details>
+    <details><summary>Liveness vs readiness probes?</summary><div class="ans"><p>Liveness: is the process healthy or should Kubernetes restart it (don't include downstream dependencies, or a DB outage restarts every pod). Readiness: can it take traffic now (warming up, draining during shutdown, critical dependency down); failing it removes the pod from the Service without restarting.</p></div></details>
+  </div>
+  {{done}}
+</section>

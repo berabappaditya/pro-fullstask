@@ -1,0 +1,62 @@
+<section class="chapter" id="ch-chunking" data-title="Chunking and ingestion">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>RAG</div>
+    <h2>Chunking and ingestion: garbage in, garbage retrieved</h2>
+    <p class="ch-oneline"><b>Split documents into pieces small enough to be specific and large enough to make sense on their own,</b> keep useful metadata, and parse messy formats carefully.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>If the handbook is one giant page, every lookup returns the whole book (too vague). If it's cut into <strong>single sentences</strong>, "they" and "this rule" lose their meaning (too fragmented). Ramu cuts it <strong>by section</strong>, keeps the section title on each piece, and lets pieces <strong>overlap a little</strong> so no rule is cut in half.</p></div>
+
+  <div class="widget" id="w-chunk">
+    <div class="widget-head"><span class="live">Live</span>Chunking visualizer: change the strategy, size and overlap</div>
+    <div class="widget-body">
+      <div class="controls" id="chkControls"></div>
+      <div class="chk-doc" id="chkDoc"></div>
+      <div class="statrow" id="chkStats"></div>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Strategy</th><th>How</th><th>Pros / cons</th></tr>
+    <tr><td>Fixed size + overlap</td><td>N tokens per chunk, M tokens shared with the next</td><td>simple; may cut mid-sentence or mid-table</td></tr>
+    <tr><td>Recursive / structural</td><td>split on headings → paragraphs → sentences until under the limit</td><td><strong>good default</strong>; respects document structure</td></tr>
+    <tr><td>Semantic</td><td>split where embedding similarity between sentences drops (topic change)</td><td>coherent chunks; costs embedding calls at ingest</td></tr>
+    <tr><td>Document-specific</td><td>by function/class for code, by row group for tables, by Q&amp;A pair for FAQs</td><td>best quality; more work per format</td></tr>
+    <tr><td>Parent–child / small-to-big</td><td>search small chunks, return their larger parent section to the LLM</td><td>precise retrieval + full context</td></tr>
+    <tr><td>Contextual chunks</td><td>prepend a short generated summary of the document/section to each chunk before embedding</td><td>chunks make sense alone; extra LLM cost at ingest</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="An ingestion pipeline with Spring AI (ETL: read → transform → write)">
+@Component
+class HandbookIngestor {
+    private final VectorStore vectorStore;
+    HandbookIngestor(VectorStore vectorStore) { this.vectorStore = vectorStore; }
+
+    void ingest(Resource pdf, String tenant) {
+        List<Document> pages = new PagePdfDocumentReader(pdf).get();          // 1. extract (Tika for docx/html)
+        List<Document> chunks = new TokenTextSplitter().apply(pages);        // 2. split (token-based chunks;
+                                                                             //    size/overlap configurable)
+        chunks.forEach(c -> c.getMetadata().putAll(Map.of(                    // 3. metadata for filters/citations
+                "tenant", tenant, "source", pdf.getFilename(), "ingestedAt", Instant.now().toString())));
+        vectorStore.add(chunks);                                             // 4. embed + store (batched)
+    }
+}
+// Re-ingest on document change: delete old chunks by doc id, then add new ones (idempotent).
+</script>
+
+  <div class="cards">
+    <div class="card"><span class="k">sizes</span><h5>Starting point</h5><p>200–800 tokens with 10–20% overlap, then tune with your evaluation set. Smaller for precise FAQs, larger for narrative docs.</p></div>
+    <div class="card"><span class="k">metadata</span><h5>Keep it</h5><p>Source, title, section path, page, date, tenant/ACL, language, version. Enables filtering, citations and freshness.</p></div>
+    <div class="card bad"><span class="k">pitfalls</span><h5>Ingestion failures</h5><p>Scanned PDFs without OCR, tables flattened into nonsense, headers/footers repeated in every chunk, duplicate documents, stale versions never removed.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Cut by section, keep the title, overlap a little.</p>
+    <p>Structural/recursive splitting as default, <span class="hl">rich metadata</span>, parent–child for precision + context, re-ingest idempotently, and evaluate chunk settings.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How do you choose chunk size?</summary><div class="ans"><p>Balance specificity (small chunks match precise questions) against self-containedness (large chunks keep context). Start from the document structure and ~500 tokens with overlap, then run the evaluation set comparing retrieval recall/precision and answer quality across sizes. Consider parent–child retrieval to get both.</p></div></details>
+  </div>
+  {{done}}
+</section>

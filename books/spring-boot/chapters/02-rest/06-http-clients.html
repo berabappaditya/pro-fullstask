@@ -1,0 +1,85 @@
+<section class="chapter" id="ch-http-clients" data-title="Calling other services: RestClient and HTTP interfaces">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>REST APIs</div>
+    <h2>Calling other services: RestClient and HTTP interfaces</h2>
+    <p class="ch-oneline"><b>RestClient is the modern synchronous client; @HttpExchange interfaces let Spring generate the client for you.</b> Always set timeouts.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>The branch orders milk from a dairy by phone. Old way: dial, read out every detail yourself (RestTemplate). New way: a <strong>pre-printed order pad</strong> with the dairy's fields; fill in quantity and the system places the call (HTTP interface). And never wait on hold forever: hang up after 2 seconds (timeouts).</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Client</th><th>Style</th><th>Status</th></tr>
+    <tr><td><code>RestTemplate</code></td><td>synchronous, template methods</td><td>maintenance mode; fine in old code</td></tr>
+    <tr><td><code>RestClient</code> (6.1+)</td><td>synchronous, fluent</td><td><strong>default choice</strong> for servlet apps</td></tr>
+    <tr><td><code>WebClient</code></td><td>reactive, non-blocking</td><td>for WebFlux apps</td></tr>
+    <tr><td><code>@HttpExchange</code> interface</td><td>declarative, generated</td><td>Feign-like, built in; Boot 4 adds <code>@ImportHttpServices</code></td></tr>
+    <tr><td>OpenFeign</td><td>declarative (Spring Cloud)</td><td>still common in microservices</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="RestClient with base URL, timeouts and error handling">
+@Configuration
+class ClientConfig {
+    @Bean
+    RestClient dairyClient(RestClient.Builder builder,          // Boot-provided builder (Jackson, observability)
+                           @Value("${dairy.api-key}") String apiKey) {
+        var factory = new JdkClientHttpRequestFactory();
+        factory.setReadTimeout(Duration.ofSeconds(2));           // never wait forever
+        return builder.baseUrl("https://dairy.example.in/api")
+                      .requestFactory(factory)
+                      .defaultHeader("X-Api-Key", apiKey)
+                      .build();
+    }
+}
+
+@Service
+class MilkSupply {
+    private final RestClient dairy;
+    MilkSupply(RestClient dairyClient) { this.dairy = dairyClient; }
+
+    StockDto stock(String branch) {
+        return dairy.get().uri("/stock/{branch}", branch)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError,
+                          (req, res) -> { throw new NotFoundException("Unknown branch " + branch); })
+                .body(StockDto.class);                           // JSON → record
+    }
+}
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Declarative HTTP interface (Spring Boot 4)">
+@HttpExchange("/api")
+public interface DairyApi {
+    @GetExchange("/stock/{branch}")
+    StockDto stock(@PathVariable String branch);
+
+    @PostExchange("/orders")
+    OrderAck order(@RequestBody MilkOrder order);
+}
+
+@Configuration
+@ImportHttpServices(group = "dairy", types = DairyApi.class)   // Boot 4: Spring generates the client bean
+class HttpServicesConfig { }
+// application.yml:  spring.http.serviceclient.dairy.base-url: https://dairy.example.in
+//                   spring.http.serviceclient.dairy.read-timeout: 2s
+
+@Service
+class Restock {
+    private final DairyApi dairy;                               // inject it like any bean
+    Restock(DairyApi dairy) { this.dairy = dairy; }
+    void run() { if (dairy.stock("kolkata-1").litres() < 50) dairy.order(new MilkOrder(200)); }
+}
+</script>
+
+  <div class="box tip"><div class="box-tag">Production checklist</div><p>Timeouts (connect + read) on every client, retries only for idempotent calls with backoff and jitter, a circuit breaker (Resilience4j, or Spring Framework 7's built-in <code>@Retryable</code>/<code>@ConcurrencyLimit</code> resilience annotations), and propagate the trace id. Patterns are explained in {{xref:system-design/ch-reliability}}.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">A pre-printed order pad, and hang up after two seconds.</p>
+    <p><span class="hl">RestClient</span> for imperative code, WebClient for reactive, <code>@HttpExchange</code> interfaces for declarative clients. Always timeouts.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>RestTemplate vs WebClient vs RestClient?</summary><div class="ans"><p>RestTemplate: older synchronous API, now in maintenance. WebClient: reactive and non-blocking, returns Mono/Flux, best in WebFlux. RestClient: synchronous with a fluent API like WebClient but no reactive dependency; the recommended choice for Spring MVC apps (and fits virtual threads well).</p></div></details>
+    <details><summary>How do services call each other in a microservice architecture?</summary><div class="ans"><p>Synchronously over HTTP/gRPC (RestClient, HTTP interfaces, Feign) when the caller needs an immediate answer, or asynchronously via events on Kafka/RabbitMQ for decoupling and resilience. Add service discovery or Kubernetes DNS, timeouts, retries and circuit breakers.</p></div></details>
+  </div>
+  {{done}}
+</section>

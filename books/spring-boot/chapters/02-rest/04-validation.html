@@ -1,0 +1,71 @@
+<section class="chapter" id="ch-validation" data-title="Validation">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>REST APIs</div>
+    <h2>Validation: reject bad input at the door</h2>
+    <p class="ch-oneline"><b>Annotate the DTO, put @Valid on the parameter, and Spring returns 400 before your code runs.</b> Custom rules are an annotation plus a validator class.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>The order form has rules printed on it: name required, phone must be 10 digits, quantity 1 to 20. The <strong>clerk checks the form at the counter</strong> and hands it back with the wrong boxes circled; the chef never sees an invalid order.</p></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Constraints on a record DTO">
+public record CreateOrderRequest(
+        @NotBlank(message = "customer name is required") @Size(max = 80) String customer,
+        @NotNull @Pattern(regexp = "[6-9]\\d{9}", message = "must be a 10-digit Indian mobile") String phone,
+        @NotEmpty List<@Valid OrderLine> lines,              // @Valid cascades into each element
+        @Future LocalDateTime deliverAt) {}
+
+public record OrderLine(@NotBlank String item, @Min(1) @Max(20) int qty) {}
+
+@PostMapping
+public ResponseEntity<OrderDto> create(@Valid @RequestBody CreateOrderRequest req) { ... }
+// Invalid → MethodArgumentNotValidException → 400 (handled in the next chapter)
+
+@Validated                                                   // enable validation of method params
+@RestController
+class LookupController {
+    @GetMapping("/pincode/{pin}")
+    String area(@PathVariable @Pattern(regexp = "\\d{6}") String pin) { ... }   // 400 if not 6 digits
+}
+</script>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Constraint</th><th>null</th><th>""</th><th>"  "</th><th>Use for</th></tr>
+    <tr><td><code>@NotNull</code></td><td class="no">✗</td><td class="yes">✓</td><td class="yes">✓</td><td>any type</td></tr>
+    <tr><td><code>@NotEmpty</code></td><td class="no">✗</td><td class="no">✗</td><td class="yes">✓</td><td>strings, collections, maps, arrays</td></tr>
+    <tr><td><code>@NotBlank</code></td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td>strings (strictest)</td></tr>
+  </table></div>
+  <p class="small">Also: <code>@Size</code>, <code>@Min/@Max</code>, <code>@Positive</code>, <code>@Email</code>, <code>@Pattern</code>, <code>@Past/@Future</code>, <code>@Digits</code>, <code>@DecimalMin</code>.</p>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="A custom constraint: valid GSTIN">
+@Target({ FIELD, PARAMETER, RECORD_COMPONENT })
+@Retention(RUNTIME)
+@Constraint(validatedBy = GstinValidator.class)              // links annotation → logic
+public @interface ValidGstin {
+    String message() default "invalid GSTIN";
+    Class<?>[] groups() default {};
+    Class<? extends Payload>[] payload() default {};
+}
+
+public class GstinValidator implements ConstraintValidator<ValidGstin, String> {
+    private static final Pattern P = Pattern.compile("\\d{2}[A-Z]{5}\\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]");
+    @Override
+    public boolean isValid(String value, ConstraintValidatorContext ctx) {
+        return value == null || P.matcher(value).matches();   // null handled by @NotNull separately
+    }
+}
+public record VendorRequest(@NotBlank String name, @ValidGstin String gstin) {}
+</script>
+
+  <div class="box pitfall"><div class="box-tag">Common trap</div><p>Validation annotations alone do nothing: without <code>@Valid</code> (or <code>@Validated</code> on the class for method parameters) they're never checked. And validate <strong>DTOs at the API boundary</strong>; business rules that need the database (email already exists) belong in the service.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Rules on the form, check at the counter.</p>
+    <p>@NotNull ⊂ @NotEmpty ⊂ <span class="hl">@NotBlank</span>. @Valid on @RequestBody, @Validated for path/query params. Custom = @Constraint + ConstraintValidator.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>@Valid vs @Validated?</summary><div class="ans"><p>@Valid is the standard Jakarta annotation: triggers validation of an argument and cascades into nested objects. @Validated is Spring's: on a class it enables method-level validation of simple parameters via a proxy, and it supports validation groups.</p></div></details>
+    <details><summary>What are validation groups?</summary><div class="ans"><p>Marker interfaces assigned to constraints so different rules apply in different contexts, e.g. id must be null on Create but not null on Update: <code>@Validated(OnCreate.class)</code>.</p></div></details>
+  </div>
+  {{done}}
+</section>

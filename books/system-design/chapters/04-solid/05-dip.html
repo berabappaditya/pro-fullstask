@@ -1,0 +1,103 @@
+<section class="chapter" id="ch-dip" data-title="D · Dependency Inversion">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>SOLID · D</div>
+    <h2>Dependency Inversion Principle</h2>
+    <p class="ch-oneline"><b>High-level policy should not depend on low-level details. Both should depend on abstractions.</b> Plug into a socket, don't wire into the wall.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>The flagship stall's stove was welded straight onto one company's gas pipe. When that supplier tripled prices, switching meant breaking the wall. So Ramu had the electrician fit a <strong>standard socket</strong>. Now gas stove, induction plate or electric kettle, anything with the standard plug works. The <strong>kitchen (high-level)</strong> depends on the <strong>socket standard (abstraction)</strong>, and so does every <strong>appliance (low-level)</strong>. Neither depends directly on the other.</p></div>
+
+  <div class="box def"><div class="box-tag">Definition</div>
+    <p>1. High-level modules should not depend on low-level modules; both should depend on abstractions. 2. Abstractions should not depend on details; details should depend on abstractions. The abstraction is <strong>owned by the high-level side</strong>, which is why the dependency arrow is "inverted".</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 230" role="img" aria-label="Without DIP, OrderService points directly to MySqlOrderRepo and SmtpMailer. With DIP, OrderService and the implementations both point to interfaces owned by the business layer">
+      <text x="200" y="22" text-anchor="middle" class="d-tb">Without DIP: policy → details</text>
+      <rect x="120" y="40" width="160" height="46" rx="8" class="d-acc"/><text x="200" y="68" text-anchor="middle" class="d-t">OrderService</text>
+      <rect x="30" y="160" width="160" height="46" rx="8" class="d-bad"/><text x="110" y="188" text-anchor="middle" class="d-t">MySqlOrderRepo</text>
+      <rect x="215" y="160" width="160" height="46" rx="8" class="d-bad"/><text x="295" y="188" text-anchor="middle" class="d-t">SmtpMailer</text>
+      <path d="M170 86 L120 158 M230 86 L285 158" class="d-lbad" marker-end="url(#ab)"/>
+      <text x="200" y="128" text-anchor="middle" class="d-xs">new MySql…()</text>
+      <line x1="410" y1="15" x2="410" y2="215" class="d-line d-dash"/>
+      <text x="620" y="22" text-anchor="middle" class="d-tg">With DIP: both → abstraction</text>
+      <rect x="540" y="36" width="160" height="40" rx="8" class="d-acc"/><text x="620" y="61" text-anchor="middle" class="d-t">OrderService</text>
+      <rect x="440" y="104" width="170" height="40" rx="8" class="d-box"/><text x="525" y="129" text-anchor="middle" class="d-t">«OrderRepository»</text>
+      <rect x="630" y="104" width="170" height="40" rx="8" class="d-box"/><text x="715" y="129" text-anchor="middle" class="d-t">«Notifier»</text>
+      <rect x="440" y="176" width="170" height="40" rx="8" class="d-good"/><text x="525" y="201" text-anchor="middle" class="d-t">JpaOrderRepository</text>
+      <rect x="630" y="176" width="170" height="40" rx="8" class="d-good"/><text x="715" y="201" text-anchor="middle" class="d-t">SmsNotifier</text>
+      <path d="M590 76 L540 102 M650 76 L700 102" class="d-lacc" marker-end="url(#aa)"/>
+      <path d="M525 174 V146 M715 174 V146" class="d-line d-dash" marker-end="url(#tri)"/>
+      <path d="M430 98 H810" class="d-line d-dash" style="stroke-width:1"/><text x="815" y="94" text-anchor="end" class="d-xs">business layer owns the interfaces</text>
+    </svg></div>
+  </figure>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: the business logic builds its own concrete tools">
+public class OrderService {
+    // High-level policy hard-wired to low-level details:
+    private final MySqlOrderRepository repo = new MySqlOrderRepository(); // DB vendor
+    private final SmtpEmailSender mailer = new SmtpEmailSender("smtp.ramu.in"); // protocol
+
+    public void place(Order o) {
+        repo.insert(o);
+        mailer.sendHtml(o.email(), "Order confirmed");
+    }
+}
+// Switch to Postgres or SMS -> edit OrderService.
+// Unit test -> needs a real MySQL and a real SMTP server. Slow and flaky.
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: depend on interfaces, receive implementations from outside">
+// Abstractions, defined next to the business logic that needs them
+public interface OrderRepository { void save(Order o); }
+public interface Notifier        { void orderConfirmed(Order o); }
+
+@Service
+public class OrderService {                       // high-level: pure business policy
+    private final OrderRepository repo;
+    private final Notifier notifier;
+
+    public OrderService(OrderRepository repo, Notifier notifier) { // constructor injection
+        this.repo = repo;                         // no 'new': someone else decides
+        this.notifier = notifier;                 // WHICH implementation we get
+    }
+
+    public void place(Order o) {
+        repo.save(o);
+        notifier.orderConfirmed(o);
+    }
+}
+
+// Low-level details depend on (implement) the abstractions
+@Repository class JpaOrderRepository implements OrderRepository { /* JPA code */ }
+@Component  class SmsNotifier implements Notifier { /* SMS gateway code */ }
+
+// Unit test: no DB, no network, runs in milliseconds
+@Test void placesOrder() {
+    var repo = new InMemoryOrderRepository();
+    var notifier = mock(Notifier.class);
+    new OrderService(repo, notifier).place(sampleOrder());
+    verify(notifier).orderConfirmed(any());
+}
+</script>
+</div>
+
+  <h3>DIP, DI and IoC are three different things</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Term</th><th>What it is</th><th>Example</th></tr>
+    <tr><td>Dependency Inversion Principle</td><td>A <strong>design principle</strong>: depend on abstractions, with the abstraction owned by the high-level module</td><td><code>OrderService</code> depends on <code>OrderRepository</code> interface</td></tr>
+    <tr><td>Dependency Injection</td><td>A <strong>technique</strong>: give an object its dependencies from outside (constructor, setter, field)</td><td><code>new OrderService(repo, notifier)</code></td></tr>
+    <tr><td>Inversion of Control</td><td>A <strong>broader idea</strong>: the framework controls object creation and the flow, calling your code</td><td>Spring's <code>ApplicationContext</code> creates beans and wires them</td></tr>
+  </table></div>
+  <p class="small">Prefer <strong>constructor injection</strong>: dependencies are explicit, fields can be <code>final</code>, objects are never half-built, and tests can use plain <code>new</code>. Field injection with <code>@Autowired</code> hides dependencies and needs reflection in tests.</p>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Plug into a socket, don't weld to the pipe.</p>
+    <p>Business code depends on <strong>interfaces it owns</strong>; databases, email, HTTP clients are <strong>plugins</strong>. If you see <code>new SomeConcreteService()</code> inside business logic, you've found a DIP violation.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Why is it called "inversion"?</summary><div class="ans"><p>In a naive layered design, the source-code dependency follows the call direction: business → database. With DIP, the business layer defines the interface and the database layer implements it, so the source-code dependency points from the database layer up to the business layer, opposite to the flow of control. The dependency has been inverted.</p></div></details>
+    <details><summary>With two implementations of an interface, how does Spring choose one?</summary><div class="ans"><p>It fails with <code>NoUniqueBeanDefinitionException</code> unless you disambiguate: mark one <code>@Primary</code>, use <code>@Qualifier("sms")</code> at the injection point, inject <code>List&lt;Notifier&gt;</code> or <code>Map&lt;String, Notifier&gt;</code> to get all, or activate one with <code>@Profile</code> / <code>@ConditionalOnProperty</code>.</p></div></details>
+  </div>
+  {{done}}
+</section>

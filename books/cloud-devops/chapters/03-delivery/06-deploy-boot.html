@@ -1,0 +1,78 @@
+<section class="chapter" id="ch-deploy-boot" data-title="Deploy a Spring Boot app end to end">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Delivery</div>
+    <h2>Putting it together: deploy a Spring Boot service end to end</h2>
+    <p class="ch-oneline"><b>From git push to a highly available, observable, secure service on AWS (or GCP), with every piece from this book in its place.</b></p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>Opening day for Ramu's new orders counter: recipe tested, tiffins packed, the floor manager briefed, the counter behind the food court's main entrance, the cash box in the safe, a status board by the door. Here's the whole checklist.</p></div>
+
+  <div class="widget" data-sequence>
+    <div class="widget-head"><span class="live">Live</span>From git push to production</div>
+    <div class="widget-body">
+<script type="application/json">
+{"actors":[
+ {"id":"dev","label":"Developer","sub":"git push","cls":"d-vio"},
+ {"id":"ci","label":"CI","sub":"GitHub Actions","cls":"d-acc"},
+ {"id":"reg","label":"Registry","sub":"ECR","cls":"d-amb"},
+ {"id":"git","label":"GitOps repo","sub":"+ Argo CD","cls":"d-teal"},
+ {"id":"k8s","label":"EKS","sub":"prod cluster","cls":"d-good"}],
+ "steps":[
+ {"from":"dev","to":"ci","msg":"PR merged to main","text":"The pipeline starts: ./mvnw verify runs unit, slice and Testcontainers integration tests; static analysis and dependency scanning run in parallel."},
+ {"from":"ci","to":"ci","msg":"docker build + scan","text":"Multi-stage build produces orders:&lt;git-sha&gt;. An image scanner (Trivy, ECR scanning) blocks critical vulnerabilities."},
+ {"from":"ci","to":"reg","msg":"push orders:3f9a1c2","text":"CI assumes an AWS role via OIDC (no stored keys) and pushes the immutable, SHA-tagged image."},
+ {"from":"ci","to":"git","msg":"bump image tag (PR)","text":"CI opens a PR in the GitOps repo changing the image tag for staging (auto-merged) and later prod (approved)."},
+ {"from":"git","to":"k8s","msg":"Argo CD sync","text":"Argo CD sees the change and applies the manifests. Flyway runs backward-compatible migrations at startup (or as a pre-sync Job)."},
+ {"from":"k8s","to":"k8s","msg":"canary 10% → 100%","text":"Argo Rollouts shifts 10% of traffic to the new pods and checks error rate and p99 latency in Prometheus; if they degrade, it aborts and rolls back automatically."},
+ {"from":"k8s","to":"dev","msg":"deployed ✓ (alerts armed)","ret":true,"text":"Dashboards and alerts (SLO burn rate) watch the service. A rollback is a git revert."}]}
+</script>
+    </div>
+  </div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 260" role="img" aria-label="Production architecture: Route 53 and CloudFront with WAF in front of an ALB; EKS pods in private subnets across two AZs; RDS PostgreSQL multi-AZ, ElastiCache Redis, S3, Secrets Manager; CloudWatch and Prometheus for monitoring">
+      <rect x="10" y="100" width="100" height="56" rx="10" class="d-vio"/><text x="60" y="124" text-anchor="middle" class="d-t">Users</text><text x="60" y="142" text-anchor="middle" class="d-xs">app + web</text>
+      <path d="M110 128 H140" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="142" y="86" width="130" height="84" rx="12" class="d-teal"/><text x="207" y="110" text-anchor="middle" class="d-t">Route 53</text><text x="207" y="128" text-anchor="middle" class="d-xs">CloudFront</text><text x="207" y="146" text-anchor="middle" class="d-xs">+ WAF, TLS</text>
+      <path d="M272 128 H302" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="304" y="100" width="90" height="56" rx="10" class="d-acc"/><text x="349" y="132" text-anchor="middle" class="d-t">ALB</text>
+      <path d="M394 128 H424" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="426" y="30" width="210" height="200" rx="14" class="d-good"/><text x="531" y="52" text-anchor="middle" class="d-t">EKS · private subnets</text>
+      <rect x="442" y="66" width="86" height="40" rx="8" class="d-box"/><text x="485" y="90" text-anchor="middle" class="d-xs">orders AZ-a</text>
+      <rect x="536" y="66" width="86" height="40" rx="8" class="d-box"/><text x="579" y="90" text-anchor="middle" class="d-xs">orders AZ-b</text>
+      <rect x="442" y="116" width="86" height="40" rx="8" class="d-box"/><text x="485" y="140" text-anchor="middle" class="d-xs">orders AZ-a</text>
+      <text x="531" y="180" text-anchor="middle" class="d-xs">HPA 3–20 pods · PDB</text><text x="531" y="198" text-anchor="middle" class="d-xs">IRSA / Pod Identity role</text><text x="531" y="216" text-anchor="middle" class="d-xs">Karpenter nodes (spot + on-demand)</text>
+      <rect x="670" y="20" width="180" height="44" rx="10" class="d-teal"/><text x="760" y="38" text-anchor="middle" class="d-t">RDS PostgreSQL</text><text x="760" y="54" text-anchor="middle" class="d-xs">multi-AZ + replica</text>
+      <rect x="670" y="74" width="180" height="40" rx="10" class="d-amb"/><text x="760" y="99" text-anchor="middle" class="d-t">ElastiCache Redis</text>
+      <rect x="670" y="124" width="180" height="40" rx="10" class="d-amb"/><text x="760" y="149" text-anchor="middle" class="d-t">S3 receipts</text>
+      <rect x="670" y="174" width="180" height="40" rx="10" class="d-bad"/><text x="760" y="199" text-anchor="middle" class="d-t">Secrets Manager + KMS</text>
+      <rect x="670" y="222" width="180" height="32" rx="8" class="d-vio"/><text x="760" y="243" text-anchor="middle" class="d-xs">Prometheus · Grafana · CloudWatch</text>
+      <path d="M636 60 H668 M636 94 H668 M636 144 H668 M636 194 H668" class="d-line"/>
+    </svg></div></figure>
+
+  <h3>The production checklist</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Area</th><th>What to have</th><th>Covered in</th></tr>
+    <tr><td>App</td><td>stateless, config via env, graceful shutdown, health groups, JSON logs, metrics</td><td>{{xref:spring-boot/ch-actuator}}</td></tr>
+    <tr><td>Image</td><td>multi-stage, JRE base, non-root, SHA tag, scanned</td><td>{{n:ch-docker}}</td></tr>
+    <tr><td>Runtime</td><td>≥ 3 replicas across AZs, probes, requests/limits, HPA, PodDisruptionBudget</td><td>{{n:ch-kubernetes}}</td></tr>
+    <tr><td>Network</td><td>only the LB is public; DB in private subnets; security groups reference each other</td><td>{{n:ch-networking}}</td></tr>
+    <tr><td>Identity &amp; secrets</td><td>pod role, no keys; secrets from Secrets Manager; TLS everywhere</td><td>{{n:ch-iam}}, {{n:ch-cloud-security}}</td></tr>
+    <tr><td>Data</td><td>Multi-AZ, PITR backups tested, migrations backward compatible</td><td>{{n:ch-storage-db}}</td></tr>
+    <tr><td>Delivery</td><td>CI tests, GitOps, canary with automatic rollback</td><td>{{n:ch-cicd}}</td></tr>
+    <tr><td>Infra</td><td>everything in Terraform, separate accounts per environment</td><td>{{n:ch-terraform}}</td></tr>
+    <tr><td>Operate</td><td>SLOs, alerts on symptoms, dashboards, runbooks, cost tags</td><td>{{n:ch-observability-cloud}}, {{n:ch-cost}}</td></tr>
+  </table></div>
+
+  <div class="box tip"><div class="box-tag">The GCP version</div><p>Cloud DNS + Cloud CDN + Cloud Armor → global external Application Load Balancer → Cloud Run (simplest) or GKE Autopilot → Cloud SQL for PostgreSQL (HA) via the Cloud SQL connector, Memorystore, Cloud Storage, Secret Manager; Cloud Build or GitHub Actions with Workload Identity Federation; Artifact Registry; Cloud Monitoring/Logging/Trace.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Tested, packed, briefed, behind the entrance, cash in the safe, status board up.</p>
+    <p><span class="hl">CI → image → registry → GitOps → cluster → canary → observe</span>, with multi-AZ everything, private networking, roles not keys.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Design the deployment of a Spring Boot REST API on AWS with high availability.</summary><div class="ans"><p>Route 53 + CloudFront/WAF → ALB in public subnets of two or three AZs → containers on ECS Fargate or EKS in private subnets (min 3 tasks across AZs, autoscaling on CPU/RPS, health checks on readiness) → RDS PostgreSQL Multi-AZ with a read replica and PITR, ElastiCache Redis, S3 for files. Secrets in Secrets Manager accessed via task/pod role. CI/CD with OIDC, image scanning, canary deploys. CloudWatch/Prometheus metrics, alarms on 5xx rate and latency, centralised logs, tracing. All defined in Terraform; separate prod account.</p></div></details>
+  </div>
+  {{done}}
+</section>

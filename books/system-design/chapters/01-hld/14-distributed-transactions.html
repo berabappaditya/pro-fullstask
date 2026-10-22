@@ -1,0 +1,113 @@
+<section class="chapter" id="ch-dtx" data-title="Distributed transactions: 2PC, Saga, Outbox, CQRS">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Data across services</div>
+    <h2>Distributed transactions: 2PC, Saga, Outbox, CQRS</h2>
+    <p class="ch-oneline"><b>When one business action touches several services or databases, you can't use a single ACID transaction.</b> These patterns keep the overall result correct anyway.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>A wedding party orders: 500 cups of tea from Ramu, sweets from Mishra Sweets, and chairs from the tent house. It must be all or nothing; tea without chairs is useless.</p>
+    <p><strong>Plan A, the strict planner:</strong> calls all three, "Can you reserve for Saturday? Don't confirm yet." When all three say yes, he calls again, "Confirm." If any says no, he tells everyone "Cancel." That's <strong>two-phase commit</strong>. But if the planner's phone dies between the calls, everyone waits, holding stock, unsure.</p>
+    <p><strong>Plan B, the practical planner:</strong> books tea (done), books sweets (done), tries chairs (fails), then calls Mishra and Ramu to <em>undo</em> their bookings. That's a <strong>saga</strong> with <strong>compensating actions</strong>.</p></div>
+
+  <h3>Two-phase commit (2PC)</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 800 220" role="img" aria-label="Two phase commit: coordinator sends prepare to all participants, collects yes votes, then sends commit">
+      <rect x="320" y="15" width="160" height="44" rx="10" class="d-amb"/><text x="400" y="42" text-anchor="middle" class="d-t">Coordinator</text>
+      <rect x="60" y="155" width="150" height="44" rx="10" class="d-box"/><text x="135" y="182" text-anchor="middle" class="d-t">Order DB</text>
+      <rect x="325" y="155" width="150" height="44" rx="10" class="d-box"/><text x="400" y="182" text-anchor="middle" class="d-t">Payment DB</text>
+      <rect x="590" y="155" width="150" height="44" rx="10" class="d-box"/><text x="665" y="182" text-anchor="middle" class="d-t">Stock DB</text>
+      <path d="M340 59 L150 153 M400 59 V153 M460 59 L650 153" class="d-lacc" marker-end="url(#aa)"/>
+      <path d="M170 153 L360 61 M415 153 V61 M630 153 L440 61" class="d-lgood d-dash" marker-end="url(#ag)"/>
+      <text x="200" y="95" class="d-ta">① PREPARE (lock, write, don't commit)</text>
+      <text x="520" y="95" class="d-tg">② vote YES / NO</text>
+      <text x="400" y="128" text-anchor="middle" class="d-s">③ all YES → COMMIT to all · any NO → ROLLBACK to all</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> 2PC gives atomicity across databases but participants hold locks while waiting, and a crashed coordinator can leave them stuck. Fine inside one company's tightly coupled databases (XA), rarely used between microservices.</figcaption>
+  </figure>
+
+  <h3>Saga: a chain of local transactions with undo steps</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Step</th><th>Service</th><th>Action</th><th>Compensation (undo)</th></tr>
+    <tr><td>1</td><td>Order</td><td>Create order (PENDING)</td><td>Mark order CANCELLED</td></tr>
+    <tr><td>2</td><td>Payment</td><td>Charge ₹500</td><td>Refund ₹500</td></tr>
+    <tr><td>3</td><td>Inventory</td><td>Reserve 500 cups of stock</td><td>Release stock</td></tr>
+    <tr><td>4</td><td>Delivery</td><td>Assign a delivery slot</td><td>Free the slot</td></tr>
+    <tr><td>5</td><td>Order</td><td>Mark order CONFIRMED</td><td>(final step, nothing to undo)</td></tr>
+  </table></div>
+  <p>If step 4 fails, run compensations backwards: release stock (3), refund (2), cancel order (1).</p>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 230" role="img" aria-label="Choreography: services react to each other's events; orchestration: a central orchestrator tells each service what to do">
+      <text x="200" y="22" text-anchor="middle" class="d-tl">Choreography (events)</text>
+      <rect x="30" y="50" width="110" height="36" rx="8" class="d-box"/><text x="85" y="73" text-anchor="middle" class="d-s">Order</text>
+      <rect x="250" y="50" width="110" height="36" rx="8" class="d-box"/><text x="305" y="73" text-anchor="middle" class="d-s">Payment</text>
+      <rect x="250" y="160" width="110" height="36" rx="8" class="d-box"/><text x="305" y="183" text-anchor="middle" class="d-s">Inventory</text>
+      <rect x="30" y="160" width="110" height="36" rx="8" class="d-box"/><text x="85" y="183" text-anchor="middle" class="d-s">Delivery</text>
+      <path d="M140 68 H248" class="d-lvio" marker-end="url(#av)"/><text x="195" y="60" text-anchor="middle" class="d-xs">OrderCreated</text>
+      <path d="M305 86 V158" class="d-lvio" marker-end="url(#av)"/><text x="312" y="126" class="d-xs">PaymentDone</text>
+      <path d="M250 178 H142" class="d-lvio" marker-end="url(#av)"/><text x="195" y="205" text-anchor="middle" class="d-xs">StockReserved</text>
+      <path d="M85 160 V88" class="d-lvio" marker-end="url(#av)"/><text x="78" y="126" text-anchor="end" class="d-xs">Assigned</text>
+      <text x="200" y="224" text-anchor="middle" class="d-s">no boss · loose coupling · flow is hard to see</text>
+      <line x1="410" y1="15" x2="410" y2="225" class="d-line d-dash"/>
+      <text x="620" y="22" text-anchor="middle" class="d-tl">Orchestration (commands)</text>
+      <rect x="555" y="40" width="130" height="44" rx="10" class="d-amb"/><text x="620" y="60" text-anchor="middle" class="d-t">Order saga</text><text x="620" y="76" text-anchor="middle" class="d-xs">orchestrator</text>
+      <rect x="440" y="150" width="105" height="36" rx="8" class="d-box"/><text x="492" y="173" text-anchor="middle" class="d-s">Payment</text>
+      <rect x="570" y="150" width="105" height="36" rx="8" class="d-box"/><text x="622" y="173" text-anchor="middle" class="d-s">Inventory</text>
+      <rect x="700" y="150" width="105" height="36" rx="8" class="d-box"/><text x="752" y="173" text-anchor="middle" class="d-s">Delivery</text>
+      <path d="M590 84 L500 148 M620 84 V148 M650 84 L745 148" class="d-lamb" marker-end="url(#am)"/>
+      <text x="620" y="224" text-anchor="middle" class="d-s">one place owns the flow · easier to debug · central dependency</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.2</b> Two ways to run a saga. Choreography suits short flows; orchestration (Temporal, Camunda, a state machine in your service) suits long or complex ones.</figcaption>
+  </figure>
+
+  <h3>Transactional outbox: never lose an event</h3>
+  <p>Common bug: save the order to MySQL, then publish <code>OrderCreated</code> to Kafka. If the app crashes between the two, the order exists but nobody hears about it. Or Kafka succeeds and the DB commit fails, and everyone hears about an order that doesn't exist.</p>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: dual write, two systems, no atomicity">
+@Transactional
+public Order placeOrder(CreateOrderRequest req) {
+    Order order = orderRepo.save(Order.from(req));        // write #1: MySQL
+    kafka.send("orders", new OrderCreated(order.getId())); // write #2: Kafka
+    // Crash after send but before commit -> event for an order that never existed.
+    // Crash after commit but before send -> order exists, no event. Silent bug.
+    return order;
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: write the event into an outbox table in the same transaction">
+@Transactional                                           // ONE local ACID transaction
+public Order placeOrder(CreateOrderRequest req) {
+    Order order = orderRepo.save(Order.from(req));
+    outboxRepo.save(new OutboxEvent(                     // same DB, same commit
+        UUID.randomUUID(), "OrderCreated", toJson(order)));
+    return order;                                        // both rows or neither
+}
+
+// A separate relay publishes outbox rows, then marks them sent.
+@Scheduled(fixedDelay = 500)
+public void relay() {
+    for (OutboxEvent e : outboxRepo.findTop100BySentFalseOrderByCreatedAt()) {
+        kafka.send("orders", e.getId().toString(), e.getPayload()); // at-least-once
+        e.markSent(); outboxRepo.save(e);    // consumers dedupe by event id
+    }
+}
+// Production alternative: Debezium reads the outbox via the binlog (CDC).
+</script>
+</div>
+
+  <h3>CQRS and event sourcing</h3>
+  <div class="cards">
+    <div class="card"><span class="k">CQRS</span><h5>Command Query Responsibility Segregation</h5><p>Use one model for <strong>writes</strong> (normalised, validated) and a different, denormalised model for <strong>reads</strong> (e.g. an Elasticsearch index or a pre-joined table), kept in sync by events. Great when reads and writes look very different or scale very differently.</p></div>
+    <div class="card"><span class="k">Event sourcing</span><h5>Store the history, not the state</h5><p>Like a bank passbook: you store every event (<code>Deposited 500</code>, <code>Withdrew 200</code>) and compute the balance by replaying. Full audit trail and time travel; harder queries and schema evolution. Often paired with CQRS.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">2PC asks "ready?" then "go!". Saga does, then undoes.</p>
+    <p>Microservices default to <strong>sagas</strong> (eventual consistency + compensations), the <strong>outbox</strong> to publish events reliably, and <strong>idempotent consumers</strong>. 2PC only where strong atomicity across a few tightly coupled DBs is essential.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What's the weakness of sagas compared with ACID?</summary><div class="ans"><p>No isolation: other transactions can see intermediate states (order PENDING, payment taken, stock not yet reserved). You handle this with semantic locks (a PENDING status others respect), commutative updates, re-reading values, and designing compensations carefully, since some actions (a sent email) can't be undone, only followed by a correction.</p></div></details>
+    <details><summary>When is CQRS overkill?</summary><div class="ans"><p>For simple CRUD where reads and writes use the same shape and modest scale. CQRS adds eventual consistency between the write and read models, more infrastructure and more code. Use it when read patterns are complex or much heavier than writes.</p></div></details>
+  </div>
+  {{done}}
+</section>

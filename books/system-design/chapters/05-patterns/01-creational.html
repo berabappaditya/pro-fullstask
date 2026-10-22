@@ -1,0 +1,237 @@
+<section class="chapter" id="ch-creational" data-title="Creational patterns">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Patterns · Creational</div>
+    <h2>Creational patterns: how objects get made</h2>
+    <p class="ch-oneline"><b>Creational patterns control object creation</b> so that code isn't littered with <code>new</code> and complicated construction logic.</p>
+  </header>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 840 200" role="img" aria-label="The 23 Gang of Four patterns grouped into creational, structural and behavioral families">
+      <rect x="10" y="20" width="250" height="170" rx="12" class="d-acc"/><text x="135" y="46" text-anchor="middle" class="d-tl">Creational</text><text x="135" y="64" text-anchor="middle" class="d-xs">how objects are created</text>
+      <text x="135" y="92" text-anchor="middle" class="d-t">Singleton · Factory Method</text><text x="135" y="114" text-anchor="middle" class="d-t">Abstract Factory · Builder</text><text x="135" y="136" text-anchor="middle" class="d-t">Prototype</text>
+      <rect x="290" y="20" width="260" height="170" rx="12" class="d-good"/><text x="420" y="46" text-anchor="middle" class="d-tl">Structural</text><text x="420" y="64" text-anchor="middle" class="d-xs">how objects are composed</text>
+      <text x="420" y="92" text-anchor="middle" class="d-t">Adapter · Decorator · Facade</text><text x="420" y="114" text-anchor="middle" class="d-t">Proxy · Composite · Bridge</text><text x="420" y="136" text-anchor="middle" class="d-t">Flyweight</text>
+      <rect x="580" y="20" width="250" height="170" rx="12" class="d-amb"/><text x="705" y="46" text-anchor="middle" class="d-tl">Behavioral</text><text x="705" y="64" text-anchor="middle" class="d-xs">how objects talk and share work</text>
+      <text x="705" y="92" text-anchor="middle" class="d-t">Strategy · Observer · Command</text><text x="705" y="114" text-anchor="middle" class="d-t">State · Template Method</text><text x="705" y="136" text-anchor="middle" class="d-t">Chain of Responsibility</text><text x="705" y="158" text-anchor="middle" class="d-t">Iterator · Mediator · Memento</text><text x="705" y="178" text-anchor="middle" class="d-xs">Visitor · Interpreter</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> The "Gang of Four" catalogue (1994). Interviews focus on the ones in bold type here; the rest are good to recognise.</figcaption>
+  </figure>
+
+  <!-- Singleton -->
+  <h3>Singleton: exactly one instance</h3>
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div><p>There is one master cash register for the whole shop. If every cashier bought their own register, the day's totals would never add up. Everyone uses <em>the</em> register.</p></div>
+  <p><strong>Intent:</strong> ensure a class has only one instance and provide a global access point. <strong>Use for:</strong> configuration, a connection pool, a registry, a logger. <strong>Real world:</strong> <code>Runtime.getRuntime()</code>; Spring beans are singletons per container by default.</p>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: &quot;lazy singleton&quot; that breaks under threads">
+public class CashRegister {
+    private static CashRegister instance;
+    private CashRegister() { }
+
+    public static CashRegister getInstance() {
+        if (instance == null) {            // two threads can both see null...
+            instance = new CashRegister(); // ...and both create one: TWO registers
+        }
+        return instance;
+    }
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: three correct ways">
+// 1) Enum singleton (Joshua Bloch's recommendation): thread-safe,
+//    serialization-safe and reflection-safe for free
+public enum CashRegister {
+    INSTANCE;
+    private BigDecimal total = BigDecimal.ZERO;
+    public synchronized void add(BigDecimal amt) { total = total.add(amt); }
+}
+
+// 2) Initialization-on-demand holder: lazy + thread-safe, no locks
+public final class AppConfig {
+    private AppConfig() { }
+    private static class Holder { static final AppConfig INSTANCE = new AppConfig(); }
+    public static AppConfig get() { return Holder.INSTANCE; } // class loads on first call
+}
+
+// 3) Double-checked locking: needs 'volatile' or another thread may see
+//    a half-constructed object
+public final class Registry {
+    private static volatile Registry instance;
+    private Registry() { }
+    public static Registry get() {
+        Registry r = instance;
+        if (r == null) {                           // fast path: no lock once created
+            synchronized (Registry.class) {
+                r = instance;
+                if (r == null) instance = r = new Registry(); // second check inside lock
+            }
+        }
+        return r;
+    }
+}
+</script>
+</div>
+  <div class="box pitfall"><div class="box-tag">Common trap</div><p>Singletons are global state in disguise: they hide dependencies and make tests share state. In Spring apps, let the container manage a single bean and <strong>inject</strong> it instead of calling <code>getInstance()</code> everywhere.</p></div>
+
+  <!-- Factory -->
+  <h3>Factory (Simple Factory and Factory Method): hide which class gets built</h3>
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div><p>A customer says "One lemon tea." They don't go into the kitchen and pick a machine. The counter (the factory) decides which machine makes it and hands over the cup.</p></div>
+  <p><strong>Intent:</strong> create objects without the caller knowing the concrete class. <strong>Factory Method</strong> (GoF) lets subclasses decide which class to instantiate; the everyday <strong>simple factory</strong> is one method with the decision inside. <strong>Real world:</strong> <code>Calendar.getInstance()</code>, <code>NumberFormat.getInstance()</code>, Spring <code>BeanFactory</code>.</p>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: construction logic copied into every caller">
+Notifier n;
+if (user.prefersSms())        n = new SmsNotifier(twilioKey, senderId);
+else if (user.prefersWhatsApp()) n = new WhatsAppNotifier(waToken);
+else                          n = new EmailNotifier(smtpHost, 587);
+// The same if-chain lives in 6 classes. Adding Push = edit all 6.
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: one factory owns the decision">
+public enum Channel { SMS, WHATSAPP, EMAIL, PUSH }
+
+@Component
+public class NotifierFactory {
+    private final Map<Channel, Notifier> byChannel;     // Spring builds every Notifier
+
+    public NotifierFactory(List<Notifier> notifiers) {
+        this.byChannel = notifiers.stream()             // each Notifier says its channel
+            .collect(Collectors.toMap(Notifier::channel, n -> n));
+    }
+
+    public Notifier forChannel(Channel c) {
+        Notifier n = byChannel.get(c);
+        if (n == null) throw new IllegalArgumentException("No notifier for " + c);
+        return n;
+    }
+}
+
+// Caller: no 'new', no if-chain, no knowledge of concrete classes
+notifierFactory.forChannel(user.preferredChannel()).send(user, "Your chai is ready");
+</script>
+</div>
+<script type="text/x-code" data-lang="java" data-variant="plain" data-title="Classic GoF Factory Method: subclasses choose the product">
+public abstract class Stall {
+    public Chai serve() {               // the algorithm is fixed...
+        Chai c = createChai();          // ...but WHICH chai is a subclass decision
+        c.prepare();
+        return c;
+    }
+    protected abstract Chai createChai();   // <- the factory method
+}
+public class KolkataStall extends Stall { protected Chai createChai() { return new MasalaChai(); } }
+public class DarjeelingStall extends Stall { protected Chai createChai() { return new LemonTea(); } }
+</script>
+
+  <!-- Abstract Factory -->
+  <h3>Abstract Factory: families of things that belong together</h3>
+  <p><strong>Intent:</strong> create families of related objects without naming their concrete classes, so the pieces always match. The Kolkata branch kit gives a clay <em>kulhad</em> cup and a samosa; the Mumbai kit gives a glass cutting-chai cup and vada pav. You never mix a kulhad with vada pav.</p>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="One factory per family; products always match">
+public interface Cup { String material(); }
+public interface Snack { String name(); }
+
+public interface BranchKitFactory {     // the abstract factory
+    Cup createCup();
+    Snack createSnack();
+}
+
+public class KolkataKit implements BranchKitFactory {
+    public Cup createCup()     { return () -> "clay kulhad"; }
+    public Snack createSnack() { return () -> "samosa"; }
+}
+public class MumbaiKit implements BranchKitFactory {
+    public Cup createCup()     { return () -> "cutting glass"; }
+    public Snack createSnack() { return () -> "vada pav"; }
+}
+
+public class Counter {
+    private final Cup cup; private final Snack snack;
+    public Counter(BranchKitFactory kit) {    // choose the family once, at startup
+        this.cup = kit.createCup();
+        this.snack = kit.createSnack();       // guaranteed to match the cup
+    }
+}
+// Real world: UI toolkits (WindowsFactory vs MacFactory), JDBC drivers, DocumentBuilderFactory
+</script>
+
+  <!-- Builder -->
+  <h3>Builder: construct complex objects step by step</h3>
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div><p>A catering order has 15 options: cups, flavour, sugar level, milk type, delivery time, address, cups or flasks, invoice name… Shouting them all in one breath in a fixed order is a recipe for mistakes. A form you fill field by field, then submit, is a <strong>builder</strong>.</p></div>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: the telescoping constructor">
+public CateringOrder(int cups, String flavour, int sugar, String milk,
+                     boolean flasks, LocalDateTime time, String address,
+                     String gstin, boolean ecoCups) { ... }
+
+new CateringOrder(500, "masala", 2, null, true, null, "Hall 3", null, false);
+// What is 2? Which null is which? Swap two booleans and it still compiles.
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: readable, validated, immutable">
+public final class CateringOrder {
+    private final int cups; private final String flavour; private final int sugar;
+    private final String address; private final boolean flasks; private final String gstin;
+
+    private CateringOrder(Builder b) {          // only the builder can construct
+        cups = b.cups; flavour = b.flavour; sugar = b.sugar;
+        address = b.address; flasks = b.flasks; gstin = b.gstin;
+    }
+    public static Builder builder(int cups, String address) {   // required fields up front
+        return new Builder(cups, address);
+    }
+
+    public static final class Builder {
+        private final int cups; private final String address;  // required
+        private String flavour = "masala"; private int sugar = 1; // optional + defaults
+        private boolean flasks; private String gstin;
+
+        private Builder(int cups, String address) { this.cups = cups; this.address = address; }
+        public Builder flavour(String f) { this.flavour = f; return this; } // fluent: return this
+        public Builder sugar(int s)      { this.sugar = s; return this; }
+        public Builder inFlasks()        { this.flasks = true; return this; }
+        public Builder gstin(String g)   { this.gstin = g; return this; }
+
+        public CateringOrder build() {          // validate the whole object once
+            if (cups <= 0) throw new IllegalStateException("cups must be > 0");
+            if (sugar < 0 || sugar > 3) throw new IllegalStateException("sugar 0-3");
+            return new CateringOrder(this);
+        }
+    }
+}
+
+CateringOrder order = CateringOrder.builder(500, "Hall 3")
+        .flavour("elaichi").sugar(2).inFlasks()
+        .build();
+// Real world: StringBuilder, HttpRequest.newBuilder(), Lombok @Builder, ResponseEntity.ok()...
+</script>
+</div>
+
+  <!-- Prototype -->
+  <h3>Prototype: copy a ready-made object</h3>
+  <p><strong>Intent:</strong> create new objects by copying an existing, configured one instead of building from scratch. Ramu keeps a "standard wedding package" template; for each new wedding he copies it and changes the date and address.</p>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Prototype with a copy constructor (preferred over Cloneable)">
+public class EventPackage {
+    private String name; private int cups; private List<String> snacks;
+    private LocalDate date;
+
+    public EventPackage(String name, int cups, List<String> snacks) {
+        this.name = name; this.cups = cups; this.snacks = snacks;
+    }
+    public EventPackage(EventPackage src) {           // copy constructor
+        this.name = src.name; this.cups = src.cups;
+        this.snacks = new ArrayList<>(src.snacks);    // DEEP copy mutable parts!
+        this.date = src.date;
+    }
+    public EventPackage on(LocalDate d) { this.date = d; return this; }
+}
+
+EventPackage WEDDING = new EventPackage("Wedding", 500, List.of("samosa", "jalebi"));
+EventPackage sharmaWedding = new EventPackage(WEDDING).on(LocalDate.of(2026, 12, 4));
+// Spring: @Scope("prototype") gives a NEW bean each time it's requested.
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">"Sita Found A Big Present": Singleton, Factory, Abstract factory, Builder, Prototype.</p>
+    <p>Singleton = <strong>one</strong>. Factory = <strong>which one</strong>. Abstract factory = <strong>matching set</strong>. Builder = <strong>many options, step by step</strong>. Prototype = <strong>copy and tweak</strong>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How can a singleton be broken, and how does an enum prevent it?</summary><div class="ans"><p>Reflection can call the private constructor; serialization/deserialization creates a new instance (unless <code>readResolve</code> is defined); cloning can copy it; and multiple class loaders each get their own. Enums are protected by the JVM: their constructors can't be invoked reflectively and serialization returns the same constant.</p></div></details>
+    <details><summary>Factory Method vs Abstract Factory?</summary><div class="ans"><p>Factory Method creates <em>one</em> product, and subclasses decide its class by overriding a method (inheritance). Abstract Factory creates a <em>family</em> of related products through an object you pass in (composition). An abstract factory is often implemented with several factory methods.</p></div></details>
+  </div>
+  {{done}}
+</section>

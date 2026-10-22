@@ -1,0 +1,18 @@
+<section class="chapter" id="ch-quiz" data-title="Final quiz" data-num="R3">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">R3</span>Revision</div>
+    <h2>Final quiz</h2>
+    <p class="ch-oneline"><b>{{quizcount}} multiple-choice questions across the whole book.</b> Pick a topic or take them all; each answer explains why.</p>
+  </header>
+  <div class="quiz-bar">
+    <div class="chips" id="quizCats" role="group" aria-label="Quiz topic"></div>
+    <div class="controls" style="margin:0">
+      <button class="btn" id="quizShuffle">Shuffle</button>
+      <button class="btn" id="quizWrong">Retry my mistakes</button>
+      <button class="btn" id="quizReset">Start again</button>
+    </div>
+  </div>
+  <div id="quiz"></div>
+  <div class="score"><span id="quizScore">Score: 0 / 0</span><span id="quizBest"></span></div>
+  {{done}}
+</section>

@@ -1,0 +1,40 @@
+<section class="chapter" id="ch-estimate" data-title="Back-of-the-envelope estimation">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Interview skill</div>
+    <h2>Back-of-the-envelope estimation</h2>
+    <p class="ch-oneline"><b>Rough maths that tells you whether you need 1 server or 1,000</b>, one database or a sharded cluster, before you draw a single box.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Before opening at the new airport, Ramu estimates: 30,000 passengers a day, maybe 1 in 10 buys chai, so 3,000 cups. Most come in the 6–9 a.m. rush, so roughly 1,000 cups an hour at peak, about 17 a minute. One person can serve 4 a minute, so he needs 5 counter staff in the morning. He didn't need exact numbers, just the right <strong>order of magnitude</strong>.</p></div>
+
+  <h3>Numbers to carry in your head</h3>
+  <div class="cards">
+    <div class="card"><h5>Time</h5><ul><li>1 day = 86,400 s ≈ <strong>10<sup>5</sup> s</strong></li><li>1 month ≈ 2.5 million s</li><li>1 year ≈ 3 × 10<sup>7</sup> s</li></ul></div>
+    <div class="card"><h5>Data sizes</h5><ul><li>KB = 10<sup>3</sup>, MB = 10<sup>6</sup>, GB = 10<sup>9</sup>, TB = 10<sup>12</sup>, PB = 10<sup>15</sup> bytes</li><li>2<sup>10</sup> ≈ 1 thousand, 2<sup>20</sup> ≈ 1 million, 2<sup>30</sup> ≈ 1 billion</li></ul></div>
+    <div class="card"><h5>Typical sizes</h5><ul><li>A tweet-like text row: ~300 B – 1 KB</li><li>Compressed photo: ~200 KB – 2 MB</li><li>1 minute of HD video: ~50–100 MB</li></ul></div>
+    <div class="card"><h5>Rough capacity</h5><ul><li>One app server: ~1,000–5,000 simple req/s</li><li>One MySQL: a few thousand writes/s, ~10K+ simple reads/s</li><li>One Redis node: ~100K ops/s</li></ul></div>
+  </div>
+
+  <h3>Worked example: "ChaiTalk", a short-post social app</h3>
+  <p>Assumptions (always state them aloud): 50 million daily active users; each posts 2 times and reads 100 posts a day; a post is ~500 bytes; 10% of posts carry a 200 KB photo; read:write ratio is high; peak traffic is about 3× average.</p>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Quantity</th><th>Calculation</th><th>Result</th></tr>
+    <tr><td>Write QPS (avg)</td><td class="num">50M × 2 = 100M posts/day ÷ 10<sup>5</sup> s</td><td class="num"><strong>~1,000 /s</strong> (peak ~3,000)</td></tr>
+    <tr><td>Read QPS (avg)</td><td class="num">50M × 100 = 5B reads/day ÷ 10<sup>5</sup> s</td><td class="num"><strong>~50,000 /s</strong> (peak ~150,000)</td></tr>
+    <tr><td>Text storage per day</td><td class="num">100M × 500 B</td><td class="num">50 GB/day → ~18 TB/year</td></tr>
+    <tr><td>Photo storage per day</td><td class="num">10M × 200 KB</td><td class="num">2 TB/day → ~730 TB/year</td></tr>
+    <tr><td>App servers at peak</td><td class="num">150,000 ÷ ~1,500 per server</td><td class="num">~100 servers</td></tr>
+    <tr><td>Cache for hot posts</td><td class="num">20% of a day's posts: 0.2 × 50 GB</td><td class="num">~10 GB → a small Redis cluster</td></tr>
+    <tr><td>Photo egress</td><td class="num">50K reads/s × 20% with photo × 200 KB</td><td class="num">~2 GB/s → must use a CDN</td></tr>
+  </table></div>
+  <p><strong>What the numbers told us:</strong> reads dominate 50:1, so design for reads (caching, replicas, precomputed feeds). Text fits a sharded database; photos go to object storage with a CDN. 100 servers means a load balancer and stateless services. That's the whole architecture's skeleton, from five minutes of arithmetic.</p>
+
+  <div class="box tip"><div class="box-tag">Interview tip</div>
+    <p>Round aggressively (86,400 → 100,000), write the steps on the board, and say what each number <em>implies</em> for the design. Interviewers grade reasoning, not precision. Don't spend more than about 5 minutes here.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">A day is 10<sup>5</sup> seconds. Users × actions ÷ 10<sup>5</sup> = QPS. Peak ≈ 2–3×.</p>
+    <p>Then storage = items/day × size × retention, and bandwidth = QPS × size. Every number should end with "<span class="hl">…so we need X</span>".</p></div>
+  {{done}}
+</section>

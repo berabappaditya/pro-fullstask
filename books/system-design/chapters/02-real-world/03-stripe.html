@@ -1,0 +1,188 @@
+<section class="chapter" id="ch-stripe" data-title="How Stripe handles huge payment traffic">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Real-world · Correctness at scale</div>
+    <h2>How Stripe handles huge payment traffic</h2>
+    <p class="ch-oneline"><b>Stripe's problem isn't only volume; it's that every request moves real money.</b> Its design is built around never charging twice, never losing a payment, and shedding the right traffic when overloaded.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><b>$40 bn+</b><span>processed from Black Friday to Cyber Monday 2025</span></div>
+    <div class="stat"><b>578 M</b><span>transactions over that weekend</span></div>
+    <div class="stat"><b>152,000+</b><span>transactions per minute at peak (~2,500 every second)</span></div>
+    <div class="stat"><b>99.9999%+</b><span>API uptime over that weekend</span></div>
+    <div class="stat"><b>5 M+</b><span>database queries per second on its DocDB platform</span></div>
+  </div>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>A hotel manager phones Ramu: "Send 500 cups for the conference, charge our account." The line crackles and drops. Did Ramu hear the order? The manager calls again: "Send 500 cups…". If Ramu simply obeys, the hotel gets 1,000 cups and a double bill. So Ramu asks every caller for an <strong>order reference</strong>: "Is this order H-77? Already noted, here's the same confirmation." Now calling twice is safe.</p>
+    <p>That reference is Stripe's <strong>idempotency key</strong>, the most important idea in payment API design.</p></div>
+
+  <h3>Requirements</h3>
+  <div class="cards">
+    <div class="card"><h5>Correctness first</h5><ul><li>Never charge a customer twice</li><li>Never lose a successful payment</li><li>Every cent accounted for in a ledger</li></ul></div>
+    <div class="card"><h5>Always on</h5><ul><li>Merchants lose sales every second Stripe is down</li><li>Peak events: Black Friday, flash sales, ticket drops</li><li>Degrade low-value traffic before payments</li></ul></div>
+    <div class="card"><h5>Developer-friendly</h5><ul><li>Simple, stable REST API</li><li>Old integrations keep working for years</li><li>Events delivered to merchants by webhooks</li></ul></div>
+  </div>
+
+  <h3>The request path</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 880 330" role="img" aria-label="Stripe request path: merchant server calls the Stripe API edge, which applies authentication and rate limiters, then API services with idempotency and payment state machines, card networks, the DocDB database and webhooks back to the merchant">
+      <rect x="10" y="120" width="120" height="70" rx="12" class="d-vio"/><text x="70" y="148" text-anchor="middle" class="d-t">Merchant</text><text x="70" y="166" text-anchor="middle" class="d-xs">server / checkout</text>
+      <rect x="170" y="100" width="150" height="110" rx="12" class="d-amb"/><text x="245" y="124" text-anchor="middle" class="d-t">API edge</text>
+      <text x="245" y="146" text-anchor="middle" class="d-xs">TLS, API key auth</text><text x="245" y="162" text-anchor="middle" class="d-xs">rate limiters</text><text x="245" y="178" text-anchor="middle" class="d-xs">load shedders</text><text x="245" y="194" text-anchor="middle" class="d-xs">version pinning</text>
+      <rect x="360" y="60" width="200" height="190" rx="14" class="d-acc"/><text x="460" y="84" text-anchor="middle" class="d-tl">API services</text>
+      <rect x="378" y="98" width="164" height="38" rx="8" class="d-box"/><text x="460" y="122" text-anchor="middle" class="d-s">Idempotency layer</text>
+      <rect x="378" y="146" width="164" height="38" rx="8" class="d-box"/><text x="460" y="170" text-anchor="middle" class="d-s">PaymentIntent state machine</text>
+      <rect x="378" y="194" width="164" height="38" rx="8" class="d-box"/><text x="460" y="218" text-anchor="middle" class="d-s">Fraud scoring (Radar)</text>
+      <rect x="600" y="20" width="270" height="70" rx="12" class="d-box"/><text x="735" y="46" text-anchor="middle" class="d-t">Card networks &amp; banks</text><text x="735" y="64" text-anchor="middle" class="d-xs">Visa, Mastercard, UPI, wallets</text><text x="735" y="80" text-anchor="middle" class="d-xs">slow and sometimes unreliable</text>
+      <rect x="600" y="120" width="270" height="80" rx="12" class="d-good"/><text x="735" y="144" text-anchor="middle" class="d-t">DocDB (built on MongoDB)</text><text x="735" y="162" text-anchor="middle" class="d-xs">Go proxy fleet → thousands of shards</text><text x="735" y="178" text-anchor="middle" class="d-xs">replica sets, automatic failover</text><text x="735" y="194" text-anchor="middle" class="d-xs">change stream → Kafka → S3</text>
+      <rect x="600" y="230" width="270" height="70" rx="12" class="d-vio"/><text x="735" y="256" text-anchor="middle" class="d-t">Events + webhooks</text><text x="735" y="274" text-anchor="middle" class="d-xs">signed, retried with backoff,</text><text x="735" y="290" text-anchor="middle" class="d-xs">delivered at-least-once</text>
+      <path d="M130 155 H168" class="d-lacc" marker-end="url(#aa)"/>
+      <path d="M320 155 H358" class="d-lacc" marker-end="url(#aa)"/>
+      <path d="M560 110 C580 90,580 60,598 56" class="d-line" marker-end="url(#ah)"/>
+      <path d="M560 160 H598" class="d-lgood" marker-end="url(#ag)"/>
+      <path d="M560 215 C580 240,580 262,598 265" class="d-lvio" marker-end="url(#av)"/>
+      <path d="M600 285 C400 330,150 320,70 192" class="d-lvio d-dash" marker-end="url(#av)"/><text x="300" y="312" text-anchor="middle" class="d-tv">payment_intent.succeeded → merchant's webhook URL</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> The synchronous path does as little as possible; everything else (events, webhooks, analytics, data archival) flows asynchronously.</figcaption>
+  </figure>
+
+  <h3>Idempotency keys: retries without double charges</h3>
+  <p>Networks fail <em>after</em> the server has done the work but before the client hears back. The client can't tell "never arrived" from "done, reply lost". So the client sends a unique <code>Idempotency-Key</code> header (a UUID it generates once per purchase) and reuses it on every retry. Stripe stores the first result for that key and replays it for any repeat.</p>
+
+  <div class="widget" id="w-idem">
+    <div class="widget-head"><span class="live">Live</span>Pay ₹500 over a flaky network</div>
+    <div class="widget-body">
+      <div class="controls">
+        <button class="btn primary" id="idemPay">Pay ₹500</button>
+        <button class="btn on" id="idemFlaky">Flaky network: on</button>
+        <button class="btn on" id="idemKey">Idempotency-Key: on</button>
+        <button class="btn" id="idemReset">Reset</button>
+      </div>
+      <div class="idem-grid">
+        <div><div class="lru-label">Client (merchant server)</div><div class="wlog" id="idemClient" aria-live="polite"></div></div>
+        <div><div class="lru-label">Stripe: charges created</div><div class="idem-charges" id="idemCharges"></div></div>
+      </div>
+      <div class="statrow" id="idemStats"></div>
+      <p class="small">With the flaky network on, the first response is "lost" and the client retries automatically. Turn the idempotency key off and pay again: the customer is charged twice.</p>
+    </div>
+  </div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: every POST creates a new charge">
+@PostMapping("/v1/charges")
+public ChargeResponse create(@RequestBody ChargeRequest req, @AuthenticationPrincipal Merchant m) {
+    // Client times out, retries -> this runs twice -> customer pays twice.
+    Charge c = cardNetwork.charge(req.card(), req.amount());
+    chargeRepo.save(c);
+    return ChargeResponse.from(c);
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: store the key, lock it, replay the saved response">
+@PostMapping("/v1/charges")
+public ResponseEntity<ChargeResponse> create(
+        @RequestHeader("Idempotency-Key") String key,
+        @Valid @RequestBody ChargeRequest req,
+        @AuthenticationPrincipal Merchant m) {
+
+    String fingerprint = sha256(canonicalJson(req));        // what was asked for
+
+    // INSERT ... with UNIQUE(merchant_id, idem_key). Only ONE request can create the row;
+    // concurrent duplicates find the existing row instead.
+    IdempotencyRecord rec = idemStore.claimOrGet(m.id(), key, fingerprint);
+
+    if (!rec.fingerprint().equals(fingerprint))             // same key, different body:
+        return ResponseEntity.unprocessableEntity().build(); // a client bug, refuse it
+    if (rec.isCompleted())                                  // already done before:
+        return rec.storedResponse();                        // replay exactly, charge nothing
+    if (!rec.isOwnedBy(currentRequestId()))                 // first attempt still running
+        return ResponseEntity.status(HttpStatus.CONFLICT).build(); // client retries later
+
+    ChargeResponse body = ChargeResponse.from(
+        payments.charge(m, req, key));                      // key also sent to the card network
+    ResponseEntity<ChargeResponse> resp = ResponseEntity.ok(body);
+    idemStore.complete(rec, resp);                          // save the response for replays
+    return resp;                                            // keys expire after ~24 hours
+}
+</script>
+</div>
+
+  <h3>A payment is a state machine</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 200" role="img" aria-label="PaymentIntent statuses: requires payment method, requires confirmation, requires action for 3D Secure, processing, succeeded or canceled">
+      <rect x="10" y="70" width="140" height="56" rx="28" class="d-box"/><text x="80" y="95" text-anchor="middle" class="d-s">requires_</text><text x="80" y="110" text-anchor="middle" class="d-s">payment_method</text>
+      <rect x="185" y="70" width="140" height="56" rx="28" class="d-box"/><text x="255" y="95" text-anchor="middle" class="d-s">requires_</text><text x="255" y="110" text-anchor="middle" class="d-s">confirmation</text>
+      <rect x="360" y="10" width="140" height="50" rx="25" class="d-amb"/><text x="430" y="32" text-anchor="middle" class="d-s">requires_action</text><text x="430" y="47" text-anchor="middle" class="d-xs">3D Secure / OTP</text>
+      <rect x="360" y="110" width="140" height="50" rx="25" class="d-acc"/><text x="430" y="140" text-anchor="middle" class="d-s">processing</text>
+      <rect x="560" y="60" width="130" height="50" rx="25" class="d-good"/><text x="625" y="90" text-anchor="middle" class="d-t">succeeded</text>
+      <rect x="560" y="140" width="130" height="44" rx="22" class="d-bad"/><text x="625" y="167" text-anchor="middle" class="d-s">canceled</text>
+      <rect x="720" y="60" width="130" height="50" rx="25" class="d-vio"/><text x="785" y="82" text-anchor="middle" class="d-xs">webhook:</text><text x="785" y="97" text-anchor="middle" class="d-xs">..._succeeded</text>
+      <path d="M150 98 H183" class="d-line" marker-end="url(#ah)"/>
+      <path d="M325 92 C345 70,345 45,358 38" class="d-line" marker-end="url(#ah)"/>
+      <path d="M325 104 C345 125,345 133,358 135" class="d-line" marker-end="url(#ah)"/>
+      <path d="M430 60 V108" class="d-line" marker-end="url(#ah)"/>
+      <path d="M500 128 C530 120,535 95,558 88" class="d-lgood" marker-end="url(#ag)"/>
+      <path d="M500 140 C530 150,535 160,558 162" class="d-lbad d-dash" marker-end="url(#ab)"/>
+      <path d="M690 85 H718" class="d-lvio" marker-end="url(#av)"/>
+      <text x="300" y="190" text-anchor="middle" class="d-xs">payment fails → back to requires_payment_method (try another card)</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.2</b> Statuses from Stripe's PaymentIntent API. Modelling payments as explicit states (the State pattern, {{ref:ch-behavioral}}) makes every step resumable, auditable and safe to retry.</figcaption>
+  </figure>
+
+  <h3>Surviving Black Friday: rate limiters and load shedders</h3>
+  <p>Stripe has described running four layers of protection. The first two limit individual users; the last two protect the whole fleet by dropping less important traffic first.</p>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 220" role="img" aria-label="Four protection layers: request rate limiter, concurrent requests limiter, fleet usage load shedder, worker utilisation load shedder">
+      <g>
+        <rect x="10" y="40" width="195" height="120" rx="12" class="d-acc"/><text x="107" y="66" text-anchor="middle" class="d-t">1 · Request rate</text><text x="107" y="88" text-anchor="middle" class="d-xs">token bucket per user</text><text x="107" y="104" text-anchor="middle" class="d-xs">"N requests per second"</text><text x="107" y="134" text-anchor="middle" class="d-ta">per user</text>
+        <rect x="225" y="40" width="195" height="120" rx="12" class="d-acc"/><text x="322" y="66" text-anchor="middle" class="d-t">2 · Concurrent requests</text><text x="322" y="88" text-anchor="middle" class="d-xs">max in-flight per user</text><text x="322" y="104" text-anchor="middle" class="d-xs">stops slow, heavy calls</text><text x="322" y="134" text-anchor="middle" class="d-ta">per user</text>
+        <rect x="440" y="40" width="195" height="120" rx="12" class="d-amb"/><text x="537" y="66" text-anchor="middle" class="d-t">3 · Fleet usage shedder</text><text x="537" y="88" text-anchor="middle" class="d-xs">reserve capacity for</text><text x="537" y="104" text-anchor="middle" class="d-xs">critical requests</text><text x="537" y="134" text-anchor="middle" class="d-tam">whole fleet</text>
+        <rect x="655" y="40" width="195" height="120" rx="12" class="d-bad"/><text x="752" y="66" text-anchor="middle" class="d-t">4 · Worker utilisation</text><text x="752" y="88" text-anchor="middle" class="d-xs">when workers are busy,</text><text x="752" y="104" text-anchor="middle" class="d-xs">shed lowest priority first</text><text x="752" y="134" text-anchor="middle" class="d-tb">last resort</text>
+      </g>
+      <path d="M205 100 H223 M420 100 H438 M635 100 H653" class="d-line" marker-end="url(#ah)"/>
+      <text x="430" y="196" text-anchor="middle" class="d-s">Shed in this order: test-mode traffic → analytics and listing → … → creating and confirming payments (last)</text>
+    </svg></div>
+  </figure>
+  <p>This is load shedding with <strong>priorities</strong>: when there isn't enough capacity for everything, decide in advance what to drop. A merchant's dashboard chart can wait; a customer's checkout can't. ({{ref:ch-rate}}, {{ref:ch-reliability}})</p>
+
+  <h3>Data: thousands of shards, moved without downtime</h3>
+  <p>Stripe's main online database platform, <strong>DocDB</strong>, is built on MongoDB Community. Applications talk to a fleet of Go <strong>database proxies</strong>, which look up a <strong>chunk metadata service</strong> to route each query to the right shard (a replica set with automatic failover). Every change also streams to Kafka and on to object storage.</p>
+  <p>Shards fill up unevenly, so data must move between them while payments keep flowing. Stripe's Data Movement Platform does it in six steps, the same pattern you'd use for any live resharding ({{ref:ch-sharding}}):</p>
+  <ol class="steps">
+    <li><b>Register</b>Record the planned move in the metadata service; build indexes on the target shard.</li>
+    <li><b>Bulk import</b>Copy a point-in-time snapshot of the chunk to the target.</li>
+    <li><b>Replicate</b>Replay every write made since the snapshot from the change stream, until the target catches up.</li>
+    <li><b>Verify</b>Compare source and target snapshots for completeness and correctness.</li>
+    <li><b>Switch traffic</b>Briefly block writes to that chunk on the source, let replication drain, update the route. The cutover takes under two seconds; requests that fail during it succeed on retry.</li>
+    <li><b>Clean up</b>Mark the move complete and delete the chunk from the source.</li>
+  </ol>
+
+  <h3>Three more habits worth copying</h3>
+  <div class="cards">
+    <div class="card"><h5>Webhooks done right</h5><p>Events are signed (an HMAC header the merchant verifies), retried with exponential backoff for days, and delivered at-least-once and possibly out of order. Merchants must make handlers idempotent by event ID. ({{ref:ch-queue}})</p></div>
+    <div class="card"><h5>Dated API versions</h5><p>Each account is pinned to the API version it started with (versions are dates). Stripe translates responses for old versions, so a 2017 integration keeps working while new accounts get new behaviour. ({{ref:ch-api}})</p></div>
+    <div class="card"><h5>Double-entry ledger</h5><p>Every movement of money is recorded as balanced debits and credits. If the books don't sum to zero, something is wrong, and it's detectable. (Built in the banking project, {{ref:ch-banking}}.)</p></div>
+  </div>
+
+  <h3>What to take into your own designs</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Stripe idea</th><th>General principle</th><th>Where you learned it</th></tr>
+    <tr><td>Idempotency keys</td><td>Make every state-changing API safe to retry</td><td>{{ref:ch-api}}</td></tr>
+    <tr><td>PaymentIntent statuses</td><td>Model long, failure-prone workflows as explicit state machines</td><td>{{ref:ch-behavioral}}</td></tr>
+    <tr><td>Priority load shedding</td><td>Decide in advance what to drop under overload</td><td>{{ref:ch-rate}}</td></tr>
+    <tr><td>Proxy + metadata routing</td><td>Hide sharding behind a routing layer so data can move</td><td>{{ref:ch-sharding}}</td></tr>
+    <tr><td>Signed, retried webhooks</td><td>At-least-once delivery + idempotent consumers</td><td>{{ref:ch-queue}}</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Same key, same answer. Shed the chart before the checkout.</p>
+    <p><span class="hl">Idempotency keys</span> make retries safe, <strong>state machines</strong> make payments resumable, <strong>tiered limiters</strong> keep the fleet alive, and a <strong>routing layer</strong> lets shards move with zero downtime.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How would you implement idempotency keys?</summary><div class="ans"><p>Store (merchant ID, key) with a unique constraint, plus a hash of the request body, a state (started/completed) and the saved response. The first request inserts the row and does the work; duplicates either get the saved response, a 409 if the first is still running, or a 422 if the body differs. Make the side effects themselves idempotent too (pass the key to downstream systems), and expire keys after a retention window such as 24 hours.</p></div></details>
+    <details><summary>Design a payment gateway that never double-charges.</summary><div class="ans"><p>Idempotency keys at the API, unique constraints in the database, a state machine per payment with each transition persisted before the next external call, idempotency references passed to card networks, a reconciliation job comparing your records with bank settlement files, and an append-only double-entry ledger. Prefer "unknown/pending" plus reconciliation over guessing.</p></div></details>
+    <details><summary>What is load shedding and how is it different from rate limiting?</summary><div class="ans"><p>Rate limiting caps what each client may send, whatever the system's state. Load shedding looks at the system's own health (CPU, in-flight requests, queue length) and drops some requests when it's near overload, choosing the least important ones first. Both return errors early instead of letting the whole service slow to a halt.</p></div></details>
+  </div>
+  <p class="sources">Sources: <a href="https://stripe.com/fr-ca/newsroom/news/bfcm2025">Stripe newsroom, BFCM 2025</a>; <a href="https://stripe.dev/blog/how-stripes-document-databases-supported-99.999-uptime-with-zero-downtime-data-migrations">Stripe engineering blog on DocDB</a>; Stripe's engineering posts on rate limiters and idempotency, and its PaymentIntent API documentation.</p>
+  {{done}}
+</section>

@@ -1,0 +1,69 @@
+<section class="chapter" id="ch-cheat" data-title="The cheat sheet" data-num="R1">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">R1</span>Revision</div>
+    <h2>The cheat sheet</h2>
+    <p class="ch-oneline"><b>Every concept in one or two lines</b>, with the chai-stall picture that helps you remember it.</p>
+  </header>
+
+  <h3>High-Level Design</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-request}} · request</span><h5>Request journey</h5><p>DNS → TCP → TLS → HTTP → server → response → render. HTTP is stateless; cookies/tokens carry identity.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-scaling}} · scaling</span><h5>Vertical vs horizontal</h5><p>Bigger kettle vs more stalls. Scale out needs stateless servers + shared session store.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-scaling}} · latency</span><h5>Latency vs throughput</h5><p>One trip's time vs trips per second. Measure p99, not averages. RAM ≫ SSD ≫ network.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-lb}} · LB</span><h5>Load balancer</h5><p>Bablu at the gate. L4 = IP/port, L7 = URL/headers. RR, weighted, least-conn, IP hash. Health checks.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-cache}} · cache</span><h5>Caching</h5><p>Flasks on the counter. Cache-aside + TTL + delete on write. LRU eviction. Beware stampede, penetration, avalanche, hot keys.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-cache}} · CDN</span><h5>CDN</h5><p>Static files cached at edge servers near users. Pull (lazy) or push. Versioned filenames to bust caches.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-db}} · db</span><h5>SQL vs NoSQL</h5><p>Ledger vs folders. SQL: relations + ACID. NoSQL: key-value, document, wide-column, graph; scale-out, flexible.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-db}} · ACID</span><h5>ACID</h5><p>Atomic, Consistent, Isolated, Durable. Isolation levels trade anomalies for speed. Optimistic vs pessimistic locking.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-db}} · index</span><h5>Indexes</h5><p>B+ tree = book index. Fast reads, slower writes. Composite index: leftmost-prefix rule.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-replication}} · replication</span><h5>Replication</h5><p>One pen, many photocopies. Leader–follower; sync vs async; lag → read-your-writes fixes; quorum R + W &gt; N.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-sharding}} · sharding</span><h5>Sharding</h5><p>Split the ledger by surname. Range / hash / directory / geo. Shard key from main query. Cross-shard pain.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-sharding}} · ring</span><h5>Consistent hashing</h5><p>Walk clockwise on the ring. Adding a node moves ~1/N keys. Virtual nodes balance load.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-cap}} · CAP</span><h5>CAP / PACELC</h5><p>Phone line cut: be correct (CP) or kind (AP). Else: latency vs consistency.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-queue}} · queue</span><h5>Message queues</h5><p>Slips on the spike. Decouple + absorb spikes. Queue = one consumer, pub/sub = all. At-least-once → idempotent consumers, DLQ.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-queue}} · Kafka</span><h5>Kafka</h5><p>Topic → partitions (ordered logs) → offsets. Consumer group: one consumer per partition. Replayable.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-api}} · API</span><h5>API styles</h5><p>Menu board. REST (nouns + verbs), GraphQL (ask for fields), gRPC (fast binary). Cursor pagination, idempotency keys.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-api}} · real-time</span><h5>Real-time</h5><p>Short poll → long poll → SSE (server → client) → WebSocket (both ways). Webhooks for server-to-server.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-micro}} · micro</span><h5>Microservices</h5><p>Separate counters with own stock. Own data, independent deploy. Gateway, discovery, config, mesh. Monolith first.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-rate}} · rate</span><h5>Rate limiting</h5><p>Max 5 cups each. Token bucket (bursts), leaky bucket (smooth), fixed/sliding window. Redis + 429.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-reliability}} · resilience</span><h5>Reliability</h5><p>Spare cylinder. Redundancy, timeouts, backoff + jitter, circuit breaker (closed/open/half-open), bulkheads, fallbacks.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-dtx}} · transactions</span><h5>Distributed transactions</h5><p>2PC: ready? go! Saga: do, then undo. Outbox: event in the same DB transaction. CQRS: separate read model.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-toolbox}} · toolbox</span><h5>Toolbox</h5><p>Snowflake IDs, Bloom filters ("definitely not"), geohash, inverted index, gossip, Raft, object storage + CDN.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-security}} · security</span><h5>Security</h5><p>AuthN = ID card, AuthZ = room keys, JWT = stamped wristband. OAuth2 code flow. bcrypt, parameterised SQL, HTTPS.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-observe}} · observe</span><h5>Observability</h5><p>Metrics (is it wrong?), traces (where?), logs (why?). SLI / SLO / SLA, error budget, golden signals.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-estimate}} · estimate</span><h5>Estimation</h5><p>1 day ≈ 10<sup>5</sup> s. QPS = users × actions ÷ 10<sup>5</sup>. Peak ≈ 2–3×. Every number → a design decision.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-hld-framework}} · framework</span><h5>HLD interview</h5><p>Requirements → Estimation → API &amp; data → Design → Deep dives → Wrap-up. Talk trade-offs.</p></div>
+  </div>
+
+  <h3>Real-world architectures</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-netflix}} · Netflix</span><h5>Brain in the cloud, bytes nearby</h5><p>Control plane on AWS (Zuul, Eureka, EVCache, Cassandra, Kafka). Data plane: Open Connect boxes inside ISPs, filled overnight. Adaptive bitrate per chunk.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-upi}} · UPI</span><h5>One exchange for every bank</h5><p>NPCI hub-and-spoke switch, VPA indirection, device binding + PIN, idempotent txn IDs, timeouts, pending → check status → reversal. Rate limits after the 2025 retry storm.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-stripe}} · Stripe</span><h5>Same key, same answer</h5><p>Idempotency keys, PaymentIntent state machine, tiered rate limiters and priority load shedding, DocDB proxy + shards with zero-downtime moves, signed retried webhooks.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-hotstar}} · JioHotstar</span><h5>Light the stoves before the toss</h5><p>Spikes faster than boot time: pre-warm by schedule, scale on concurrency in steps, CDN for video and cacheable APIs, full-size load tests, panic mode.</p></div>
+  </div>
+
+  <h3>Low-Level Design, SOLID and patterns</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-oop}} · OOP</span><h5>A PIE</h5><p>Abstraction (what, not how), Polymorphism (one call, many behaviours), Inheritance (is-a), Encapsulation (guard the data).</p></div>
+    <div class="card"><span class="k">ch {{n:ch-uml}} · UML</span><h5>Relationships</h5><p>Triangle = is-a. ◆ composition (dies together), ◇ aggregation (lives on). Dashed = implements / uses.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-uml}} · quality</span><h5>Cohesion &amp; coupling</h5><p>High cohesion inside, low coupling between. Everything else is a technique for this.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-srp}} · S</span><h5>Single Responsibility</h5><p>One cook, one stove. One reason (one actor) to change.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-ocp}} · O</span><h5>Open/Closed</h5><p>Slot menu board. Add a class, don't edit the switch.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-lsp}} · L</span><h5>Liskov Substitution</h5><p>Replacement delivery boy must ride. Subtypes keep the parent's promises; no surprise exceptions.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-isp}} · I</span><h5>Interface Segregation</h5><p>Role cards, not one giant job description. Small interfaces per client.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-dip}} · D</span><h5>Dependency Inversion</h5><p>Standard socket. Business code owns interfaces; DB/email are plugins. Constructor injection.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-beyond}} · more</span><h5>DRY · KISS · YAGNI</h5><p>One place per rule; simplest thing that works; don't build for imaginary futures. Compose over inherit. Don't talk to strangers.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-creational}} · creational</span><h5>Sita Found A Big Present</h5><p>Singleton (one), Factory (which), Abstract factory (matching set), Builder (many options), Prototype (copy).</p></div>
+    <div class="card"><span class="k">ch {{n:ch-structural}} · structural</span><h5>Wrap, adapt, simplify</h5><p>Adapter converts, Decorator adds, Facade simplifies, Proxy guards, Composite nests, Bridge splits.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-behavioral}} · behavioral</span><h5>Who decides, who's told</h5><p>Strategy swaps how, State swaps who-I-am, Observer shouts, Command queues/undoes, Chain passes along, Template fixes the recipe.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-concurrency}} · concurrency</span><h5>Last samosa</h5><p>Check-then-act must be atomic: CAS, <code>putIfAbsent</code>, locks, DB conditional update, Redis <code>SET NX</code>.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-banking}} · banking</span><h5>Ledger is the truth</h5><p>Money value object, double-entry ledger, LSP-safe accounts, lock smaller ID first with timeout, idempotent transfers, rule chain.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-iam}} · IAM</span><h5>Deny wins, silence means no</h5><p>AuthN chain raises session level; AuthZ walks the resource tree: explicit deny → allow → step-up → default deny. Explain and audit.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-parking}} · LLD interview</span><h5>Nouns, verbs, what changes</h5><p>Requirements → entities → class diagram → patterns → core code → concurrency and extensions.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">The one sentence to remember</div>
+    <p class="mnemonic">Every design is a trade-off. Say what you're trading, and why it's worth it here.</p></div>
+  {{done}}
+</section>

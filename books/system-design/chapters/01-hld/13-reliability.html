@@ -1,0 +1,134 @@
+<section class="chapter" id="ch-reliability" data-title="Reliability and fault tolerance">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Protection</div>
+    <h2>Reliability and fault tolerance</h2>
+    <p class="ch-oneline"><b>Everything fails eventually.</b> Reliable systems expect failure and are designed so one broken part doesn't take down the rest.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu keeps a <strong>spare gas cylinder</strong> (redundancy). When the milk supplier is late, he doesn't make customers wait forever; after 5 minutes he serves black tea instead (<strong>timeout</strong> and <strong>fallback</strong>). When the supplier has been late three days in a row, Ramu stops calling him altogether for a week and buys from the shop next door, checking back occasionally (<strong>circuit breaker</strong>). And he keeps the samosa fryer on a separate gas line, so a fryer problem can't cut the gas to the tea stove (<strong>bulkhead</strong>).</p></div>
+
+  <h3>Availability in nines</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Availability</th><th>Downtime per year</th><th>Per month</th><th>Typical for</th></tr>
+    <tr><td>99% ("two nines")</td><td class="num">3.65 days</td><td class="num">7.3 hours</td><td>Internal tools</td></tr>
+    <tr><td>99.9%</td><td class="num">8.76 hours</td><td class="num">43.8 minutes</td><td>Most SaaS products</td></tr>
+    <tr><td>99.99%</td><td class="num">52.6 minutes</td><td class="num">4.4 minutes</td><td>Payments, major platforms</td></tr>
+    <tr><td>99.999%</td><td class="num">5.3 minutes</td><td class="num">26 seconds</td><td>Telecom, core infrastructure</td></tr>
+  </table></div>
+  <p class="small">Components in a chain multiply: three services each at 99.9% give 0.999³ ≈ 99.7%. Redundant copies in parallel add up: two independent 99% servers give 1 − 0.01² = 99.99%.</p>
+
+  <h3>The resilience toolkit</h3>
+  <div class="cards">
+    <div class="card"><h5>Redundancy</h5><p>No single point of failure: at least two of everything, across availability zones. Active–active (both serve) or active–passive (standby takes over).</p></div>
+    <div class="card"><h5>Timeouts</h5><p>Never wait forever. Every network call gets a timeout shorter than the caller's own deadline.</p></div>
+    <div class="card"><h5>Retries with backoff + jitter</h5><p>Retry transient errors, waiting 100 ms, 200 ms, 400 ms… plus randomness, so clients don't retry in sync.</p></div>
+    <div class="card"><h5>Circuit breaker</h5><p>After repeated failures, stop calling a sick service for a while and fail fast.</p></div>
+    <div class="card"><h5>Bulkhead</h5><p>Separate thread pools/connection pools per dependency so one slow dependency can't exhaust everything.</p></div>
+    <div class="card"><h5>Fallback &amp; graceful degradation</h5><p>Show cached recommendations, hide the reviews widget, but keep checkout working.</p></div>
+    <div class="card"><h5>Load shedding</h5><p>When overloaded, reject low-priority work early (503) to keep high-priority work alive.</p></div>
+    <div class="card"><h5>Idempotency</h5><p>Makes retries safe. Without it, retries cause duplicates.</p></div>
+  </div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: no timeout, instant retries in a tight loop">
+public Price fetchPrice(String item) {
+    while (true) {                               // retries forever
+        try {
+            // default RestTemplate has NO timeout: a hung supplier
+            // blocks this thread forever; soon all threads are stuck
+            return restTemplate.getForObject(SUPPLIER + item, Price.class);
+        } catch (Exception e) {
+            // retry immediately: 1,000 clients hammer an already-sick service
+        }
+    }
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: timeout + capped exponential backoff with jitter">
+private static final int MAX_ATTEMPTS = 4;
+
+public Price fetchPrice(String item) throws InterruptedException {
+    // RestTemplate built with connect timeout 500 ms, read timeout 1 s
+    for (int attempt = 1; ; attempt++) {
+        try {
+            return restTemplate.getForObject(SUPPLIER + item, Price.class);
+        } catch (ResourceAccessException | HttpServerErrorException e) {
+            // retry only transient errors (timeouts, 5xx), never 4xx
+            if (attempt == MAX_ATTEMPTS) throw e;          // give up eventually
+            long base = 100L * (1L << (attempt - 1));      // 100, 200, 400 ms
+            long jitter = ThreadLocalRandom.current().nextLong(base); // spread out
+            Thread.sleep(Math.min(base + jitter, 2_000));  // cap the wait
+        }
+    }
+}
+</script>
+</div>
+
+  <h3>Circuit breaker, step by step</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 800 220" role="img" aria-label="Circuit breaker state machine: closed passes calls, too many failures opens it, after a wait it goes half-open to test, success closes it, failure opens it again">
+      <rect x="40" y="70" width="190" height="80" rx="40" class="d-good"/><text x="135" y="104" text-anchor="middle" class="d-tl">CLOSED</text><text x="135" y="124" text-anchor="middle" class="d-xs">calls pass through, count failures</text>
+      <rect x="570" y="70" width="190" height="80" rx="40" class="d-bad"/><text x="665" y="104" text-anchor="middle" class="d-tl">OPEN</text><text x="665" y="124" text-anchor="middle" class="d-xs">fail fast, don't call at all</text>
+      <rect x="305" y="150" width="190" height="64" rx="32" class="d-amb"/><text x="400" y="178" text-anchor="middle" class="d-tl">HALF-OPEN</text><text x="400" y="196" text-anchor="middle" class="d-xs">let a few test calls through</text>
+      <path d="M230 90 C350 40,450 40,570 90" class="d-lbad" marker-end="url(#ab)"/><text x="400" y="42" text-anchor="middle" class="d-tb">failure rate ≥ 50% in last 10 calls</text>
+      <path d="M640 150 C620 190,560 195,497 185" class="d-lamb" marker-end="url(#am)"/><text x="610" y="205" text-anchor="middle" class="d-tam">wait 30 s</text>
+      <path d="M305 180 C220 185,150 175,135 152" class="d-lgood" marker-end="url(#ag)"/><text x="190" y="196" text-anchor="middle" class="d-tg">tests succeed</text>
+      <path d="M470 152 C520 130,560 125,575 128" class="d-lbad d-dash" marker-end="url(#ab)"/><text x="520" y="118" text-anchor="middle" class="d-tb">a test fails</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Like the fuse in your house: it trips to protect the system and is re-tested later. Failing fast frees threads and gives the sick service room to recover.</figcaption>
+  </figure>
+
+  <div class="widget" id="w-cb">
+    <div class="widget-head"><span class="live">Live</span>Circuit breaker: opens after 3 failures in a row, half-opens after 5 s</div>
+    <div class="widget-body">
+      <div class="cb-states">
+        <div class="cb-state closed on" id="cbClosed"><b>Closed</b><small>calling the supplier</small></div>
+        <div class="cb-state open" id="cbOpen"><b>Open</b><small>failing fast, using fallback</small></div>
+        <div class="cb-state half" id="cbHalf"><b>Half-open</b><small>trying one test call</small></div>
+      </div>
+      <div class="controls">
+        <button class="btn primary" id="cbCall">Make a call</button>
+        <button class="btn" id="cbToggle">Supplier is: healthy</button>
+      </div>
+      <div class="wlog" id="cbLog" aria-live="polite"></div>
+    </div>
+  </div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Resilience4j + Spring Boot: breaker, retry, timeout, fallback">
+@Service
+public class SupplierClient {
+
+    @CircuitBreaker(name = "supplier", fallbackMethod = "cachedPrice")
+    @Retry(name = "supplier")              // backoff configured in application.yml
+    @TimeLimiter(name = "supplier")        // e.g. 1 s max per call
+    @Bulkhead(name = "supplier")           // at most N concurrent calls to supplier
+    public CompletableFuture<Price> price(String item) {
+        return CompletableFuture.supplyAsync(() -> http.getPrice(item));
+    }
+
+    // Same signature + the exception: called when open, timed out or failed
+    private CompletableFuture<Price> cachedPrice(String item, Throwable t) {
+        return CompletableFuture.completedFuture(priceCache.lastKnown(item));
+    }
+}
+// application.yml
+// resilience4j.circuitbreaker.instances.supplier:
+//   slidingWindowSize: 10, failureRateThreshold: 50, waitDurationInOpenState: 30s
+</script>
+
+  <h3>Disaster recovery: RPO and RTO</h3>
+  <div class="cards">
+    <div class="card"><span class="k">RPO</span><h5>Recovery Point Objective</h5><p>How much data can you afford to lose? "At most 5 minutes of orders." Drives backup/replication frequency.</p></div>
+    <div class="card"><span class="k">RTO</span><h5>Recovery Time Objective</h5><p>How long can you be down? "Back within 1 hour." Drives standby strategy: backup-restore → pilot light → warm standby → multi-region active-active.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">"Two of everything, Time out, Back off, Break the circuit, Build bulkheads."</p>
+    <p>Retries without <strong>timeouts</strong>, <strong>backoff + jitter</strong> and <strong>idempotency</strong> make outages worse. The circuit breaker is a fuse: <span class="hl">Closed → Open → Half-open</span>. Always have a degraded mode.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What is a cascading failure and how do you prevent it?</summary><div class="ans"><p>One slow service causes its callers' threads to pile up waiting, so they slow down, and their callers too, until everything is down. Prevent with timeouts on every call, circuit breakers, bulkheads (separate pools), load shedding and async communication where possible.</p></div></details>
+    <details><summary>Why add jitter to exponential backoff?</summary><div class="ans"><p>Without jitter, all clients that failed at the same moment retry at the same moments (100 ms, 200 ms, 400 ms…), creating synchronized waves that hit the recovering service. Randomness spreads retries out.</p></div></details>
+  </div>
+  {{done}}
+</section>

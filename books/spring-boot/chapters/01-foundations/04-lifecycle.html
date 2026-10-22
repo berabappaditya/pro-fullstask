@@ -1,0 +1,93 @@
+<section class="chapter" id="ch-lifecycle" data-title="Bean lifecycle and scopes">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Foundations</div>
+    <h2>Bean lifecycle and scopes</h2>
+    <p class="ch-oneline"><b>Instantiate → inject → aware callbacks → BeanPostProcessors before → init (@PostConstruct) → BeanPostProcessors after (proxies!) → ready → @PreDestroy.</b> Singleton is the default scope.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>A new staff member is <strong>hired</strong> (instantiated), given their <strong>tools and colleagues' names</strong> (dependencies injected), told the branch name (Aware callbacks), sent to <strong>orientation</strong> (@PostConstruct), maybe given an <strong>assistant who answers on their behalf</strong> (a proxy added by a BeanPostProcessor), and then starts work. On closing day they <strong>hand back their keys</strong> (@PreDestroy).</p></div>
+
+  <div class="widget" id="w-lifecycle">
+    <div class="widget-head"><span class="live">Live</span>Bean lifecycle stepper: watch OrderService being born</div>
+    <div class="widget-body">
+      <div class="controls" id="lcControls"></div>
+      <div class="lc-track" id="lcTrack"></div>
+      <div class="lc-detail" id="lcDetail"></div>
+    </div>
+  </div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Hooks you'll actually use">
+@Service
+public class RateCardService {
+    private final RateRepository repo;
+    private Map<String, BigDecimal> cache;
+
+    public RateCardService(RateRepository repo) {   // 1. constructor (+ injection)
+        this.repo = repo;
+        System.out.println("1. constructor");
+    }
+
+    @PostConstruct                                   // 3. after ALL dependencies are injected
+    void warmUp() {
+        cache = repo.loadAllRates();                 // safe to use repo here
+        System.out.println("3. @PostConstruct: cache warmed");
+    }
+
+    @PreDestroy                                      // 6. on context close (graceful shutdown)
+    void flush() { System.out.println("6. @PreDestroy: released resources"); }
+}
+// For work after the WHOLE app is ready (e.g. start consumers), prefer
+// @EventListener(ApplicationReadyEvent.class) or an ApplicationRunner.
+</script>
+
+  <h3>Scopes</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Scope</th><th>One instance per…</th><th>Typical use</th></tr>
+    <tr><td><code>singleton</code> (default)</td><td>container (not per JVM, not per class)</td><td>stateless services, repositories, controllers</td></tr>
+    <tr><td><code>prototype</code></td><td>every injection or <code>getBean()</code></td><td>stateful helpers, builders</td></tr>
+    <tr><td><code>request</code></td><td>HTTP request</td><td>per-request context</td></tr>
+    <tr><td><code>session</code></td><td>HTTP session</td><td>shopping cart in server-rendered apps</td></tr>
+    <tr><td><code>application</code></td><td>ServletContext</td><td>rare</td></tr>
+    <tr><td><code>websocket</code></td><td>WebSocket session</td><td>chat state</td></tr>
+  </table></div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="The prototype-in-singleton trap">
+@Component @Scope("prototype")
+class ReceiptBuilder { private final List<String> lines = new ArrayList<>(); ... }
+
+@Service                                     // singleton: created ONCE
+class BillingService {
+    private final ReceiptBuilder builder;    // injected ONCE → the same "prototype" forever,
+    BillingService(ReceiptBuilder b) { builder = b; }   // shared by every request and thread!
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Ask for a fresh one each time">
+@Service
+class BillingService {
+    private final ObjectProvider<ReceiptBuilder> builders;  // a factory, not an instance
+    BillingService(ObjectProvider<ReceiptBuilder> b) { builders = b; }
+
+    Receipt bill(Order o) {
+        ReceiptBuilder rb = builders.getObject();           // NEW prototype on every call
+        return rb.add(o).build();
+    }
+}
+// Alternatives: @Lookup method, or @Scope(value="prototype", proxyMode=ScopedProxyMode.TARGET_CLASS)
+</script>
+</div>
+
+  <div class="box pitfall"><div class="box-tag">Singletons are shared by all threads</div><p>A singleton service handles every request concurrently. Never keep per-request state in its fields (<code>private User currentUser;</code> is a data leak between customers). Keep services stateless, or use thread-safe structures. See {{xref:java-core/ch-sync}}.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Hire, equip, orient, assist, work, retire.</p>
+    <p>Constructor → injection → Aware → BPP before → <span class="hl">@PostConstruct</span> → BPP after (proxy) → ready → @PreDestroy. Prototype beans never get @PreDestroy.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What is a BeanPostProcessor?</summary><div class="ans"><p>A hook that sees every bean before and after initialisation and can modify or <em>replace</em> it. Spring uses them to apply AOP: the after-init step wraps beans with @Transactional, @Async or @Cacheable in proxies. That's why the object injected into others is often a proxy, not your class.</p></div></details>
+    <details><summary>Is a singleton bean thread-safe?</summary><div class="ans"><p>Not automatically. Singleton means one instance per container; many request threads call it at once. It's safe if it's stateless (only final, thread-safe dependencies). Mutable fields need synchronization or should be moved to method locals.</p></div></details>
+    <details><summary>Why isn't @PreDestroy called on prototype beans?</summary><div class="ans"><p>The container hands prototype instances to the caller and doesn't track them afterwards, so it can't know when they're done. The caller must clean them up.</p></div></details>
+  </div>
+  {{done}}
+</section>

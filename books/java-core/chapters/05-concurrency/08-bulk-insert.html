@@ -1,0 +1,153 @@
+<section class="chapter" id="ch-bulk-insert" data-title="Spring Boot: insert 10,000 records in parallel">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Concurrency in practice</div>
+    <h2>Spring Boot in practice: insert 10,000 records with multithreading</h2>
+    <p class="ch-oneline"><b>Split the list into chunks, save each chunk on a pool thread in its own transaction, and wait for all of them.</b> A very popular SDE-2 interview question.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>10,000 plates need to go from the kitchen to the storeroom. One waiter carrying one plate at a time takes all night. The smart way: stack the plates into <strong>trays of 500</strong> (chunks) and let a <strong>team of 5 waiters</strong> (a thread pool) carry trays at the same time. Same plates, a fraction of the time. But the storeroom has only so many doors (database connections), so hiring 50 waiters wouldn't help.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 250" role="img" aria-label="Controller receives 10,000 employees, bulk service splits into 20 chunks, async worker on a 5-thread pool saves each chunk in a transaction with JDBC batching through HikariCP to the database">
+      <rect x="10" y="100" width="120" height="50" rx="10" class="d-vio"/><text x="70" y="122" text-anchor="middle" class="d-t">POST /bulk</text><text x="70" y="138" text-anchor="middle" class="d-xs">10,000 rows</text>
+      <path d="M130 125 H160" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="162" y="96" width="150" height="58" rx="10" class="d-acc"/><text x="237" y="118" text-anchor="middle" class="d-t">BulkService</text><text x="237" y="136" text-anchor="middle" class="d-xs">20 chunks of 500</text>
+      <path d="M312 125 C340 125,340 40,370 40" class="d-lacc d-flow" marker-end="url(#aa)"/><path d="M312 125 C340 125,340 95,370 95" class="d-lacc d-flow" marker-end="url(#aa)"/><path d="M312 125 C340 125,340 150,370 150" class="d-lacc d-flow" marker-end="url(#aa)"/><path d="M312 125 C340 125,340 205,370 205" class="d-lacc d-flow" marker-end="url(#aa)"/>
+      <text x="420" y="22" text-anchor="middle" class="d-xs">@Async("insertExecutor")</text>
+      <rect x="372" y="26" width="110" height="30" rx="7" class="d-good"/><text x="427" y="46" text-anchor="middle" class="d-xs">db-insert-1</text>
+      <rect x="372" y="80" width="110" height="30" rx="7" class="d-good"/><text x="427" y="100" text-anchor="middle" class="d-xs">db-insert-2</text>
+      <rect x="372" y="135" width="110" height="30" rx="7" class="d-good"/><text x="427" y="155" text-anchor="middle" class="d-xs">db-insert-3</text>
+      <rect x="372" y="190" width="110" height="30" rx="7" class="d-good"/><text x="427" y="210" text-anchor="middle" class="d-xs">db-insert-5</text>
+      <text x="427" y="182" text-anchor="middle" class="d-xs">⋮</text>
+      <path d="M482 41 C520 41,520 125,556 125" class="d-line" marker-end="url(#ah)"/><path d="M482 95 L556 120" class="d-line" marker-end="url(#ah)"/><path d="M482 150 L556 130" class="d-line" marker-end="url(#ah)"/><path d="M482 205 C520 205,520 125,556 125" class="d-line" marker-end="url(#ah)"/>
+      <rect x="558" y="96" width="130" height="58" rx="10" class="d-amb"/><text x="623" y="118" text-anchor="middle" class="d-t">HikariCP</text><text x="623" y="136" text-anchor="middle" class="d-xs">pool ≥ 5 connections</text>
+      <path d="M688 125 H720" class="d-lamb" marker-end="url(#am)"/>
+      <rect x="722" y="96" width="128" height="58" rx="10" class="d-teal"/><text x="786" y="118" text-anchor="middle" class="d-t">Database</text><text x="786" y="136" text-anchor="middle" class="d-xs">batched INSERTs</text>
+      <text x="430" y="244" text-anchor="middle" class="d-s">each chunk: one transaction, ~10 INSERT batches of 50 (hibernate.jdbc.batch_size)</text>
+    </svg></div></figure>
+
+  <p>The plan maps onto Spring's tools: <strong>chunking</strong> (split the list), <strong>ThreadPoolTaskExecutor</strong> (Spring's wrapper around the Executor framework), <strong>@Async</strong> ("run this method on a pool thread"), and <strong>CompletableFuture</strong> (the receipt that tells us when every chunk is done).</p>
+
+<script type="text/x-code" data-lang="java" data-variant="plain" data-title="Step 1 · The entity and repository">
+@Entity                                                     // a database table
+public class Employee {
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE,     // SEQUENCE works with JDBC batching;
+                    generator = "emp_seq")                  // IDENTITY silently DISABLES insert batching
+    @SequenceGenerator(name = "emp_seq", allocationSize = 50) // fetch 50 ids per DB round trip
+    private Long id;
+    private String name;
+    private String department;
+    // constructors, getters, setters (or Lombok)
+}
+
+public interface EmployeeRepository extends JpaRepository<Employee, Long> { }  // saveAll() for free
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Step 2 · Configure the thread pool (hire the waiters)">
+@Configuration
+@EnableAsync                                              // switches ON @Async support
+public class AsyncConfig {
+    @Bean(name = "insertExecutor")                        // a named pool in the Spring container
+    public ThreadPoolTaskExecutor insertExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(5);                      // 5 waiters always available
+        executor.setMaxPoolSize(10);                      // up to 10 if the queue fills
+        executor.setQueueCapacity(100);                   // 100 trays can wait on the rail
+        executor.setThreadNamePrefix("db-insert-");       // db-insert-1, -2 ... in logs
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy()); // overload → slow down
+        executor.setWaitForTasksToCompleteOnShutdown(true);   // graceful shutdown
+        executor.initialize();
+        return executor;
+    }
+}
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Step 3 · The async worker (one waiter carrying one tray)">
+@Service
+public class EmployeeBatchWorker {
+    private final EmployeeRepository repository;
+    public EmployeeBatchWorker(EmployeeRepository repository) { this.repository = repository; }
+
+    @Async("insertExecutor")                      // KEY LINE: runs on our pool, not the caller's thread
+    @Transactional                                // each chunk gets its OWN transaction (and connection)
+    public CompletableFuture<Integer> saveChunk(List<Employee> chunk) {
+        repository.saveAll(chunk);                // JPA groups the INSERTs into JDBC batches
+        log.info("Saved {} rows on {}", chunk.size(), Thread.currentThread().getName());
+        return CompletableFuture.completedFuture(chunk.size());   // the receipt
+    }
+}
+</script>
+
+  <div class="box pitfall"><div class="box-tag">The #1 @Async trap</div><p>@Async (like @Transactional) works through a Spring <strong>proxy</strong>. If a method calls an @Async method <em>in the same class</em> (self-invocation), the proxy is bypassed and it silently runs on the same thread: no parallelism. That's exactly why the worker is a separate bean from the orchestrator below. Also: @Async methods must be public and return void, Future or CompletableFuture.</p></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Step 4 · The orchestrator (split, dispatch, wait)">
+@Service
+public class EmployeeBulkService {
+    private static final int CHUNK_SIZE = 500;             // 10,000 / 500 = 20 tasks
+    private final EmployeeBatchWorker worker;              // the @Async bean (a different class!)
+    public EmployeeBulkService(EmployeeBatchWorker worker) { this.worker = worker; }
+
+    public int insertAll(List<Employee> employees) {
+        List<CompletableFuture<Integer>> receipts = new ArrayList<>();
+        for (int i = 0; i < employees.size(); i += CHUNK_SIZE) {
+            List<Employee> chunk = employees.subList(i, Math.min(i + CHUNK_SIZE, employees.size()));
+            receipts.add(worker.saveChunk(new ArrayList<>(chunk)));   // copy: subList is a view
+        }                                                  // all 20 dispatched; the 5 threads work through them
+
+        CompletableFuture.allOf(receipts.toArray(CompletableFuture[]::new)).join();  // wait for every tray
+
+        return receipts.stream().mapToInt(CompletableFuture::join).sum();           // total rows saved
+    }
+}
+</script>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Step 5 · Controller">
+@RestController
+@RequestMapping("/employees")
+public class EmployeeController {
+    private final EmployeeBulkService bulkService;
+    public EmployeeController(EmployeeBulkService bulkService) { this.bulkService = bulkService; }
+
+    @PostMapping("/bulk")                                  // POST /employees/bulk with a JSON array
+    public ResponseEntity<String> bulkInsert(@RequestBody List<Employee> employees) {
+        int saved = bulkService.insertAll(employees);
+        return ResponseEntity.ok("Inserted " + saved + " employees");
+    }
+}
+</script>
+
+<script type="text/x-code" data-lang="properties" data-variant="good" data-title="Step 6 · application.properties: make JPA actually batch">
+# Group INSERTs into JDBC batches of 50 instead of one round trip per row
+spring.jpa.properties.hibernate.jdbc.batch_size=50
+spring.jpa.properties.hibernate.order_inserts=true
+spring.jpa.properties.hibernate.order_updates=true
+# Each worker thread holds one connection: pool must be >= thread count (+ web traffic)
+spring.datasource.hikari.maximum-pool-size=15
+# MySQL only: rewrite batches into multi-row INSERTs (big speed-up)
+# spring.datasource.url=jdbc:mysql://localhost:3306/hr?rewriteBatchedStatements=true
+</script>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Approach</th><th>Rough time for 10k rows*</th><th>Notes</th></tr>
+    <tr><td><code>save()</code> in a loop, one thread</td><td class="num">~20–40 s</td><td>one transaction + round trip per row</td></tr>
+    <tr><td><code>saveAll()</code> + batch_size, one thread</td><td class="num">~2–4 s</td><td>batching is the biggest win</td></tr>
+    <tr><td>Chunks on 5 threads + batching</td><td class="num">~0.6–1.2 s</td><td>this chapter</td></tr>
+    <tr><td><code>JdbcTemplate.batchUpdate</code> / COPY</td><td class="num">~0.3–0.8 s</td><td>no entity overhead; best for pure bulk loads</td></tr>
+  </table></div>
+  <p class="small">* Illustrative orders of magnitude on a local database; measure on yours.</p>
+
+  <div class="box tip"><div class="box-tag">Interview tip: say the trade-offs</div><p>Each chunk commits separately, so a failure in chunk 7 leaves chunks 1–6 saved: the job is <strong>not atomic</strong>. Mention how you'd handle it: idempotent upserts, a job-status table, retrying failed chunks, or Spring Batch (chunk-oriented processing with restart). For very large loads (millions of rows) or recurring jobs, Spring Batch or the database's bulk loader is the better answer. And the thread count is capped by the <strong>connection pool</strong>, not the CPU.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Trays of 500, five waiters, one door each.</p>
+    <p>Chunk → <code>@Async</code> worker in a <em>separate bean</em> → own <code>@Transactional</code> → <code>allOf().join()</code>. Turn on <span class="hl">hibernate.jdbc.batch_size</span>, use SEQUENCE ids, size Hikari ≥ threads.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Why not just use one @Transactional around all 10,000 inserts on many threads?</summary><div class="ans"><p>A Spring transaction is bound to one thread (via ThreadLocal) and one connection. Work on other threads doesn't join it. So either it's one thread with one big transaction (atomic, slower, huge persistence context: flush/clear every N rows), or several threads with one transaction each (faster, not atomic).</p></div></details>
+    <details><summary>Why does GenerationType.IDENTITY break batching?</summary><div class="ans"><p>With IDENTITY the database generates the id on insert, and Hibernate needs that id immediately to manage the entity, so it must execute each INSERT right away instead of batching them. SEQUENCE lets Hibernate get ids ahead of time (allocationSize) and batch the inserts.</p></div></details>
+    <details><summary>What happens if an exception is thrown in an @Async method?</summary><div class="ans"><p>With a CompletableFuture return type, the future completes exceptionally and <code>join()</code> rethrows it as CompletionException; that chunk's transaction rolls back. With void return, it goes to the AsyncUncaughtExceptionHandler (default: logged), easy to miss.</p></div></details>
+  </div>
+  {{done}}
+</section>

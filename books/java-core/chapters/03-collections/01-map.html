@@ -1,0 +1,69 @@
+<section class="chapter" id="ch-collections" data-title="The Collections map and Big-O">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Collections</div>
+    <h2>The Collections map and Big-O cheat sheet</h2>
+    <p class="ch-oneline"><b>Ask three questions: do I need order, do I need uniqueness, do I look things up by key?</b> The answers pick the collection.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>The <strong>ticket rail</strong> where orders are clipped in arrival order is a List (order, duplicates OK). The <strong>guest list</strong> of loyalty members is a Set (each person once). The <strong>spice rack</strong> where you find a jar by its label is a Map (key → value). The <strong>"next order to cook" queue</strong>, with VIPs jumping ahead, is a PriorityQueue.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 300" role="img" aria-label="Collection hierarchy: Iterable to Collection to List, Set and Queue with their implementations; Map is a separate hierarchy">
+      <rect x="250" y="10" width="120" height="34" rx="8" class="d-paper"/><text x="310" y="32" text-anchor="middle" class="d-t">Iterable</text>
+      <rect x="250" y="64" width="120" height="34" rx="8" class="d-acc"/><text x="310" y="86" text-anchor="middle" class="d-t">Collection</text>
+      <path d="M310 64 L310 46" class="d-line" marker-end="url(#tri)"/>
+      <rect x="40" y="130" width="120" height="34" rx="8" class="d-vio"/><text x="100" y="152" text-anchor="middle" class="d-t">List</text>
+      <rect x="250" y="130" width="120" height="34" rx="8" class="d-good"/><text x="310" y="152" text-anchor="middle" class="d-t">Set</text>
+      <rect x="460" y="130" width="120" height="34" rx="8" class="d-amb"/><text x="520" y="152" text-anchor="middle" class="d-t">Queue / Deque</text>
+      <path d="M100 130 C100 112,300 116,305 100" class="d-line" marker-end="url(#tri)"/><path d="M310 130 L310 100" class="d-line" marker-end="url(#tri)"/><path d="M520 130 C520 112,320 116,315 100" class="d-line" marker-end="url(#tri)"/>
+      <text x="100" y="190" text-anchor="middle" class="d-m">ArrayList</text><text x="100" y="208" text-anchor="middle" class="d-m">LinkedList</text><text x="100" y="226" text-anchor="middle" class="d-m">CopyOnWriteArrayList</text>
+      <text x="310" y="190" text-anchor="middle" class="d-m">HashSet</text><text x="310" y="208" text-anchor="middle" class="d-m">LinkedHashSet</text><text x="310" y="226" text-anchor="middle" class="d-m">TreeSet (sorted)</text><text x="310" y="244" text-anchor="middle" class="d-m">EnumSet</text>
+      <text x="520" y="190" text-anchor="middle" class="d-m">ArrayDeque</text><text x="520" y="208" text-anchor="middle" class="d-m">PriorityQueue (heap)</text><text x="520" y="226" text-anchor="middle" class="d-m">LinkedList</text><text x="520" y="244" text-anchor="middle" class="d-m">BlockingQueue (threads)</text>
+      <rect x="680" y="64" width="150" height="34" rx="8" class="d-teal"/><text x="755" y="86" text-anchor="middle" class="d-t">Map (separate!)</text>
+      <text x="755" y="130" text-anchor="middle" class="d-m">HashMap</text><text x="755" y="148" text-anchor="middle" class="d-m">LinkedHashMap</text><text x="755" y="166" text-anchor="middle" class="d-m">TreeMap (sorted)</text><text x="755" y="184" text-anchor="middle" class="d-m">ConcurrentHashMap</text><text x="755" y="202" text-anchor="middle" class="d-m">EnumMap</text>
+      <text x="430" y="288" text-anchor="middle" class="d-s">Java 21 adds SequencedCollection / SequencedMap: getFirst(), getLast(), reversed() on ordered types.</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Map does not extend Collection: it holds pairs, not single elements.</figcaption></figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Type</th><th>get / contains</th><th>add</th><th>remove</th><th>Order</th><th>null?</th></tr>
+    <tr><td>ArrayList</td><td class="num">O(1) by index · O(n) contains</td><td class="num">O(1) amortised at end</td><td class="num">O(n)</td><td>insertion</td><td>yes</td></tr>
+    <tr><td>LinkedList</td><td class="num">O(n)</td><td class="num">O(1) at ends</td><td class="num">O(1) at ends</td><td>insertion</td><td>yes</td></tr>
+    <tr><td>HashSet / HashMap</td><td class="num">O(1) average</td><td class="num">O(1)</td><td class="num">O(1)</td><td>none</td><td>one null key</td></tr>
+    <tr><td>LinkedHashMap</td><td class="num">O(1)</td><td class="num">O(1)</td><td class="num">O(1)</td><td>insertion or access</td><td>one null key</td></tr>
+    <tr><td>TreeSet / TreeMap</td><td class="num">O(log n)</td><td class="num">O(log n)</td><td class="num">O(log n)</td><td>sorted</td><td>no null key</td></tr>
+    <tr><td>PriorityQueue</td><td class="num">O(1) peek</td><td class="num">O(log n)</td><td class="num">O(log n) poll</td><td>heap (min first)</td><td>no</td></tr>
+    <tr><td>ArrayDeque</td><td class="num">O(1) ends</td><td class="num">O(1) ends</td><td class="num">O(1) ends</td><td>insertion</td><td>no</td></tr>
+    <tr><td>ConcurrentHashMap</td><td class="num">O(1)</td><td class="num">O(1)</td><td class="num">O(1)</td><td>none</td><td>no nulls</td></tr>
+  </table></div>
+
+  <h3>Choosing in 10 seconds</h3>
+  <div class="cards">
+    <div class="card"><span class="k">default list</span><h5>ArrayList</h5><p>Contiguous array: cache-friendly and fast. LinkedList almost never wins in practice.</p></div>
+    <div class="card"><span class="k">stack / queue</span><h5>ArrayDeque</h5><p>Faster than <code>Stack</code> (legacy, synchronized) and LinkedList. <code>push/pop</code>, <code>offer/poll</code>.</p></div>
+    <div class="card"><span class="k">lookup by key</span><h5>HashMap</h5><p>Need sorted keys or range queries (floorKey, headMap)? TreeMap.</p></div>
+    <div class="card"><span class="k">top-K / scheduling</span><h5>PriorityQueue</h5><p>Min-heap by default; pass <code>Comparator.reverseOrder()</code> for max-heap.</p></div>
+    <div class="card"><span class="k">LRU cache</span><h5>LinkedHashMap</h5><p>Access-order mode plus <code>removeEldestEntry</code>. See {{n:ch-lists-trees}}.</p></div>
+    <div class="card"><span class="k">many threads</span><h5>ConcurrentHashMap</h5><p>Never a plain HashMap shared across threads.</p></div>
+  </div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Immutable collections and safe defaults">
+List<String> sizes = List.of("S", "M", "L");      // immutable: add() throws UnsupportedOperationException
+Map<String, Integer> price = Map.of("chai", 15, "coffee", 30);
+List<String> copy = List.copyOf(mutableList);       // immutable snapshot
+List<String> view = Collections.unmodifiableList(mutableList); // read-only VIEW: changes show through!
+
+Arrays.asList("a", "b");   // fixed-size list backed by the array: set() OK, add() throws
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Rail, guest list, spice rack, VIP queue.</p>
+    <p>List = ordered with duplicates, Set = unique, Map = key → value, Queue = process in order. Default to <span class="hl">ArrayList, HashMap, ArrayDeque</span>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>ArrayList vs LinkedList: which is faster to insert in the middle?</summary><div class="ans"><p>On paper LinkedList is O(1) once you're at the node, but finding the position is O(n) and its nodes are scattered in memory. ArrayList shifts elements with a fast <code>System.arraycopy</code>, so in practice it's usually faster even for middle inserts unless the list is huge and you already hold an iterator.</p></div></details>
+    <details><summary>Difference between HashMap and Hashtable?</summary><div class="ans"><p>Hashtable is legacy: every method synchronized (slow), no null keys or values. HashMap is unsynchronized and allows one null key. For thread safety use ConcurrentHashMap, not Hashtable.</p></div></details>
+  </div>
+  {{done}}
+</section>

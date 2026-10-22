@@ -1,0 +1,32 @@
+/* Design tokens: every colour and font lives here. Light values on :root, dark values in the two blocks below. */
+/* Layout: a drafting table — a fixed chapter index on the left, one reading column on faint blueprint-grid paper, diagrams pinned on white drafting cards. */
+:root{
+  --paper:#F4F6FA; --paper-2:#E8EDF5; --card:#FFFFFF; --ink:#111C2E; --ink-2:#46556E; --ink-3:#77859E; --line:#D3DBE8; --grid:rgba(41,82,196,.055);
+  --accent:#2952C4; --accent-ink:#1C3C98; --accent-soft:#E2E9FB; --hero:#2952C4; --on-accent:#FFFFFF;
+  --amber:#B97F00; --amber-line:#E2A92A; --amber-soft:#FFF4D4; --hl:#FFE37E;
+  --good:#127A55; --good-soft:#DEF2E8; --bad:#B8362C; --bad-soft:#FBE5E2;
+  --violet:#5F3DBA; --violet-soft:#ECE6FA; --teal:#0B7D85; --teal-soft:#DCF2F3;
+  --code-bg:#0E1828; --code-fg:#D9E3F2; --code-head:#16233A;
+  --c-kw:#82AFFF; --c-type:#7FE0D0; --c-str:#B4E39A; --c-com:#8C9AB3; --c-ann:#F6C35B; --c-num:#F59BB5; --c-fn:#E6D6FF;
+  --shadow:0 1px 2px rgba(17,28,46,.05),0 8px 28px rgba(17,28,46,.06);
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"Cascadia Code",Consolas,monospace;
+  --rail:300px; --topbar:56px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#0A1322; --paper-2:#0E1A2D; --card:#111F35; --ink:#E4EBF6; --ink-2:#AAB7CC; --ink-3:#7889A3; --line:#24344E; --grid:rgba(127,168,255,.045);
+  --accent:#86ABFF; --accent-ink:#AFC6FF; --accent-soft:#182A4D; --hero:#1D3A8A; --on-accent:#0A1322;
+  --amber:#F2BC45; --amber-line:#C9952A; --amber-soft:#2C2412; --hl:#6A5414;
+  --good:#52CB9A; --good-soft:#0F2E24; --bad:#FF867A; --bad-soft:#3A1A18;
+  --violet:#B7A0FF; --violet-soft:#241B42; --teal:#55D3DA; --teal-soft:#0E2C30;
+  --code-bg:#070E1A; --code-fg:#D9E3F2; --code-head:#101C30;
+  --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --paper:#0A1322; --paper-2:#0E1A2D; --card:#111F35; --ink:#E4EBF6; --ink-2:#AAB7CC; --ink-3:#7889A3; --line:#24344E; --grid:rgba(127,168,255,.045);
+  --accent:#86ABFF; --accent-ink:#AFC6FF; --accent-soft:#182A4D; --hero:#1D3A8A; --on-accent:#0A1322;
+  --amber:#F2BC45; --amber-line:#C9952A; --amber-soft:#2C2412; --hl:#6A5414;
+  --good:#52CB9A; --good-soft:#0F2E24; --bad:#FF867A; --bad-soft:#3A1A18;
+  --violet:#B7A0FF; --violet-soft:#241B42; --teal:#55D3DA; --teal-soft:#0E2C30;
+  --code-bg:#070E1A; --code-fg:#D9E3F2; --code-head:#101C30;
+  --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark; }

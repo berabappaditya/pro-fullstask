@@ -1,0 +1,71 @@
+<section class="chapter" id="ch-create" data-title="Creating threads: Thread vs Runnable">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Concurrency</div>
+    <h2>Creating threads: Thread, Runnable and Callable</h2>
+    <p class="ch-oneline"><b>The work always lives in a <code>run()</code> method; only <code>start()</code> creates a new thread.</b> Prefer Runnable (or Callable) tasks handed to a pool.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>Extending Thread is like <strong>welding a recipe to one specific chef</strong>: that chef can only ever make that dish and can't take on any other identity. Implementing Runnable is <strong>writing the recipe on a card</strong>: any chef can pick it up, and later a whole team of reusable chefs (a thread pool) can share a stack of cards.</p></div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="plain" data-title="Way 1: extend Thread">
+class PizzaChef extends Thread {                 // our class IS-A Thread
+    @Override
+    public void run() {                          // the work this thread performs
+        System.out.println("Making pizza on " + Thread.currentThread().getName());
+    }
+}
+PizzaChef chef = new PizzaChef();                // NEW: hired, not working yet
+chef.start();                                    // JVM creates a real thread, which calls run()
+// Downside: PizzaChef can never extend anything else (single inheritance)
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Way 2: implement Runnable (preferred)">
+class PizzaTask implements Runnable {            // our class IS-A task, not a worker
+    @Override
+    public void run() {
+        System.out.println("Making pizza on " + Thread.currentThread().getName());
+    }
+}
+Thread worker = new Thread(new PizzaTask());     // hand the recipe card to a worker
+worker.start();
+
+Thread worker2 = new Thread(() -> System.out.println("Lambda pizza!"));  // Runnable is functional
+worker2.start();
+</script>
+</div>
+
+  <div class="box pitfall"><div class="box-tag">Classic trap: start() vs run()</div><p>Calling <code>chef.run()</code> creates <strong>no new thread</strong>: the main thread just runs the method like any normal call. Only <code>start()</code> asks the JVM to spin up a new thread. Calling the chef's phone (<code>run()</code>) isn't the same as the chef showing up to work (<code>start()</code>). And calling <code>start()</code> twice throws <code>IllegalThreadStateException</code>.</p></div>
+
+  <h3>Why Runnable wins</h3>
+  <div class="cards">
+    <div class="card"><h5>Inheritance stays free</h5><p>Your class can still extend something else.</p></div>
+    <div class="card"><h5>Separation of concerns</h5><p>The task (what to do) is separate from the worker (how it runs): easier to test.</p></div>
+    <div class="card"><h5>Pools expect it</h5><p>Executors accept Runnable and Callable tasks, not Thread subclasses.</p></div>
+    <div class="card"><h5>Lambda-friendly</h5><p>A task can be one clean line.</p></div>
+  </div>
+
+  <h3>Runnable vs Callable</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Runnable</th><th>Callable&lt;V&gt;</th></tr>
+    <tr><td>Method</td><td><code>void run()</code></td><td><code>V call() throws Exception</code></td></tr>
+    <tr><td>Returns a value?</td><td class="no">No</td><td class="yes">Yes, via a Future</td></tr>
+    <tr><td>Checked exceptions?</td><td class="no">Must catch inside</td><td class="yes">May throw; surfaced by <code>Future.get()</code> as ExecutionException</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Java 21+: platform and virtual threads with the builder API">
+Thread t1 = Thread.ofPlatform().name("billing-", 0).start(task);  // classic OS thread, named billing-0
+Thread t2 = Thread.ofVirtual().name("req-", 0).start(task);       // virtual thread (chapter on JUC)
+Thread t3 = Thread.startVirtualThread(() -> callPaymentApi());    // one-liner
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Recipe on a card, not welded to a chef.</p>
+    <p>Write tasks as <span class="hl">Runnable / Callable</span>, run them on a pool, and remember <code>start()</code> ≠ <code>run()</code>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What happens if you call run() instead of start()?</summary><div class="ans"><p>The method runs synchronously on the calling thread; no new thread is created, so there is no concurrency. Printing <code>Thread.currentThread().getName()</code> inside would show "main".</p></div></details>
+    <details><summary>What happens to an uncaught exception in a thread?</summary><div class="ans"><p>That thread terminates and the exception goes to its <code>UncaughtExceptionHandler</code> (by default, printed to stderr). Other threads keep running. In an ExecutorService with <code>submit()</code>, the exception is captured in the Future and only seen when you call <code>get()</code>, which is a common source of "silent" failures.</p></div></details>
+  </div>
+  {{done}}
+</section>

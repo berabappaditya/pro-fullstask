@@ -1,0 +1,88 @@
+<section class="chapter" id="ch-errors" data-title="Exception handling and ProblemDetail">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>REST APIs</div>
+    <h2>Exception handling: one place, one error format</h2>
+    <p class="ch-oneline"><b>Throw meaningful exceptions from the service; translate them to HTTP once, in a @RestControllerAdvice.</b> Use RFC 9457 ProblemDetail as the response body.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>When something goes wrong, the chef doesn't run to the customer. He sends a slip to the <strong>complaints desk</strong>, which has a standard apology card for each problem: "out of stock", "card declined", "kitchen closed". Customers always get the same, polite format, never the chef's shouting.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 170" role="img" aria-label="Service throws NotFoundException; it bubbles through the controller to the DispatcherServlet, where the RestControllerAdvice handler converts it into a 404 ProblemDetail JSON response">
+      <rect x="10" y="60" width="150" height="56" rx="10" class="d-box"/><text x="85" y="84" text-anchor="middle" class="d-t">Service</text><text x="85" y="102" text-anchor="middle" class="d-xs">throw NotFound</text>
+      <path d="M160 88 H200" class="d-lbad" marker-end="url(#ab)"/>
+      <rect x="202" y="60" width="140" height="56" rx="10" class="d-box"/><text x="272" y="84" text-anchor="middle" class="d-t">Controller</text><text x="272" y="102" text-anchor="middle" class="d-xs">no try/catch</text>
+      <path d="M342 88 H382" class="d-lbad" marker-end="url(#ab)"/>
+      <rect x="384" y="60" width="150" height="56" rx="10" class="d-acc"/><text x="459" y="84" text-anchor="middle" class="d-t">DispatcherServlet</text><text x="459" y="102" text-anchor="middle" class="d-xs">ExceptionResolver</text>
+      <path d="M534 88 H574" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="576" y="40" width="270" height="96" rx="12" class="d-amb"/><text x="711" y="62" text-anchor="middle" class="d-t">@RestControllerAdvice</text>
+      <text x="594" y="86" class="d-xs">@ExceptionHandler(NotFound) → 404</text><text x="594" y="104" class="d-xs">MethodArgumentNotValid → 400</text><text x="594" y="122" class="d-xs">Exception (fallback) → 500, logged</text>
+      <text x="430" y="160" text-anchor="middle" class="d-s">Controllers stay clean; the error JSON has one source of truth.</text>
+    </svg></div></figure>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Domain exceptions + a global handler returning ProblemDetail">
+public class NotFoundException extends RuntimeException {
+    public NotFoundException(String msg) { super(msg); }
+}
+public class ConflictException extends RuntimeException {
+    public ConflictException(String msg) { super(msg); }
+}
+
+@RestControllerAdvice                                        // applies to ALL controllers
+public class GlobalExceptionHandler {
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(NotFoundException.class)
+    ProblemDetail notFound(NotFoundException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    ProblemDetail conflict(ConflictException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setType(URI.create("https://api.ramu.in/errors/conflict"));   // stable, documentable error type
+        return pd;
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ProblemDetail invalid(MethodArgumentNotValidException ex) {
+        ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        Map<String, String> errors = new LinkedHashMap<>();
+        ex.getBindingResult().getFieldErrors()
+          .forEach(e -> errors.putIfAbsent(e.getField(), e.getDefaultMessage()));
+        pd.setProperty("errors", errors);                    // field-level messages for the UI
+        return pd;
+    }
+
+    @ExceptionHandler(Exception.class)                       // last resort
+    ProblemDetail unexpected(Exception ex) {
+        log.error("Unhandled error", ex);                    // full stack trace in the LOGS only
+        return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong");
+    }
+}
+// spring.mvc.problemdetails.enabled=true also makes Spring's own errors (404 route, 405, 415) use this format.
+</script>
+
+<script type="text/x-code" data-lang="json" data-variant="plain" data-title="What the client receives (application/problem+json)">
+{
+  "type": "https://api.ramu.in/errors/conflict",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "Email already registered",
+  "instance": "/api/students"
+}
+</script>
+
+  <div class="box pitfall"><div class="box-tag">Common trap</div><p>Returning stack traces or SQL error text to clients leaks internals and helps attackers. Log the details with a correlation/trace id; return a clean message containing that id.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">One complaints desk, one apology card format.</p>
+    <p>Throw domain exceptions → <span class="hl">@RestControllerAdvice + @ExceptionHandler</span> → ProblemDetail. Specific handlers first, Exception.class last.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>@ControllerAdvice vs @RestControllerAdvice?</summary><div class="ans"><p>@RestControllerAdvice = @ControllerAdvice + @ResponseBody, so handler return values are written as the response body (JSON) rather than resolved as view names. Both apply globally (optionally narrowed by package or annotation).</p></div></details>
+    <details><summary>@ResponseStatus on an exception vs @ExceptionHandler?</summary><div class="ans"><p>@ResponseStatus on the exception class maps it to a status with no body customisation. @ExceptionHandler gives full control over status, headers and body, and keeps HTTP knowledge out of domain exceptions. ResponseStatusException is a quick inline option.</p></div></details>
+  </div>
+  {{done}}
+</section>

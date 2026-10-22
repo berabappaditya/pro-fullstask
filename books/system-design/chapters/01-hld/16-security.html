@@ -1,0 +1,87 @@
+<section class="chapter" id="ch-security" data-title="Security: AuthN, AuthZ, JWT, OAuth">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Security</div>
+    <h2>Security: authentication, authorization, JWT and OAuth</h2>
+    <p class="ch-oneline"><b>Authentication asks "who are you?"; authorization asks "what are you allowed to do?"</b> Every design should say how both happen.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>The flagship store's kitchen has a back door. Staff show an <strong>ID card</strong> to the guard to enter (<strong>authentication</strong>). Inside, a cook can use the stove but not open the cash safe; only the manager can (<strong>authorization</strong>, by role). Visitors get a <strong>wristband</strong> stamped with their access and an expiry time, so the guard doesn't phone the office every time; he just checks the stamp is genuine. That wristband is a <strong>JWT</strong>.</p></div>
+
+  <h3>Sessions vs tokens (JWT)</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Server session + cookie</th><th>JWT (JSON Web Token)</th></tr>
+    <tr><td>What the client holds</td><td>A random session ID</td><td>A signed token containing user ID, roles, expiry</td></tr>
+    <tr><td>Server work per request</td><td>Look up the session in Redis/DB</td><td>Verify the signature; no lookup</td></tr>
+    <tr><td>Logout / revoke</td><td>Easy: delete the session</td><td>Hard: valid until expiry (use short expiry + refresh tokens, or a denylist)</td></tr>
+    <tr><td>Scaling</td><td>Needs a shared session store</td><td>Stateless; any service can verify</td></tr>
+    <tr><td>Good for</td><td>Classic web apps</td><td>APIs, mobile apps, microservices</td></tr>
+  </table></div>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 800 110" role="img" aria-label="A JWT has three base64 parts separated by dots: header, payload and signature">
+      <rect x="20" y="20" width="220" height="50" rx="8" class="d-bad"/><text x="130" y="42" text-anchor="middle" class="d-t">Header</text><text x="130" y="60" text-anchor="middle" class="d-m">{"alg":"RS256"}</text>
+      <text x="252" y="52" class="d-tl">.</text>
+      <rect x="265" y="20" width="290" height="50" rx="8" class="d-vio"/><text x="410" y="42" text-anchor="middle" class="d-t">Payload (claims) · readable by anyone!</text><text x="410" y="60" text-anchor="middle" class="d-m">{"sub":"u42","role":"STAFF","exp":17..}</text>
+      <text x="567" y="52" class="d-tl">.</text>
+      <rect x="580" y="20" width="200" height="50" rx="8" class="d-acc"/><text x="680" y="42" text-anchor="middle" class="d-t">Signature</text><text x="680" y="60" text-anchor="middle" class="d-m">sign(header.payload)</text>
+      <text x="400" y="96" text-anchor="middle" class="d-s">Signed, not encrypted: never put secrets in the payload. The signature proves nobody changed it.</text>
+    </svg></div>
+  </figure>
+
+  <h3>OAuth 2.0: "Login with Google", step by step</h3>
+  <ol class="steps">
+    <li><b>Redirect</b>Your app sends the user to Google's login page with your client ID and the permissions (scopes) you want.</li>
+    <li><b>User consents</b>The user logs in at Google (your app never sees the password) and approves.</li>
+    <li><b>Authorization code</b>Google redirects back to your app with a short-lived code.</li>
+    <li><b>Exchange</b>Your backend swaps the code (plus its client secret, or PKCE verifier for mobile/SPA) for an access token, and with OpenID Connect an ID token saying who the user is.</li>
+    <li><b>Use</b>Your app creates its own session or JWT for the user and may call Google APIs with the access token.</li>
+  </ol>
+  <p class="small"><strong>OAuth 2.0</strong> is about <em>authorization</em> (granting access); <strong>OpenID Connect</strong> adds <em>authentication</em> (identity) on top.</p>
+
+  <h3>Common attacks and the standard defence</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Attack</th><th>What happens</th><th>Defence</th></tr>
+    <tr><td>SQL injection</td><td>User input changes your SQL: <code>' OR '1'='1</code></td><td>Parameterised queries / JPA, never string concatenation</td></tr>
+    <tr><td>XSS</td><td>Attacker's script runs in other users' browsers</td><td>Escape output, Content-Security-Policy, HttpOnly cookies</td></tr>
+    <tr><td>CSRF</td><td>Another site makes your logged-in browser send a request</td><td>CSRF tokens, SameSite cookies</td></tr>
+    <tr><td>Credential stuffing / brute force</td><td>Leaked passwords tried at scale</td><td>Rate limiting, MFA, lockouts, bcrypt/argon2 hashing</td></tr>
+    <tr><td>DDoS</td><td>Flood of traffic</td><td>CDN/WAF (Cloudflare, AWS Shield), rate limits, autoscaling</td></tr>
+    <tr><td>Man-in-the-middle</td><td>Traffic read or changed in transit</td><td>HTTPS/TLS everywhere, HSTS, mTLS between services</td></tr>
+  </table></div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: SQL injection and plain-text passwords">
+public User login(String email, String password) {
+    // email = "x' OR '1'='1' --"  logs in as the first user in the table
+    String sql = "SELECT * FROM users WHERE email = '" + email +
+                 "' AND password = '" + password + "'";   // password stored as-is!
+    return jdbc.queryForObject(sql, userMapper);
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: parameterised query + bcrypt hash comparison">
+private final PasswordEncoder encoder = new BCryptPasswordEncoder(12); // slow on purpose
+
+public User login(String email, String rawPassword) {
+    User user = jdbc.query(
+            "SELECT id, email, password_hash, role FROM users WHERE email = ?",
+            userMapper, email)                   // ? is bound as data, never as SQL
+        .stream().findFirst()
+        .orElseThrow(BadCredentialsException::new);
+    // compare against the salted hash; we never store or log the raw password
+    if (!encoder.matches(rawPassword, user.passwordHash()))
+        throw new BadCredentialsException();     // same error: don't reveal which part failed
+    return user;
+}
+</script>
+</div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">ID card at the door (AuthN), keys to the rooms (AuthZ), stamped wristband (JWT).</p>
+    <p><strong>HTTPS everywhere, hash passwords with bcrypt, parameterise SQL, short-lived tokens + refresh tokens, least privilege (RBAC).</strong> JWTs are signed, not secret.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How would you handle auth across 20 microservices?</summary><div class="ans"><p>Authenticate once at the edge (API gateway or an auth service via OAuth2/OIDC). Issue short-lived JWTs signed with a private key; services verify with the public key (JWKS) without calling the auth service. Pass the user identity downstream; use mTLS or a service mesh for service-to-service trust; enforce authorization (roles/scopes) in each service for its own resources.</p></div></details>
+    <details><summary>How do you log out a user who has a JWT?</summary><div class="ans"><p>Keep access tokens short (5–15 minutes) and use refresh tokens stored server-side; logout revokes the refresh token. For immediate revocation, keep a small denylist of token IDs (jti) in Redis until they expire, or a per-user "tokens valid after" timestamp.</p></div></details>
+  </div>
+  {{done}}
+</section>

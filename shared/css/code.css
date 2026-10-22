@@ -1,0 +1,16 @@
+/* ---------- code ---------- */
+figure.code{margin:18px 0; border-radius:12px; overflow:hidden; background:var(--code-bg); border:1px solid var(--code-head); min-width:0}
+figure.code figcaption{display:flex; align-items:center; gap:10px; padding:8px 14px; background:var(--code-head); color:#C3CEE0; font:600 12.5px var(--f-body)}
+.code-title{flex:1; min-width:0}
+.code-lang{font:600 11px var(--f-mono); color:#7F8DA6; text-transform:uppercase}
+.badge{font:700 10.5px var(--f-body); letter-spacing:.07em; text-transform:uppercase; padding:3px 8px; border-radius:99px}
+.badge-bad{background:#5A1F1B; color:#FFB4AB} .badge-good{background:#0F4733; color:#9BEBC6}
+.code-bad{box-shadow:inset 3px 0 0 #E2584B} .code-good{box-shadow:inset 3px 0 0 #3FC48D}
+figure.code pre{margin:0; padding:14px 16px; overflow-x:auto; font:13px/1.65 var(--f-mono); color:var(--code-fg); tab-size:4}
+figure.code code{background:none; color:inherit; padding:0; font:inherit}
+.t-kw{color:var(--c-kw)} .t-type{color:var(--c-type)} .t-str{color:var(--c-str)} .t-com{color:var(--c-com); font-style:italic} .t-ann{color:var(--c-ann)} .t-num{color:var(--c-num)} .t-fn{color:var(--c-fn)}
+.compare{display:grid; grid-template-columns:1fr; gap:4px; margin:18px 0}
+.compare figure.code{margin:8px 0}
+.compare-label{font:700 12px var(--f-body); letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); margin:14px 0 -2px}
+.copy-btn{background:#24324A;color:#C3CEE0;border:0;cursor:pointer}
+.copy-btn:hover{background:#2F4163}

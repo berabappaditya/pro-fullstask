@@ -1,0 +1,52 @@
+<section class="chapter" id="ch-cloud-basics" data-title="Cloud basics: models, regions, responsibility">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Foundations</div>
+    <h2>Cloud basics: service models, regions and shared responsibility</h2>
+    <p class="ch-oneline"><b>The cloud is renting computing on demand, paid by use.</b> The more managed the service, the less you operate and the less you control.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>Ramu can rent an <strong>empty kitchen shell</strong> and bring his own stoves and staff (IaaS), rent a <strong>fully equipped kitchen</strong> where he just cooks (PaaS), or simply <strong>order from another restaurant</strong> and resell (SaaS). The food court has several <strong>buildings in each city</strong> (availability zones) and branches in many cities (regions), so a fire in one building doesn't close him down.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 260" role="img" aria-label="Responsibility stack for on-premises, IaaS, PaaS, serverless and SaaS: you manage fewer layers as you move right">
+      <g class="d-xs">
+        <text x="20" y="64">Application &amp; data</text><text x="20" y="98">Runtime</text><text x="20" y="132">OS &amp; patches</text><text x="20" y="166">Virtualisation</text><text x="20" y="200">Servers, network</text><text x="20" y="234">Data centre</text>
+      </g>
+      <text x="230" y="30" text-anchor="middle" class="d-t">On-prem</text><text x="360" y="30" text-anchor="middle" class="d-t">IaaS</text><text x="490" y="30" text-anchor="middle" class="d-t">PaaS</text><text x="620" y="30" text-anchor="middle" class="d-t">Serverless</text><text x="750" y="30" text-anchor="middle" class="d-t">SaaS</text>
+      <text x="360" y="46" text-anchor="middle" class="d-xs">EC2, GCE</text><text x="490" y="46" text-anchor="middle" class="d-xs">Beanstalk, App Engine</text><text x="620" y="46" text-anchor="middle" class="d-xs">Lambda, Cloud Run</text><text x="750" y="46" text-anchor="middle" class="d-xs">Gmail, Salesforce</text>
+      <g>
+        <rect x="170" y="52" width="120" height="28" rx="5" class="d-vio"/><rect x="170" y="86" width="120" height="28" rx="5" class="d-vio"/><rect x="170" y="120" width="120" height="28" rx="5" class="d-vio"/><rect x="170" y="154" width="120" height="28" rx="5" class="d-vio"/><rect x="170" y="188" width="120" height="28" rx="5" class="d-vio"/><rect x="170" y="222" width="120" height="28" rx="5" class="d-vio"/>
+        <rect x="300" y="52" width="120" height="28" rx="5" class="d-vio"/><rect x="300" y="86" width="120" height="28" rx="5" class="d-vio"/><rect x="300" y="120" width="120" height="28" rx="5" class="d-vio"/><rect x="300" y="154" width="120" height="28" rx="5" class="d-good"/><rect x="300" y="188" width="120" height="28" rx="5" class="d-good"/><rect x="300" y="222" width="120" height="28" rx="5" class="d-good"/>
+        <rect x="430" y="52" width="120" height="28" rx="5" class="d-vio"/><rect x="430" y="86" width="120" height="28" rx="5" class="d-good"/><rect x="430" y="120" width="120" height="28" rx="5" class="d-good"/><rect x="430" y="154" width="120" height="28" rx="5" class="d-good"/><rect x="430" y="188" width="120" height="28" rx="5" class="d-good"/><rect x="430" y="222" width="120" height="28" rx="5" class="d-good"/>
+        <rect x="560" y="52" width="120" height="28" rx="5" class="d-vio"/><rect x="560" y="86" width="120" height="28" rx="5" class="d-good"/><rect x="560" y="120" width="120" height="28" rx="5" class="d-good"/><rect x="560" y="154" width="120" height="28" rx="5" class="d-good"/><rect x="560" y="188" width="120" height="28" rx="5" class="d-good"/><rect x="560" y="222" width="120" height="28" rx="5" class="d-good"/>
+        <rect x="690" y="52" width="120" height="28" rx="5" class="d-good"/><rect x="690" y="86" width="120" height="28" rx="5" class="d-good"/><rect x="690" y="120" width="120" height="28" rx="5" class="d-good"/><rect x="690" y="154" width="120" height="28" rx="5" class="d-good"/><rect x="690" y="188" width="120" height="28" rx="5" class="d-good"/><rect x="690" y="222" width="120" height="28" rx="5" class="d-good"/>
+      </g>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Violet = you manage, green = the provider manages. Even in SaaS you still own your data, identities and configuration.</figcaption></figure>
+
+  <h3>Regions, availability zones and edge locations</h3>
+  <div class="cards">
+    <div class="card"><span class="k">region</span><h5>A geographic area</h5><p>e.g. <code>ap-south-1</code> (Mumbai), <code>asia-south1</code> (GCP Mumbai). Choose by latency to users, data-residency law and service availability. Data doesn't leave a region unless you send it.</p></div>
+    <div class="card"><span class="k">availability zone</span><h5>Isolated data centres in a region</h5><p>Separate power, cooling and network, a few km apart, connected by low-latency links. <strong>Spread across at least 2 AZs</strong> for high availability.</p></div>
+    <div class="card"><span class="k">edge location</span><h5>Points of presence near users</h5><p>Hundreds of sites used by CDNs (CloudFront, Cloud CDN) and DNS to serve content close to users.</p></div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Pricing model</th><th>How it works</th><th>Use for</th></tr>
+    <tr><td>On-demand</td><td>pay per second/hour, no commitment</td><td>spiky or unknown workloads</td></tr>
+    <tr><td>Savings Plans / Reserved / Committed use</td><td>commit 1–3 years for large discounts</td><td>steady baseline load</td></tr>
+    <tr><td>Spot / Preemptible (Spot VMs)</td><td>spare capacity at deep discounts, can be reclaimed with short notice</td><td>batch jobs, CI runners, stateless workers</td></tr>
+    <tr><td>Serverless</td><td>pay per request and execution time</td><td>bursty, event-driven, low-traffic services</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Empty shell, equipped kitchen, or just order in.</p>
+    <p>IaaS → PaaS → serverless → SaaS: <span class="hl">less to operate, less control</span>. Region = geography, AZ = isolated building; deploy across 2+ AZs. The provider secures the cloud; you secure what you put in it.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What is the shared responsibility model?</summary><div class="ans"><p>The provider is responsible for security <em>of</em> the cloud (data centres, hardware, hypervisor, managed-service internals). The customer is responsible for security <em>in</em> the cloud: IAM, network rules, OS patching on VMs, application code, data encryption choices and configuration. The line moves toward the provider as you use more managed services.</p></div></details>
+    <details><summary>How do you choose a region?</summary><div class="ans"><p>Latency to most users, legal/data-residency requirements (e.g. Indian payment data rules), availability of the services you need, price differences between regions, and a second region for disaster recovery if required.</p></div></details>
+  </div>
+  {{done}}
+</section>

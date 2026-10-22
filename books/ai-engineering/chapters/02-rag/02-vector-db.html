@@ -1,0 +1,66 @@
+<section class="chapter" id="ch-vector-db" data-title="Vector databases and ANN indexes">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>RAG</div>
+    <h2>Vector databases and approximate nearest-neighbour search</h2>
+    <p class="ch-oneline"><b>Comparing a query with millions of vectors one by one is too slow; ANN indexes like HNSW find the nearest ones in milliseconds by trading a little accuracy.</b></p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>To find the dish nearest to "spicy and warm" on a map with a million dishes, the assistant doesn't measure every dish. He uses <strong>highways between regions</strong>, then <strong>local roads</strong>, then walks the last street (HNSW's layers). He might occasionally miss the very closest one, but he's a thousand times faster.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 240" role="img" aria-label="HNSW: a multi-layer graph; search starts at a sparse top layer, greedily moves toward the query, and descends to denser layers until the bottom layer gives the nearest neighbours">
+      <g class="d-xs">
+        <text x="20" y="40">layer 2 (few nodes, long links)</text><text x="20" y="110">layer 1</text><text x="20" y="190">layer 0 (all vectors)</text>
+      </g>
+      <line x1="240" y1="36" x2="560" y2="36" class="d-line"/><circle cx="240" cy="36" r="8" class="d-box"/><circle cx="560" cy="36" r="8" class="d-acc"/><circle cx="760" cy="36" r="8" class="d-box"/><line x1="560" y1="36" x2="760" y2="36" class="d-line"/>
+      <g><line x1="240" y1="106" x2="400" y2="106" class="d-line"/><line x1="400" y1="106" x2="560" y2="106" class="d-line"/><line x1="560" y1="106" x2="660" y2="106" class="d-line"/><line x1="660" y1="106" x2="760" y2="106" class="d-line"/>
+      <circle cx="240" cy="106" r="7" class="d-box"/><circle cx="400" cy="106" r="7" class="d-box"/><circle cx="560" cy="106" r="7" class="d-box"/><circle cx="660" cy="106" r="8" class="d-acc"/><circle cx="760" cy="106" r="7" class="d-box"/></g>
+      <g><line x1="240" y1="186" x2="800" y2="186" class="d-line"/>
+      <circle cx="240" cy="186" r="6" class="d-box"/><circle cx="320" cy="186" r="6" class="d-box"/><circle cx="400" cy="186" r="6" class="d-box"/><circle cx="480" cy="186" r="6" class="d-box"/><circle cx="560" cy="186" r="6" class="d-box"/><circle cx="620" cy="186" r="6" class="d-box"/><circle cx="660" cy="186" r="6" class="d-box"/><circle cx="690" cy="186" r="8" class="d-good"/><circle cx="720" cy="186" r="8" class="d-good"/><circle cx="760" cy="186" r="6" class="d-box"/><circle cx="800" cy="186" r="6" class="d-box"/></g>
+      <path d="M240 46 C300 60,500 40,552 38" class="d-lacc d-flow" marker-end="url(#aa)"/>
+      <path d="M560 46 L560 96" class="d-lacc d-dash" marker-end="url(#aa)"/><path d="M566 106 L650 106" class="d-lacc" marker-end="url(#aa)"/>
+      <path d="M660 116 L688 176" class="d-lacc d-dash" marker-end="url(#aa)"/>
+      <rect x="640" y="200" width="130" height="30" rx="8" class="d-good"/><text x="705" y="220" text-anchor="middle" class="d-xs">top-k results</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> HNSW (Hierarchical Navigable Small World): search is roughly logarithmic in the number of vectors. Parameters (M, ef) trade recall for speed and memory.</figcaption></figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Option</th><th>Type</th><th>Good when</th></tr>
+    <tr><td><b>PostgreSQL + pgvector</b></td><td>extension (HNSW, IVFFlat)</td><td>you already run Postgres; up to tens of millions of vectors; SQL filters and joins with business data</td></tr>
+    <tr><td>OpenSearch / Elasticsearch</td><td>search engine with vectors</td><td>hybrid keyword + vector search, existing search stack</td></tr>
+    <tr><td>Redis</td><td>in-memory vector search</td><td>low-latency, smaller datasets, semantic caching</td></tr>
+    <tr><td>Pinecone, Weaviate, Qdrant, Milvus</td><td>dedicated vector DBs</td><td>very large scale, managed scaling, advanced filtering</td></tr>
+    <tr><td>Cloud: Aurora/Cloud SQL pgvector, Vertex AI Vector Search, OpenSearch Serverless, S3 Vectors</td><td>managed</td><td>staying inside one cloud</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="sql" data-variant="good" data-title="pgvector: store, index, filter and search">
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE doc_chunks (
+  id         bigserial PRIMARY KEY,
+  doc_id     text NOT NULL,
+  tenant_id  text NOT NULL,                 -- metadata for filtering and access control
+  content    text NOT NULL,
+  embedding  vector(1536) NOT NULL
+);
+CREATE INDEX ON doc_chunks USING hnsw (embedding vector_cosine_ops);   -- ANN index
+
+-- top 5 chunks for this tenant, by cosine distance (<=> operator)
+SELECT id, doc_id, content, 1 - (embedding <=> :query_vec) AS similarity
+FROM doc_chunks
+WHERE tenant_id = :tenant                    -- filter BEFORE/while searching: users only see their docs
+ORDER BY embedding <=> :query_vec
+LIMIT 5;
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Highways, then local roads, then the street.</p>
+    <p>ANN (HNSW, IVF) = fast, <span class="hl">approximately</span> nearest. Store chunks + metadata; filter by tenant/permissions; start with pgvector if you have Postgres.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Do you need a dedicated vector database?</summary><div class="ans"><p>Often not. pgvector in an existing Postgres handles millions of vectors with HNSW, keeps data and permissions transactional with your business tables, and avoids a new system. Dedicated vector DBs help at very large scale (hundreds of millions+), with heavy filtering at high QPS, or when you want managed sharding and hybrid features out of the box.</p></div></details>
+    <details><summary>What is recall in ANN search and how do you tune it?</summary><div class="ans"><p>The fraction of the true nearest neighbours the index returns. HNSW: higher M (links per node) and ef_construction improve index quality; higher ef_search improves recall per query at the cost of latency. Measure against exact search on a sample.</p></div></details>
+  </div>
+  {{done}}
+</section>

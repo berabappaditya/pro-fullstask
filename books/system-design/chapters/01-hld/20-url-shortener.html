@@ -1,0 +1,119 @@
+<section class="chapter" id="ch-url" data-title="Case study: URL shortener">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Case study</div>
+    <h2>Case study: design a URL shortener</h2>
+    <p class="ch-oneline"><b>Turn a long URL into a short code like <code>chai.ly/aZ3kP9q</code> and redirect anyone who opens it.</b> The most common first HLD question, walked through with the framework.</p>
+  </header>
+
+  <h3>Step 1 · Requirements</h3>
+  <div class="cards">
+    <div class="card"><h5>Functional</h5><ul><li>Create a short URL for a long URL</li><li>Redirect short → long</li><li>Optional custom alias and expiry</li><li>Click analytics (counts)</li></ul></div>
+    <div class="card"><h5>Non-functional</h5><ul><li>Very low redirect latency (&lt; 50 ms)</li><li>Highly available: broken links are unacceptable</li><li>Codes not guessable in sequence</li><li>Read-heavy (~100 reads per write)</li></ul></div>
+  </div>
+
+  <h3>Step 2 · Estimation</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Quantity</th><th>Working</th><th>Result</th></tr>
+    <tr><td>New URLs</td><td>10M/day ÷ 10<sup>5</sup></td><td class="num">~100 writes/s</td></tr>
+    <tr><td>Redirects</td><td>100 × writes = 1B/day ÷ 10<sup>5</sup></td><td class="num">~10,000 reads/s (peak ~30K)</td></tr>
+    <tr><td>Storage</td><td>10M × 500 B × 365 × 5 years</td><td class="num">~9 TB over 5 years</td></tr>
+    <tr><td>Code length</td><td>Base62 (a–z, A–Z, 0–9): 62<sup>7</sup></td><td class="num">≈ 3.5 trillion codes: 7 chars is plenty</td></tr>
+    <tr><td>Cache</td><td>20% of daily hot links: 0.2 × 1B reads hit ~few M URLs × 500 B</td><td class="num">a few GB in Redis</td></tr>
+  </table></div>
+
+  <h3>Step 3 · API and data model</h3>
+<script type="text/x-code" data-lang="http" data-variant="plain" data-title="API">
+POST /v1/urls                       # create
+{ "longUrl": "https://ramuchai.in/menu?campaign=diwali", "alias": "diwali", "expiresAt": "2026-12-31" }
+-> 201 { "shortUrl": "https://chai.ly/diwali" }
+
+GET /{code}                         # redirect
+-> 302 Found   Location: https://ramuchai.in/menu?campaign=diwali
+
+GET /v1/urls/{code}/stats           # analytics
+-> 200 { "clicks": 18240, "byCountry": {...} }
+</script>
+  <p><strong>301 or 302?</strong> 301 (permanent) lets browsers cache the redirect, which saves load but hides repeat clicks from analytics. 302 (temporary) sends every click through you, so analytics are accurate. Most shorteners with analytics use 302.</p>
+  <p><strong>Data model:</strong> one main table, accessed purely by key. A key-value / wide-column store (DynamoDB, Cassandra) or sharded MySQL keyed by <code>code</code> both work.</p>
+<script type="text/x-code" data-lang="sql" data-variant="plain" data-title="Table">
+CREATE TABLE urls (
+  code        VARCHAR(10) PRIMARY KEY,   -- the short code, also the shard key
+  long_url    VARCHAR(2048) NOT NULL,
+  user_id     BIGINT,
+  created_at  TIMESTAMP NOT NULL,
+  expires_at  TIMESTAMP NULL
+);
+</script>
+
+  <h3>Step 4 · High-level design</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 330" role="img" aria-label="URL shortener architecture with load balancer, write and redirect services, key generation service, Redis cache, database and analytics pipeline via Kafka">
+      <rect x="10" y="140" width="90" height="50" rx="10" class="d-vio"/><text x="55" y="170" text-anchor="middle" class="d-t">Client</text>
+      <rect x="130" y="140" width="100" height="50" rx="10" class="d-amb"/><text x="180" y="163" text-anchor="middle" class="d-t">LB / API</text><text x="180" y="179" text-anchor="middle" class="d-xs">gateway</text>
+      <rect x="290" y="50" width="150" height="56" rx="10" class="d-box"/><text x="365" y="75" text-anchor="middle" class="d-t">Shorten service</text><text x="365" y="92" text-anchor="middle" class="d-xs">~100 req/s</text>
+      <rect x="290" y="220" width="150" height="56" rx="10" class="d-box"/><text x="365" y="245" text-anchor="middle" class="d-t">Redirect service</text><text x="365" y="262" text-anchor="middle" class="d-xs">~10K–30K req/s</text>
+      <rect x="500" y="10" width="160" height="50" rx="10" class="d-teal"/><text x="580" y="32" text-anchor="middle" class="d-t">Key Generation Svc</text><text x="580" y="48" text-anchor="middle" class="d-xs">hands out ID ranges</text>
+      <rect x="500" y="130" width="160" height="60" rx="10" class="d-good"/><text x="580" y="156" text-anchor="middle" class="d-t">URL DB</text><text x="580" y="174" text-anchor="middle" class="d-xs">sharded by code + replicas</text>
+      <rect x="500" y="230" width="160" height="50" rx="10" class="d-amb"/><text x="580" y="252" text-anchor="middle" class="d-t">Redis cache</text><text x="580" y="268" text-anchor="middle" class="d-xs">code → long URL, LRU</text>
+      <rect x="710" y="230" width="140" height="50" rx="10" class="d-vio"/><text x="780" y="252" text-anchor="middle" class="d-t">Kafka: clicks</text><text x="780" y="268" text-anchor="middle" class="d-xs">async</text>
+      <rect x="710" y="130" width="140" height="60" rx="10" class="d-box"/><text x="780" y="156" text-anchor="middle" class="d-t">Analytics</text><text x="780" y="174" text-anchor="middle" class="d-xs">workers + OLAP store</text>
+      <path d="M100 165 H128" class="d-line" marker-end="url(#ah)"/>
+      <path d="M230 155 C260 150,260 85,288 80" class="d-line" marker-end="url(#ah)"/>
+      <path d="M230 175 C260 180,260 245,288 248" class="d-lacc" marker-end="url(#aa)"/>
+      <path d="M440 68 C470 60,470 38,498 36" class="d-lgood" marker-end="url(#ag)"/><text x="470" y="30" text-anchor="middle" class="d-xs">next id</text>
+      <path d="M440 88 C470 100,470 150,498 155" class="d-lgood" marker-end="url(#ag)"/><text x="455" y="128" class="d-xs">insert</text>
+      <path d="M440 240 C470 240,470 252,498 254" class="d-lamb" marker-end="url(#am)"/><text x="468" y="232" text-anchor="middle" class="d-xs">① get</text>
+      <path d="M440 232 C480 220,470 180,498 172" class="d-lgood d-dash" marker-end="url(#ag)"/><text x="470" y="205" text-anchor="middle" class="d-xs">② on miss</text>
+      <path d="M440 268 C560 320,700 310,778 282" class="d-lvio d-flow" marker-end="url(#av)"/><text x="610" y="318" text-anchor="middle" class="d-xs">③ publish click event (doesn't slow the redirect)</text>
+      <path d="M780 230 V192" class="d-lvio" marker-end="url(#av)"/>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Reads and writes are separate services because their scale differs by 100×. The redirect path is: cache → DB on miss → 302, with the click logged asynchronously.</figcaption>
+  </figure>
+
+  <h3>Step 5 · Deep dive: generating the short code</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Approach</th><th>How</th><th>Pros</th><th>Cons</th></tr>
+    <tr><td>Hash the URL</td><td>MD5/SHA-256 of the long URL, take first 7 base62 chars</td><td>Same URL → same code (dedup)</td><td>Collisions: must check DB and re-hash; the extra read costs latency</td></tr>
+    <tr><td>Counter + Base62</td><td>Unique numeric ID (Snowflake, or a DB/ZooKeeper range allocator) → encode in base62</td><td>No collisions, ever; short codes</td><td>Sequential codes are guessable (scramble with a bijective shuffle); needs a reliable ID source</td></tr>
+    <tr><td>Pre-generated keys (KGS)</td><td>A service pre-creates random unused codes and hands out batches</td><td>Fast, random, collision-free</td><td>Extra service; must not hand the same batch to two servers</td></tr>
+  </table></div>
+  <p>A solid answer: <strong>range-based counter</strong>. Each shorten-service instance asks the KGS for a block of 1,000 IDs (e.g. 5,000,000–5,000,999), uses them from memory, and asks again when it runs out. No coordination per request; a crash just wastes the rest of a block.</p>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Base62 encoding: number ↔ short code">
+public final class Base62 {
+    private static final String ALPHABET =
+        "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"; // 62 symbols
+
+    public static String encode(long n) {
+        if (n == 0) return "0";
+        StringBuilder sb = new StringBuilder();
+        while (n > 0) {
+            sb.append(ALPHABET.charAt((int) (n % 62)));  // least significant digit first
+            n /= 62;
+        }
+        return sb.reverse().toString();   // e.g. 125_000_000_000L -> "2crtgcg"
+    }
+
+    public static long decode(String code) {
+        long n = 0;
+        for (char c : code.toCharArray())
+            n = n * 62 + ALPHABET.indexOf(c);            // reverse of encode
+        return n;
+    }
+}
+</script>
+
+  <h3>Other deep dives worth mentioning</h3>
+  <div class="cards">
+    <div class="card"><h5>Caching</h5><p>Links follow a power law: a few go viral. Cache-aside in Redis with LRU; most redirects never touch the DB.</p></div>
+    <div class="card"><h5>Custom aliases</h5><p>Insert with a uniqueness check (conditional put / unique key); reject if taken.</p></div>
+    <div class="card"><h5>Expiry</h5><p>Check <code>expires_at</code> on read (lazy), plus a background job to delete expired rows. Use DB TTL if supported.</p></div>
+    <div class="card"><h5>Abuse</h5><p>Rate-limit creation per user/IP; scan long URLs against malware lists.</p></div>
+    <div class="card"><h5>Availability</h5><p>Replicate the DB across zones; the redirect path depends only on cache + DB read replicas.</p></div>
+    <div class="card"><h5>Analytics</h5><p>Click events → Kafka → aggregators → a columnar store (ClickHouse). Never on the redirect's critical path.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">7 chars of Base62, counter in ranges, cache the hot links, 302 for analytics.</p>
+    <p>Read-heavy (100:1) → separate read path, aggressive caching. Codes from a <span class="hl">collision-free ID source + Base62</span>. Analytics asynchronously through a queue.</p></div>
+  {{done}}
+</section>

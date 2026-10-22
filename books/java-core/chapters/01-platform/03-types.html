@@ -1,0 +1,65 @@
+<section class="chapter" id="ch-types" data-title="Types, wrappers and casting">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Platform</div>
+    <h2>Types, wrappers and casting</h2>
+    <p class="ch-oneline"><b>Java has 8 primitive types that hold values directly, and objects that are reached by reference.</b> Wrappers like <code>Integer</code> bridge the two, with a few famous traps.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>Small things like a pinch of salt go straight into the pot (a primitive: the value itself). Bigger things come in a <strong>labelled jar</strong> on a shelf, and the recipe just says which jar (an object reference). Sometimes a machine only accepts jars, so Ramu puts his pinch of salt into a tiny jar first. That's <strong>boxing</strong>.</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Primitive</th><th>Size</th><th>Range / note</th><th>Wrapper</th><th>Default (field)</th></tr>
+    <tr><td><code>byte</code></td><td class="num">8 bit</td><td>-128 to 127</td><td>Byte</td><td>0</td></tr>
+    <tr><td><code>short</code></td><td class="num">16 bit</td><td>-32,768 to 32,767</td><td>Short</td><td>0</td></tr>
+    <tr><td><code>int</code></td><td class="num">32 bit</td><td>about ±2.1 billion</td><td>Integer</td><td>0</td></tr>
+    <tr><td><code>long</code></td><td class="num">64 bit</td><td>about ±9.2 × 10<sup>18</sup></td><td>Long</td><td>0L</td></tr>
+    <tr><td><code>float</code></td><td class="num">32 bit</td><td>~7 decimal digits</td><td>Float</td><td>0.0f</td></tr>
+    <tr><td><code>double</code></td><td class="num">64 bit</td><td>~15 decimal digits</td><td>Double</td><td>0.0</td></tr>
+    <tr><td><code>char</code></td><td class="num">16 bit</td><td>a UTF-16 code unit</td><td>Character</td><td>'\u0000'</td></tr>
+    <tr><td><code>boolean</code></td><td>JVM-dependent</td><td>true / false</td><td>Boolean</td><td>false</td></tr>
+  </table></div>
+  <p class="small">Local variables have no default: the compiler forces you to assign before use. Fields get the defaults above; object fields default to <code>null</code>.</p>
+
+  <h3>Autoboxing and its traps</h3>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Three classic bugs">
+Integer a = 127, b = 127;
+System.out.println(a == b);     // true  (cached Integer objects -128..127)
+Integer c = 128, d = 128;
+System.out.println(c == d);     // false (two different objects!) == compares references
+
+Map<String, Integer> stock = new HashMap<>();
+int left = stock.get("samosa"); // NullPointerException: unboxing a null Integer
+
+Long sum = 0L;
+for (long i = 0; i < 1_000_000; i++) sum += i;  // creates ~1 million Long objects
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="The fixes">
+System.out.println(c.equals(d));            // true: compare VALUES with equals()
+
+int left = stock.getOrDefault("samosa", 0); // never unbox a possibly-null wrapper
+
+long sum = 0L;                              // primitives in hot loops: no allocation
+for (long i = 0; i < 1_000_000; i++) sum += i;
+</script>
+</div>
+
+  <h3>Casting, overflow and money</h3>
+  <div class="cards">
+    <div class="card"><h5>Widening is automatic</h5><p><code>int → long → float → double</code> needs no cast and never loses magnitude.</p></div>
+    <div class="card"><h5>Narrowing needs a cast</h5><p><code>(int) 3.99</code> is 3 (truncates). <code>(byte) 200</code> is -56 (wraps around).</p></div>
+    <div class="card bad"><h5>Silent overflow</h5><p><code>Integer.MAX_VALUE + 1</code> becomes negative. Use <code>Math.addExact</code> to throw instead, or <code>long</code>.</p></div>
+    <div class="card bad"><h5>Floating point and money</h5><p><code>0.1 + 0.2 == 0.30000000000000004</code>. Use <code>BigDecimal</code> (from a String) for money.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">"Be Smart In Life, For Decent Coffee Brews": byte, short, int, long, float, double, char, boolean.</p>
+    <p>Compare wrappers with <code>equals</code>, never <code>==</code>. Never unbox something that can be null. <span class="hl">BigDecimal for money</span>, long for big counts.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Why does <code>Integer a = 100, b = 100; a == b</code> print true but 1000 prints false?</summary><div class="ans"><p><code>Integer.valueOf</code> (used by autoboxing) caches values from -128 to 127, so both variables reference the same cached object. Outside that range new objects are created, and == compares references, not values.</p></div></details>
+    <details><summary>Why can't you use primitives in generics like <code>List&lt;int&gt;</code>?</summary><div class="ans"><p>Generics work with object references (type erasure turns T into Object). Primitives aren't objects, so you use wrappers (<code>List&lt;Integer&gt;</code>) or primitive-specialised types like <code>IntStream</code> to avoid boxing.</p></div></details>
+  </div>
+  {{done}}
+</section>

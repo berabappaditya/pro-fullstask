@@ -1,0 +1,58 @@
+<section class="chapter" id="ch-boot4" data-title="What's new in Spring Boot 4">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Production</div>
+    <h2>What's new in Spring Boot 4 (and 4.1)</h2>
+    <p class="ch-oneline"><b>Boot 4.0 (November 2025) is a generational release on Spring Framework 7:</b> modular auto-configuration, Jackson 3, JSpecify null-safety, API versioning, HTTP service clients, and removal of everything deprecated in 3.x.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>Every few years Ramu redesigns the franchise kit. The new one is <strong>lighter</strong> (you only ship the parts you use), the <strong>labels are stricter</strong> (null-safety), the old phone-order forms are gone (deprecated APIs removed), and it fits the newest stoves (Java 25).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 170" role="img" aria-label="Timeline: Boot 3.0 November 2022, 3.5 May 2025, 4.0 November 2025, 4.1 June 2026">
+      <line x1="40" y1="70" x2="820" y2="70" class="d-line"/>
+      <circle cx="90" cy="70" r="12" class="d-box"/><text x="90" y="40" text-anchor="middle" class="d-t">3.0</text><text x="90" y="104" text-anchor="middle" class="d-xs">Nov 2022</text><text x="90" y="120" text-anchor="middle" class="d-xs">Java 17, Jakarta EE</text>
+      <circle cx="330" cy="70" r="12" class="d-box"/><text x="330" y="40" text-anchor="middle" class="d-t">3.5</text><text x="330" y="104" text-anchor="middle" class="d-xs">May 2025</text><text x="330" y="120" text-anchor="middle" class="d-xs">last 3.x line</text>
+      <circle cx="560" cy="70" r="14" class="d-good"/><text x="560" y="40" text-anchor="middle" class="d-t">4.0</text><text x="560" y="104" text-anchor="middle" class="d-xs">Nov 2025</text><text x="560" y="120" text-anchor="middle" class="d-xs">Framework 7, Jackson 3</text>
+      <circle cx="760" cy="70" r="14" class="d-good"/><text x="760" y="40" text-anchor="middle" class="d-t">4.1</text><text x="760" y="104" text-anchor="middle" class="d-xs">June 2026</text><text x="760" y="120" text-anchor="middle" class="d-xs">gRPC, lazy JDBC connections</text>
+      <text x="430" y="156" text-anchor="middle" class="d-s">Open-source support: 4.0 until Dec 2026, 4.1 until mid-2027. Plan upgrades yearly.</text>
+    </svg></div></figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Area</th><th>What changed</th><th>What you do</th></tr>
+    <tr><td>Baseline</td><td>Java 17+ (supports up to 25), Spring Framework 7, Jakarta EE 11 (Servlet 6.1, JPA 3.2), Hibernate 7, JUnit 6</td><td>upgrade to latest 3.5 first, fix deprecations, then 4.0</td></tr>
+    <tr><td>Modularisation</td><td>auto-configuration split into focused modules; starters renamed: <code>-web</code> → <code>-webmvc</code>; per-technology test starters</td><td>switch starter names (old ones still resolve, deprecated)</td></tr>
+    <tr><td>JSON</td><td>Jackson 3: packages <code>tools.jackson.*</code>, unchecked <code>JacksonException</code>, <code>JsonMapperBuilderCustomizer</code></td><td>update imports and customizers</td></tr>
+    <tr><td>Null safety</td><td>JSpecify <code>@Nullable</code>/<code>@NullMarked</code> across the portfolio</td><td>better IDE/Kotlin null checks</td></tr>
+    <tr><td>API versioning</td><td>built-in: <code>@GetMapping(version = "2")</code>, resolved from header, path, query or media type</td><td>configure <code>spring.mvc.apiversion.*</code></td></tr>
+    <tr><td>HTTP clients</td><td><code>@ImportHttpServices</code> auto-creates <code>@HttpExchange</code> clients with grouped config</td><td>replace hand-built proxies or Feign where useful</td></tr>
+    <tr><td>Resilience</td><td>Framework 7 core: <code>@Retryable</code>, <code>@ConcurrencyLimit</code> (<code>@EnableResilientMethods</code>)</td><td>simple retries without extra libraries</td></tr>
+    <tr><td>Testing</td><td><code>@MockBean</code>/<code>@SpyBean</code> removed → <code>@MockitoBean</code>/<code>@MockitoSpyBean</code>; <code>RestTestClient</code>; test annotations moved packages</td><td>search-and-replace, fix imports</td></tr>
+    <tr><td>Removed</td><td>Undertow support; everything deprecated in 3.x</td><td>Tomcat or Jetty</td></tr>
+    <tr><td>4.1 (June 2026)</td><td>Spring gRPC integration, lazy JDBC connection acquisition, SSRF protection for clients, <code>@RedisListener</code></td><td>opt in as needed</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="API versioning in Spring Framework 7 / Boot 4">
+// application.yml:  spring.mvc.apiversion.use.header: API-Version   (or path segment / query param)
+@RestController
+@RequestMapping("/api/orders")
+class OrderController {
+    @GetMapping(path = "/{id}", version = "1")      // API-Version: 1
+    OrderV1 getV1(@PathVariable Long id) { ... }
+
+    @GetMapping(path = "/{id}", version = "2+")     // API-Version: 2 and later
+    OrderV2 getV2(@PathVariable Long id) { ... }
+}
+</script>
+
+  <div class="box tip"><div class="box-tag">Interview tip</div><p>If asked "what's new?", pick three: <strong>modular starters</strong> (smaller apps, faster startup), <strong>Jackson 3 + JSpecify</strong> (safer code, a real migration step), and <strong>first-class API versioning + HTTP service clients</strong> (less custom code). Then say how you'd migrate: OpenRewrite recipes, the properties migrator module, and a staged rollout. Also good to know: Spring AI 2.0 is built on Boot 4 (see {{xref:ai-engineering/ch-spring-ai}}).</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Lighter kit, stricter labels, old forms gone.</p>
+    <p>Boot 4 = <span class="hl">Framework 7, Java 17–25, Jakarta EE 11, Jackson 3, modular starters, API versioning, @MockitoBean, no Undertow</span>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How would you migrate a Boot 2.7 service to Boot 4?</summary><div class="ans"><p>In steps: Java 17+, then Boot 3.x (javax → jakarta, Security 6 config style, Hibernate 6) using OpenRewrite; then the latest 3.5 with zero deprecation warnings; then 4.0 (starter renames, Jackson 3 imports, @MockitoBean, test package moves, removed properties via spring-boot-properties-migrator). Rely on a good integration test suite and deploy canary first.</p></div></details>
+  </div>
+  {{done}}
+</section>

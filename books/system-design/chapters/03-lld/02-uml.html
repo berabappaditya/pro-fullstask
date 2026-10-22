@@ -1,0 +1,160 @@
+<section class="chapter" id="ch-uml" data-title="UML, relationships, cohesion and coupling">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>LLD · Foundations</div>
+    <h2>UML class diagrams, relationships, cohesion and coupling</h2>
+    <p class="ch-oneline"><b>A class diagram is the floor plan of your code.</b> Six kinds of lines describe how classes relate, and two words, cohesion and coupling, describe whether the plan is any good.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>An <strong>order</strong> is made of <strong>order lines</strong> ("2 masala chai"). Tear up the order slip and its lines are gone too: that's <strong>composition</strong>. A <strong>stall</strong> has <strong>employees</strong>, but if the stall closes, Bablu still exists and joins another stall: that's <strong>aggregation</strong>. A <strong>customer</strong> places orders; both exist independently: <strong>association</strong>. The billing clerk borrows a calculator for a moment and gives it back: <strong>dependency</strong>.</p></div>
+
+  <h3>Reading a class box</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg viewBox="0 0 640 220" role="img" aria-label="A UML class box with three compartments: name, fields with visibility symbols, and methods">
+      <rect x="40" y="20" width="270" height="180" rx="4" class="d-box"/>
+      <line x1="40" y1="56" x2="310" y2="56" class="d-line"/><line x1="40" y1="122" x2="310" y2="122" class="d-line"/>
+      <text x="175" y="44" text-anchor="middle" class="d-tl">Order</text>
+      <text x="55" y="78" class="d-m">- id: long</text><text x="55" y="96" class="d-m">- lines: List&lt;OrderLine&gt;</text><text x="55" y="114" class="d-m"># status: OrderStatus</text>
+      <text x="55" y="145" class="d-m">+ addLine(item, qty): void</text><text x="55" y="163" class="d-m">+ total(): BigDecimal</text><text x="55" y="181" class="d-m">~ recalculate(): void</text>
+      <text x="340" y="44" class="d-t">① class name</text><text x="340" y="62" class="d-xs">italic = abstract; «interface» above the name</text>
+      <text x="340" y="96" class="d-t">② attributes (fields)</text>
+      <text x="340" y="160" class="d-t">③ operations (methods)</text>
+      <text x="340" y="196" class="d-s">+ public   - private   # protected   ~ package</text>
+    </svg></div>
+  </figure>
+
+  <h3>The six relationships</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 840 400" role="img" aria-label="Six UML relationships with their arrow styles and chai stall examples">
+      <g>
+        <rect x="20" y="20" width="120" height="36" rx="4" class="d-box"/><text x="80" y="43" text-anchor="middle" class="d-t">MasalaChai</text>
+        <rect x="300" y="20" width="120" height="36" rx="4" class="d-box"/><text x="360" y="43" text-anchor="middle" class="d-t">Chai</text>
+        <path d="M140 38 H298" class="d-line" marker-end="url(#tri)"/>
+        <text x="450" y="34" class="d-t">Inheritance (generalisation)</text><text x="450" y="52" class="d-s">solid line, hollow triangle · "is-a" · extends</text>
+      </g>
+      <g>
+        <rect x="20" y="85" width="120" height="36" rx="4" class="d-box"/><text x="80" y="108" text-anchor="middle" class="d-t">UpiPayment</text>
+        <rect x="300" y="85" width="120" height="36" rx="4" class="d-acc"/><text x="360" y="102" text-anchor="middle" class="d-xs">«interface»</text><text x="360" y="115" text-anchor="middle" class="d-t">PaymentMethod</text>
+        <path d="M140 103 H298" class="d-line d-dash" marker-end="url(#tri)"/>
+        <text x="450" y="99" class="d-t">Realisation (implementation)</text><text x="450" y="117" class="d-s">dashed line, hollow triangle · implements</text>
+      </g>
+      <g>
+        <rect x="20" y="150" width="120" height="36" rx="4" class="d-box"/><text x="80" y="173" text-anchor="middle" class="d-t">Customer</text>
+        <rect x="300" y="150" width="120" height="36" rx="4" class="d-box"/><text x="360" y="173" text-anchor="middle" class="d-t">Order</text>
+        <path d="M140 168 H298" class="d-line" marker-end="url(#open)"/>
+        <text x="152" y="162" class="d-m">1</text><text x="275" y="162" class="d-m">0..*</text>
+        <text x="450" y="164" class="d-t">Association</text><text x="450" y="182" class="d-s">solid line (arrow = direction) · "knows / uses" · a field</text>
+      </g>
+      <g>
+        <rect x="20" y="215" width="120" height="36" rx="4" class="d-box"/><text x="80" y="238" text-anchor="middle" class="d-t">Stall</text>
+        <rect x="300" y="215" width="120" height="36" rx="4" class="d-box"/><text x="360" y="238" text-anchor="middle" class="d-t">Employee</text>
+        <path d="M141 233 H298" class="d-line" marker-start="url(#diao)"/>
+        <text x="450" y="229" class="d-t">Aggregation (weak "has-a")</text><text x="450" y="247" class="d-s">hollow diamond at the whole · part can live on its own</text>
+      </g>
+      <g>
+        <rect x="20" y="280" width="120" height="36" rx="4" class="d-box"/><text x="80" y="303" text-anchor="middle" class="d-t">Order</text>
+        <rect x="300" y="280" width="120" height="36" rx="4" class="d-box"/><text x="360" y="303" text-anchor="middle" class="d-t">OrderLine</text>
+        <path d="M141 298 H298" class="d-line" marker-start="url(#dia)"/>
+        <text x="450" y="294" class="d-t">Composition (strong "has-a")</text><text x="450" y="312" class="d-s">filled diamond · part dies with the whole</text>
+      </g>
+      <g>
+        <rect x="20" y="345" width="120" height="36" rx="4" class="d-box"/><text x="80" y="368" text-anchor="middle" class="d-t">OrderService</text>
+        <rect x="300" y="345" width="120" height="36" rx="4" class="d-box"/><text x="360" y="368" text-anchor="middle" class="d-t">SmsSender</text>
+        <path d="M140 363 H298" class="d-line d-dash" marker-end="url(#open)"/>
+        <text x="450" y="359" class="d-t">Dependency</text><text x="450" y="377" class="d-s">dashed arrow · uses it briefly (parameter, local variable)</text>
+      </g>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> From strongest to weakest coupling: inheritance and composition bind tightly; dependency is the loosest.</figcaption>
+  </figure>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="The same six relationships in Java">
+class Chai { }
+class MasalaChai extends Chai { }                       // inheritance: is-a
+
+interface PaymentMethod { void pay(BigDecimal amt); }
+class UpiPayment implements PaymentMethod {             // realisation
+    public void pay(BigDecimal amt) { /* ... */ }
+}
+
+class Customer {
+    private final List<Order> orders = new ArrayList<>(); // association: knows its orders
+}
+
+class Stall {
+    private final List<Employee> staff;                 // aggregation: employees are
+    Stall(List<Employee> staff) { this.staff = staff; } // created elsewhere and passed in;
+}                                                       // they outlive the stall
+
+class Order {
+    private final List<OrderLine> lines = new ArrayList<>();
+    void addLine(Item item, int qty) {
+        lines.add(new OrderLine(item, qty));            // composition: Order CREATES and
+    }                                                   // owns its lines; no one else holds them
+}
+
+class OrderService {
+    void confirm(Order o, SmsSender sms) {              // dependency: used only inside
+        sms.send(o.customerPhone(), "Order confirmed"); // this method, not stored
+    }
+}
+</script>
+
+  <h3>Multiplicity</h3>
+  <p><code>1</code> exactly one · <code>0..1</code> optional · <code>*</code> or <code>0..*</code> any number · <code>1..*</code> at least one. "A Customer (1) places Orders (0..*)".</p>
+
+  <h3>Sequence diagrams: who calls whom, in what order</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 800 260" role="img" aria-label="Sequence diagram for placing an order: controller calls order service, which calls payment gateway and repository, then returns">
+      <g>
+        <rect x="30" y="15" width="130" height="34" rx="5" class="d-vio"/><text x="95" y="37" text-anchor="middle" class="d-t">:Controller</text>
+        <rect x="230" y="15" width="130" height="34" rx="5" class="d-box"/><text x="295" y="37" text-anchor="middle" class="d-t">:OrderService</text>
+        <rect x="430" y="15" width="150" height="34" rx="5" class="d-box"/><text x="505" y="37" text-anchor="middle" class="d-t">:PaymentGateway</text>
+        <rect x="640" y="15" width="130" height="34" rx="5" class="d-box"/><text x="705" y="37" text-anchor="middle" class="d-t">:OrderRepo</text>
+      </g>
+      <path d="M95 49 V250 M295 49 V250 M505 49 V250 M705 49 V250" class="d-line d-dash"/>
+      <rect x="289" y="70" width="12" height="160" class="d-acc"/>
+      <path d="M95 75 H287" class="d-lacc" marker-end="url(#aa)"/><text x="190" y="68" text-anchor="middle" class="d-xs">placeOrder(req)</text>
+      <path d="M301 105 H499" class="d-lacc" marker-end="url(#aa)"/><text x="400" y="98" text-anchor="middle" class="d-xs">charge(amount)</text>
+      <path d="M499 135 H303" class="d-line d-dash" marker-end="url(#ah)"/><text x="400" y="128" text-anchor="middle" class="d-xs">paymentId</text>
+      <path d="M301 165 H699" class="d-lacc" marker-end="url(#aa)"/><text x="500" y="158" text-anchor="middle" class="d-xs">save(order)</text>
+      <path d="M699 192 H303" class="d-line d-dash" marker-end="url(#ah)"/><text x="500" y="185" text-anchor="middle" class="d-xs">order</text>
+      <path d="M287 222 H97" class="d-line d-dash" marker-end="url(#ah)"/><text x="190" y="215" text-anchor="middle" class="d-xs">201 Created</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.2</b> Solid arrows are calls, dashed arrows are returns, the thin bar shows when an object is active. In LLD interviews, a quick sequence diagram for the main flow shows you've thought about behaviour, not just structure.</figcaption>
+  </figure>
+
+  <h3>Cohesion and coupling: the two quality dials</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 220" role="img" aria-label="Low cohesion high coupling: tangled modules with many cross links; high cohesion low coupling: focused modules with few clean links">
+      <text x="200" y="22" text-anchor="middle" class="d-tb">Low cohesion, high coupling (spaghetti)</text>
+      <rect x="40" y="50" width="120" height="70" rx="10" class="d-bad"/><rect x="230" y="50" width="120" height="70" rx="10" class="d-bad"/><rect x="135" y="140" width="120" height="66" rx="10" class="d-bad"/>
+      <text x="100" y="80" text-anchor="middle" class="d-xs">orders + email</text><text x="100" y="94" text-anchor="middle" class="d-xs">+ tax + pdf</text>
+      <text x="290" y="80" text-anchor="middle" class="d-xs">users + orders</text><text x="290" y="94" text-anchor="middle" class="d-xs">+ logging</text>
+      <text x="195" y="170" text-anchor="middle" class="d-xs">payments + users</text><text x="195" y="184" text-anchor="middle" class="d-xs">+ email</text>
+      <path d="M160 65 L230 65 M160 80 L230 100 M160 105 L230 75 M100 120 L150 140 M130 120 L170 140 M290 120 L240 140 M260 120 L220 140 M80 120 C80 190,120 190,135 180 M350 90 C380 170,300 200,255 185" class="d-lbad"/>
+      <line x1="410" y1="15" x2="410" y2="210" class="d-line d-dash"/>
+      <text x="620" y="22" text-anchor="middle" class="d-tg">High cohesion, low coupling (the goal)</text>
+      <rect x="450" y="50" width="110" height="60" rx="10" class="d-good"/><text x="505" y="85" text-anchor="middle" class="d-t">Orders</text>
+      <rect x="680" y="50" width="110" height="60" rx="10" class="d-good"/><text x="735" y="85" text-anchor="middle" class="d-t">Payments</text>
+      <rect x="450" y="145" width="110" height="60" rx="10" class="d-good"/><text x="505" y="180" text-anchor="middle" class="d-t">Notifications</text>
+      <rect x="680" y="145" width="110" height="60" rx="10" class="d-good"/><text x="735" y="180" text-anchor="middle" class="d-t">Users</text>
+      <path d="M560 80 H678" class="d-lgood" marker-end="url(#ag)"/><text x="619" y="72" text-anchor="middle" class="d-xs">interface</text>
+      <path d="M505 110 V143" class="d-lgood" marker-end="url(#ag)"/><text x="512" y="132" class="d-xs">event</text>
+    </svg></div>
+  </figure>
+  <div class="cards">
+    <div class="card"><h5>Cohesion: how focused is one module?</h5><p>High cohesion = everything inside a class is about one thing. A <code>TaxCalculator</code> that only calculates tax. Want it <strong>high</strong>.</p></div>
+    <div class="card"><h5>Coupling: how tangled are modules?</h5><p>Low coupling = classes know little about each other and talk through small interfaces. Change one, the others don't care. Want it <strong>low</strong>.</p></div>
+  </div>
+  <p>Every SOLID principle in the next part is, at heart, a technique for <span class="hl">raising cohesion and lowering coupling</span>.</p>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Triangle = is-a. Diamond = has-a (filled: dies together). Dashed = uses / implements.</p>
+    <p>Composition ◆ vs aggregation ◇: <strong>does the part die with the whole?</strong> And the golden rule of design: <span class="hl">high cohesion, low coupling</span>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Composition vs aggregation: give a real example of each.</summary><div class="ans"><p>Composition: <code>House</code> and <code>Room</code>; destroy the house and its rooms cease to exist; rooms aren't shared. In code, the whole creates and exclusively owns the parts. Aggregation: <code>Team</code> and <code>Player</code>; the team disbands but players continue and may belong to other teams. In code, parts are created elsewhere and passed in.</p></div></details>
+    <details><summary>How do you reduce coupling between two classes?</summary><div class="ans"><p>Depend on an interface instead of a concrete class; inject dependencies rather than creating them with <code>new</code>; expose fewer public methods; communicate via events where a direct call isn't needed; follow the Law of Demeter (don't reach through objects: <code>a.getB().getC().doX()</code>).</p></div></details>
+  </div>
+  {{done}}
+</section>

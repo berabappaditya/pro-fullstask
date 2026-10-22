@@ -1,0 +1,35 @@
+<div class="front" id="cover" data-title="Start here">
+<section class="cover">
+  <p class="eyebrow">Book 01 · Core Java for the SDE-2 interview</p>
+  <h1>Java Core, <em>Explained</em></h1>
+  <p class="lead">How your code really runs, why HashMap is fast, what a lambda is underneath, and how threads share a kitchen without burning it down. Every idea is a picture first, then annotated Java, then the interview question it answers.</p>
+  <div class="cover-art">
+    <svg viewBox="0 0 900 300" role="img" aria-label="Java source code is compiled to bytecode, loaded by the class loader into the JVM, which runs it with an interpreter and JIT compiler, using a heap, stacks and a garbage collector">
+      <rect x="18" y="110" width="130" height="80" rx="12" class="d-vio"/><text x="83" y="140" text-anchor="middle" class="d-t">Order.java</text><text x="83" y="158" text-anchor="middle" class="d-xs">your source code</text><text x="83" y="174" text-anchor="middle" class="d-xs">(text)</text>
+      <path d="M148 150 H198" class="d-lacc d-flow" marker-end="url(#aa)"/><text x="173" y="140" text-anchor="middle" class="d-xs">javac</text>
+      <rect x="200" y="110" width="130" height="80" rx="12" class="d-amb"/><text x="265" y="140" text-anchor="middle" class="d-t">Order.class</text><text x="265" y="158" text-anchor="middle" class="d-xs">bytecode, runs on</text><text x="265" y="174" text-anchor="middle" class="d-xs">any JVM</text>
+      <path d="M330 150 H380" class="d-lacc d-flow" marker-end="url(#aa)"/>
+      <rect x="382" y="20" width="500" height="262" rx="16" class="d-acc"/><text x="632" y="44" text-anchor="middle" class="d-tl">The JVM</text>
+      <rect x="400" y="60" width="140" height="50" rx="9" class="d-box"/><text x="470" y="82" text-anchor="middle" class="d-t">Class loader</text><text x="470" y="98" text-anchor="middle" class="d-xs">loads + verifies</text>
+      <rect x="560" y="60" width="150" height="50" rx="9" class="d-box"/><text x="635" y="82" text-anchor="middle" class="d-t">Interpreter</text><text x="635" y="98" text-anchor="middle" class="d-xs">runs bytecode now</text>
+      <rect x="725" y="60" width="140" height="50" rx="9" class="d-good"/><text x="795" y="82" text-anchor="middle" class="d-t">JIT compiler</text><text x="795" y="98" text-anchor="middle" class="d-xs">hot code → native</text>
+      <path d="M540 85 H558" class="d-line" marker-end="url(#ah)"/><path d="M710 85 H723" class="d-line" marker-end="url(#ah)"/>
+      <rect x="400" y="130" width="230" height="100" rx="10" class="d-paper"/><text x="515" y="150" text-anchor="middle" class="d-t">Heap (shared by all threads)</text>
+      <rect x="415" y="162" width="60" height="26" rx="5" class="d-amb"/><rect x="483" y="162" width="60" height="26" rx="5" class="d-amb"/><rect x="551" y="162" width="64" height="26" rx="5" class="d-amb"/>
+      <text x="445" y="180" text-anchor="middle" class="d-xs">Order</text><text x="513" y="180" text-anchor="middle" class="d-xs">String</text><text x="583" y="180" text-anchor="middle" class="d-xs">HashMap</text>
+      <text x="515" y="214" text-anchor="middle" class="d-xs">objects live here; the GC cleans it</text>
+      <rect x="645" y="130" width="70" height="100" rx="8" class="d-vio"/><text x="680" y="160" text-anchor="middle" class="d-xs">stack</text><text x="680" y="176" text-anchor="middle" class="d-xs">thread 1</text>
+      <rect x="722" y="130" width="70" height="100" rx="8" class="d-vio"/><text x="757" y="160" text-anchor="middle" class="d-xs">stack</text><text x="757" y="176" text-anchor="middle" class="d-xs">thread 2</text>
+      <rect x="799" y="130" width="66" height="100" rx="8" class="d-bad"/><text x="832" y="166" text-anchor="middle" class="d-xs">GC</text><text x="832" y="182" text-anchor="middle" class="d-xs">sweeper</text>
+      <text x="632" y="262" text-anchor="middle" class="d-s">Write once, run anywhere: the same .class runs on Windows, Linux and Mac JVMs.</text>
+    </svg>
+  </div>
+  <div class="cover-stats">
+    <div><b>{{count}}</b>chapters</div>
+    <div><b>{{diagrams}}</b>diagrams</div>
+    <div><b>{{widgets}}</b>live simulators</div>
+    <div><b>{{quizcount}}</b>quiz questions</div>
+    <div><b>{{bankcount}}</b>interview answers</div>
+  </div>
+</section>
+</div>

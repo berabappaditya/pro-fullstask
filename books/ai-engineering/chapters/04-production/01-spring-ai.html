@@ -1,0 +1,103 @@
+<section class="chapter" id="ch-spring-ai" data-title="Spring AI 2.0 in practice">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Production AI</div>
+    <h2>Spring AI 2.0 in practice</h2>
+    <p class="ch-oneline"><b>Spring AI gives Java teams portable APIs for chat, embeddings, vector stores, tools, RAG, memory, evaluation and MCP, with Spring Boot auto-configuration.</b> Swap providers with configuration, not rewrites.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>Ramu's IT team already runs everything on Spring Boot. Spring AI is the <strong>franchise kit's AI module</strong>: the same starters, properties and beans they know, now for models, vector stores and MCP. Changing from one model vendor to another is a <strong>different SIM card</strong>, not a new phone.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 230" role="img" aria-label="Spring AI ChatClient request passes through advisors: chat memory, RAG retrieval from a VectorStore, safeguard, tool calling, then to the ChatModel for a provider such as Anthropic, OpenAI, Vertex AI, Bedrock or Ollama">
+      <rect x="10" y="88" width="120" height="56" rx="10" class="d-vio"/><text x="70" y="112" text-anchor="middle" class="d-t">Your code</text><text x="70" y="130" text-anchor="middle" class="d-xs">chatClient.prompt()</text>
+      <path d="M130 116 H160" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="162" y="30" width="470" height="172" rx="14" class="d-acc"/><text x="397" y="52" text-anchor="middle" class="d-tl">Advisor chain (like servlet filters around the model call)</text>
+      <rect x="180" y="68" width="100" height="56" rx="8" class="d-box"/><text x="230" y="92" text-anchor="middle" class="d-xs">Chat memory</text><text x="230" y="108" text-anchor="middle" class="d-xs">history</text>
+      <rect x="292" y="68" width="100" height="56" rx="8" class="d-box"/><text x="342" y="92" text-anchor="middle" class="d-xs">RAG advisor</text><text x="342" y="108" text-anchor="middle" class="d-xs">VectorStore</text>
+      <rect x="404" y="68" width="100" height="56" rx="8" class="d-box"/><text x="454" y="92" text-anchor="middle" class="d-xs">Safeguard</text><text x="454" y="108" text-anchor="middle" class="d-xs">blocked terms</text>
+      <rect x="516" y="68" width="100" height="56" rx="8" class="d-box"/><text x="566" y="92" text-anchor="middle" class="d-xs">Tool calling</text><text x="566" y="108" text-anchor="middle" class="d-xs">+ MCP tools</text>
+      <text x="397" y="150" text-anchor="middle" class="d-xs">also: structured-output validation, logging/observation, custom advisors</text>
+      <text x="397" y="168" text-anchor="middle" class="d-xs">Micrometer metrics + traces for every call (tokens, latency)</text>
+      <path d="M632 116 H662" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="664" y="40" width="186" height="152" rx="12" class="d-good"/><text x="757" y="64" text-anchor="middle" class="d-t">ChatModel</text>
+      <text x="757" y="88" text-anchor="middle" class="d-xs">Anthropic</text><text x="757" y="106" text-anchor="middle" class="d-xs">OpenAI · Azure OpenAI</text><text x="757" y="124" text-anchor="middle" class="d-xs">Google Vertex AI / Gemini</text><text x="757" y="142" text-anchor="middle" class="d-xs">Amazon Bedrock</text><text x="757" y="160" text-anchor="middle" class="d-xs">Ollama (local) · Mistral…</text>
+    </svg></div></figure>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="A RAG support assistant with memory, tools and streaming">
+@Configuration
+class AiConfig {
+    @Bean
+    ChatClient supportClient(ChatClient.Builder builder, VectorStore store, ChatMemory memory,
+                             OrderTools orderTools) {
+        return builder
+            .defaultSystem("""
+                You are Ramu Chai's support assistant.
+                Answer from the provided documents and tool results only; cite sources as [n].
+                If you don't know, say so and offer to connect a human.""")
+            .defaultAdvisors(
+                MessageChatMemoryAdvisor.builder(memory).build(),            // conversation memory
+                QuestionAnswerAdvisor.builder(store)                         // naive RAG in one line
+                    .searchRequest(SearchRequest.builder().topK(5).similarityThreshold(0.6).build())
+                    .build())
+            .defaultTools(orderTools)                                        // @Tool methods
+            .build();
+    }
+}
+
+@RestController
+class SupportController {
+    private final ChatClient chat;
+    SupportController(ChatClient supportClient) { this.chat = supportClient; }
+
+    @GetMapping(value = "/api/support/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    Flux<String> chat(@RequestParam String q, @RequestParam String conversationId) {
+        return chat.prompt()
+                .user(q)
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+                .stream()                                                    // tokens as they arrive
+                .content();
+    }
+}
+</script>
+
+<script type="text/x-code" data-lang="yaml" data-variant="good" data-title="application.yml: choose provider and vector store by configuration">
+spring:
+  ai:
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY}
+      chat:
+        options:
+          model: ${CHAT_MODEL}          # pin an explicit model version
+          max-tokens: 800
+    openai:
+      api-key: ${OPENAI_API_KEY}        # e.g. used only for embeddings here
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1536
+</script>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Building block</th><th>What it gives you</th></tr>
+    <tr><td><code>ChatClient</code></td><td>fluent API: system/user messages, options, advisors, tools, <code>.call()</code> / <code>.stream()</code>, <code>.entity(Record.class)</code></td></tr>
+    <tr><td><code>EmbeddingModel</code>, <code>VectorStore</code></td><td>portable embeddings; pgvector, Redis, OpenSearch, Elasticsearch, Qdrant, Pinecone, MongoDB Atlas, Neo4j…</td></tr>
+    <tr><td>ETL pipeline</td><td>document readers (PDF, Tika, JSON, markdown), splitters, metadata enrichers</td></tr>
+    <tr><td>Advisors</td><td>chat memory, RAG (QuestionAnswer / modular RetrievalAugmentation with query rewriting), safeguard, tool calling, structured-output validation</td></tr>
+    <tr><td>Tools &amp; MCP</td><td><code>@Tool</code>, MCP client/server starters, <code>@McpTool</code>/<code>@McpResource</code>/<code>@McpPrompt</code></td></tr>
+    <tr><td>Evaluation</td><td><code>RelevancyEvaluator</code>, <code>FactCheckingEvaluator</code> for tests</td></tr>
+    <tr><td>Observability</td><td>Micrometer observations: token usage, latency, model, per request</td></tr>
+  </table></div>
+  <p class="small">Spring AI 2.0 (GA June 2026) is built on Spring Boot 4 / Framework 7 and Jackson 3, makes tool calling an auto-registered advisor, uses immutable builder-style options, adds a tool-search advisor for large tool sets, and moves MCP to the MCP Java SDK 2.0 with Streamable HTTP as the default transport. Alternatives on the JVM: LangChain4j.</p>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">The franchise kit's AI module: swap the SIM, keep the phone.</p>
+    <p><span class="hl">ChatClient + advisors</span> (memory, RAG, safety, tools) + VectorStore + MCP starters, all auto-configured. Pin model versions; stream responses; observe tokens and latency.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What is an advisor in Spring AI?</summary><div class="ans"><p>An interceptor around ChatClient calls (like a servlet filter or AOP advice): it can modify the request (add memory, retrieved documents, system rules) and the response (validate, log, retry). Advisors are ordered and composable, which keeps cross-cutting AI concerns out of business code.</p></div></details>
+  </div>
+  {{done}}
+</section>

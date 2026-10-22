@@ -1,0 +1,90 @@
+<section class="chapter" id="ch-threads" data-title="Processes, threads and the lifecycle">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Concurrency</div>
+    <h2>Processes, threads and the thread lifecycle</h2>
+    <p class="ch-oneline"><b>A process is a running program with its own memory; a thread is one path of execution inside it.</b> Threads share the heap, which makes them fast to coordinate and easy to break.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>A <strong>process</strong> is the entire restaurant: building, stove, fridge, ingredients. When you run a Java program, the operating system opens one restaurant for it with its own private memory. A <strong>thread</strong> is one chef working inside. Every restaurant opens with at least one chef (the <code>main</code> thread). Multithreading is hiring more chefs so several dishes cook at the same time, all sharing the same kitchen. Two chefs grabbing the same pan is where the trouble starts.</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Process (the restaurant)</th><th>Thread (a chef)</th></tr>
+    <tr><td>What is it?</td><td>A running program, e.g. your whole Java app</td><td>One path of execution inside a process</td></tr>
+    <tr><td>Memory</td><td>Its own private memory; processes don't share</td><td>Shares the heap with other threads; has its own stack</td></tr>
+    <tr><td>Cost to create</td><td>Heavy: opening a new restaurant</td><td>Lighter: hiring one more chef (~1 MB stack for a platform thread)</td></tr>
+    <tr><td>Communication</td><td>Hard: sockets, pipes, files</td><td>Easy: shared objects. Also where bugs come from.</td></tr>
+    <tr><td>One crashes</td><td>Others unaffected</td><td>An uncaught exception kills that thread; an OOM can take down the process</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="plain" data-title="Your code already runs on a thread">
+public class HelloThreads {
+    public static void main(String[] args) {           // the JVM starts ONE thread to run this
+        Thread current = Thread.currentThread();        // "which thread is running this line?"
+        System.out.println("Running on: " + current.getName());   // Running on: main
+    }
+}
+</script>
+
+  <div class="box def"><div class="box-tag">Concurrency vs parallelism</div><p><strong>Concurrency</strong>: several tasks in progress at once, maybe taking turns on one core (one chef juggling three pots). <strong>Parallelism</strong>: tasks literally running at the same instant on different cores (three chefs, three stoves). Threads give you concurrency; multiple cores turn it into parallelism.</p></div>
+
+  <h3>The thread lifecycle</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 270" role="img" aria-label="Thread states: NEW to RUNNABLE via start; RUNNABLE to BLOCKED, WAITING or TIMED_WAITING and back; RUNNABLE to TERMINATED when run finishes">
+      <rect x="20" y="105" width="120" height="56" rx="12" class="d-paper"/><text x="80" y="130" text-anchor="middle" class="d-t">NEW</text><text x="80" y="148" text-anchor="middle" class="d-xs">new Thread()</text>
+      <path d="M140 133 H230" class="d-lacc" marker-end="url(#aa)"/><text x="185" y="124" text-anchor="middle" class="d-xs">start()</text>
+      <rect x="232" y="90" width="210" height="86" rx="14" class="d-good"/><text x="337" y="116" text-anchor="middle" class="d-t">RUNNABLE</text>
+      <rect x="248" y="128" width="84" height="34" rx="8" class="d-box"/><text x="290" y="150" text-anchor="middle" class="d-xs">ready</text>
+      <rect x="344" y="128" width="84" height="34" rx="8" class="d-acc"/><text x="386" y="150" text-anchor="middle" class="d-xs">running</text>
+      <text x="240" y="192" class="d-xs">the OS scheduler swaps these</text>
+      <path d="M442 133 H690" class="d-lgood" marker-end="url(#ag)"/><text x="566" y="124" text-anchor="middle" class="d-xs">run() returns or throws</text>
+      <rect x="692" y="105" width="150" height="56" rx="12" class="d-bad"/><text x="767" y="130" text-anchor="middle" class="d-t">TERMINATED</text><text x="767" y="148" text-anchor="middle" class="d-xs">can't restart</text>
+      <rect x="480" y="10" width="150" height="50" rx="10" class="d-amb"/><text x="555" y="32" text-anchor="middle" class="d-t">BLOCKED</text><text x="555" y="49" text-anchor="middle" class="d-xs">waiting for a monitor lock</text>
+      <rect x="480" y="200" width="150" height="56" rx="10" class="d-vio"/><text x="555" y="222" text-anchor="middle" class="d-t">WAITING</text><text x="555" y="240" text-anchor="middle" class="d-xs">wait(), join(), park()</text>
+      <rect x="660" y="200" width="185" height="56" rx="10" class="d-vio"/><text x="752" y="222" text-anchor="middle" class="d-t">TIMED_WAITING</text><text x="752" y="240" text-anchor="middle" class="d-xs">sleep(ms), wait(ms), join(ms)</text>
+      <path d="M410 90 C430 40,450 35,478 35" class="d-lamb" marker-end="url(#am)"/>
+      <path d="M480 50 C440 60,430 70,420 88" class="d-lamb d-dash" marker-end="url(#am)"/>
+      <path d="M400 176 C420 220,450 228,478 228" class="d-lvio" marker-end="url(#av)"/>
+      <path d="M430 176 C520 190,640 190,700 198" class="d-lvio" marker-end="url(#av)"/>
+      <path d="M480 212 C450 200,440 190,430 178" class="d-lvio d-dash" marker-end="url(#av)"/>
+      <text x="440" y="264" text-anchor="middle" class="d-xs">dashed = back to RUNNABLE when the lock is free / notified / time is up</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> These are the six values of <code>Thread.State</code>. Java folds "ready" and "running" into one RUNNABLE state because the OS swaps them thousands of times a second.</figcaption></figure>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Watch a thread change state">
+public class LifecycleDemo {
+    public static void main(String[] args) throws Exception {   // sleep() can be interrupted
+        Thread worker = new Thread(() -> {                       // the lambda is the job
+            try { Thread.sleep(2000); }                          // nap for 2 seconds
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); } // restore the flag
+        });
+        System.out.println("1: " + worker.getState());           // NEW: created, not started
+        worker.start();                                          // clock the chef in
+        System.out.println("2: " + worker.getState());           // RUNNABLE
+        Thread.sleep(500);                                       // give the worker time to start sleeping
+        System.out.println("3: " + worker.getState());           // TIMED_WAITING: inside its 2s sleep
+        worker.join();                                           // main WAITS until worker finishes
+        System.out.println("4: " + worker.getState());           // TERMINATED
+    }
+}
+</script>
+
+  <div class="cards">
+    <div class="card"><h5><code>join()</code></h5><p>"Pause my thread until that thread finishes." The head chef won't send the dish out until the sauce chef is done.</p></div>
+    <div class="card"><h5><code>sleep(ms)</code></h5><p>Pause the current thread. <strong>Keeps</strong> any locks it holds.</p></div>
+    <div class="card"><h5><code>wait()</code> / <code>notify()</code></h5><p>Called inside <code>synchronized</code> on the same object. <code>wait()</code> <strong>releases</strong> the lock and sleeps until notified. Low-level: prefer <code>java.util.concurrent</code> tools.</p></div>
+    <div class="card"><h5><code>interrupt()</code></h5><p>A polite "please stop" flag. Blocking calls throw <code>InterruptedException</code>; your code should finish up and exit.</p></div>
+    <div class="card"><h5>Daemon threads</h5><p>Background helpers (<code>setDaemon(true)</code>) that don't keep the JVM alive; e.g. GC threads.</p></div>
+    <div class="card"><h5>Priority</h5><p><code>setPriority(1..10)</code> is only a hint to the OS. Never rely on it for correctness.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Hired, clocked in, waiting for the oven, gone home.</p>
+    <p>NEW → RUNNABLE → (BLOCKED / WAITING / TIMED_WAITING) → TERMINATED. <span class="hl">sleep keeps locks, wait releases them</span>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Difference between <code>sleep()</code> and <code>wait()</code>?</summary><div class="ans"><p><code>sleep</code> is a static Thread method, can be called anywhere, keeps held locks, and resumes after the time. <code>wait</code> is an Object method, must be called while holding that object's monitor (inside synchronized), releases the monitor, and resumes on <code>notify/notifyAll</code>, timeout or interrupt. Always call wait in a loop that re-checks the condition (spurious wakeups).</p></div></details>
+    <details><summary>How do you stop a thread?</summary><div class="ans"><p>Cooperatively: call <code>interrupt()</code> (or set a volatile flag) and have the thread check <code>Thread.currentThread().isInterrupted()</code> and handle InterruptedException by cleaning up and returning. <code>Thread.stop()</code> was deprecated and removed because it could leave objects half-updated.</p></div></details>
+  </div>
+  {{done}}
+</section>

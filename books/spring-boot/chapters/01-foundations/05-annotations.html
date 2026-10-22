@@ -1,0 +1,81 @@
+<section class="chapter" id="ch-annotations" data-title="Core annotations and component scan">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Foundations</div>
+    <h2>Core annotations, component scan and choosing between beans</h2>
+    <p class="ch-oneline"><b>Stereotypes mark classes as beans; component scan finds them from the main package down; @Primary and @Qualifier break ties when two beans fit.</b></p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>Staff wear <strong>badges</strong>: Chef, Cashier, Storekeeper (stereotypes). On day one the manager walks <strong>through the branch and every room inside it</strong> collecting everyone with a badge (component scan from the main package). If two people can make tea, the manager either names a <strong>default tea-maker</strong> (@Primary) or the chef asks <strong>for one by name</strong> (@Qualifier).</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Annotation</th><th>Meaning</th><th>Extra behaviour</th></tr>
+    <tr><td><code>@Component</code></td><td>generic Spring-managed bean</td><td>none</td></tr>
+    <tr><td><code>@Service</code></td><td>business logic layer</td><td>none (documents intent)</td></tr>
+    <tr><td><code>@Repository</code></td><td>data access layer</td><td>translates persistence exceptions into <code>DataAccessException</code></td></tr>
+    <tr><td><code>@Controller</code></td><td>MVC controller returning views</td><td>handler detection</td></tr>
+    <tr><td><code>@RestController</code></td><td><code>@Controller</code> + <code>@ResponseBody</code></td><td>return values are written as JSON</td></tr>
+    <tr><td><code>@Configuration</code> + <code>@Bean</code></td><td>Java config: factory methods</td><td>CGLIB proxy so inter-@Bean calls return the same singleton</td></tr>
+  </table></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 210" role="img" aria-label="Component scan starts at the main class package com.ramu.chai and covers sub-packages; a class in com.ramu.util is not found">
+      <rect x="20" y="20" width="520" height="170" rx="14" class="d-good"/><text x="40" y="44" class="d-tl">com.ramu.chai  ← ChaiApplication lives here</text>
+      <rect x="40" y="62" width="150" height="50" rx="10" class="d-box"/><text x="115" y="84" text-anchor="middle" class="d-t">.order</text><text x="115" y="100" text-anchor="middle" class="d-xs">OrderService ✓</text>
+      <rect x="205" y="62" width="150" height="50" rx="10" class="d-box"/><text x="280" y="84" text-anchor="middle" class="d-t">.payment</text><text x="280" y="100" text-anchor="middle" class="d-xs">UpiClient ✓</text>
+      <rect x="370" y="62" width="150" height="50" rx="10" class="d-box"/><text x="445" y="84" text-anchor="middle" class="d-t">.config</text><text x="445" y="100" text-anchor="middle" class="d-xs">SecurityConfig ✓</text>
+      <text x="280" y="150" text-anchor="middle" class="d-s">@ComponentScan covers this package and everything below it</text>
+      <rect x="590" y="62" width="240" height="70" rx="12" class="d-bad"/><text x="710" y="88" text-anchor="middle" class="d-t">com.ramu.util</text><text x="710" y="108" text-anchor="middle" class="d-xs">SmsSender: NOT a bean</text><text x="710" y="122" text-anchor="middle" class="d-xs">(sibling package, outside the scan)</text>
+      <text x="710" y="160" text-anchor="middle" class="d-xs">fix: move it, or scanBasePackages = "com.ramu"</text>
+    </svg></div></figure>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Two beans of the same type: @Primary sets the default, @Qualifier picks one">
+public interface Notifier { void send(String to, String msg); }
+
+@Component @Primary                       // the default whenever a Notifier is needed
+class SmsNotifier implements Notifier { ... }
+
+@Component("whatsapp")                    // bean name "whatsapp"
+class WhatsAppNotifier implements Notifier { ... }
+
+@Service
+class OrderAlerts {
+    private final Notifier defaultNotifier;   // gets SmsNotifier (@Primary)
+    private final Notifier whatsapp;
+
+    OrderAlerts(Notifier defaultNotifier,
+                @Qualifier("whatsapp") Notifier whatsapp) {   // explicit choice beats @Primary
+        this.defaultNotifier = defaultNotifier;
+        this.whatsapp = whatsapp;
+    }
+}
+
+@Service
+class Broadcast {
+    private final List<Notifier> all;         // inject EVERY implementation (strategy pattern!)
+    Broadcast(List<Notifier> all) { this.all = all; }
+    void announce(String m) { all.forEach(n -> n.send("all", m)); }
+}
+// Without @Primary/@Qualifier: NoUniqueBeanDefinitionException at startup.
+</script>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Annotation</th><th>Purpose</th></tr>
+    <tr><td><code>@Value("${app.name}")</code></td><td>inject one property (with default: <code>${app.name:Ramu}</code>)</td></tr>
+    <tr><td><code>@Lazy</code></td><td>create the bean on first use instead of at startup</td></tr>
+    <tr><td><code>@Profile("dev")</code></td><td>register the bean only when that profile is active</td></tr>
+    <tr><td><code>@Order</code> / <code>Ordered</code></td><td>ordering among multiple beans (filters, list injection)</td></tr>
+    <tr><td><code>@DependsOn</code></td><td>force another bean to initialise first</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Badges, a walk through the building, a default, or a name.</p>
+    <p>@Component for your classes, <span class="hl">@Bean for third-party ones</span>. Scan starts at the main class's package. @Primary = default, @Qualifier = explicit.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>@Component vs @Bean?</summary><div class="ans"><p>@Component is on a class and is detected by component scanning. @Bean is on a method inside a @Configuration class and you construct the object yourself; use it for third-party classes, or when creation needs logic or conditions.</p></div></details>
+    <details><summary>What does @SpringBootApplication contain?</summary><div class="ans"><p>@SpringBootConfiguration (a @Configuration), @EnableAutoConfiguration and @ComponentScan (from the annotated class's package).</p></div></details>
+    <details><summary>Why is @Configuration proxied?</summary><div class="ans"><p>So that one @Bean method calling another returns the container's singleton instead of creating a new object. Spring subclasses the config class with CGLIB and intercepts those calls. <code>@Configuration(proxyBeanMethods = false)</code> skips the proxy for faster startup when methods don't call each other.</p></div></details>
+  </div>
+  {{done}}
+</section>

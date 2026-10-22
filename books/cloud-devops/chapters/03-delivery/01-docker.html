@@ -1,0 +1,93 @@
+<section class="chapter" id="ch-docker" data-title="Docker and containers">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Delivery</div>
+    <h2>Docker: package the app with everything it needs</h2>
+    <p class="ch-oneline"><b>An image is a read-only, layered package of your app plus its runtime; a container is a running, isolated instance of it.</b> Same image in dev, CI and production.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>Ramu packs each dish in a <strong>sealed tiffin box</strong> with its own spices and cutlery, so it tastes the same in any kitchen. The <strong>packing instructions</strong> (Dockerfile) are written once; the <strong>packed tiffin</strong> (image) is stored in a cold room (registry); <strong>opening and serving</strong> one is a container. Many tiffins share one stove (the host kernel), unlike renting a whole kitchen per dish (VMs).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 240" role="img" aria-label="VMs each include a guest OS on a hypervisor; containers share the host kernel through a container runtime and include only the app and its libraries">
+      <text x="210" y="22" text-anchor="middle" class="d-tl">Virtual machines</text>
+      <rect x="20" y="186" width="380" height="36" rx="8" class="d-paper"/><text x="210" y="209" text-anchor="middle" class="d-xs">hardware + host OS + hypervisor</text>
+      <g><rect x="30" y="40" width="110" height="140" rx="10" class="d-box"/><text x="85" y="66" text-anchor="middle" class="d-xs">app A</text><text x="85" y="96" text-anchor="middle" class="d-xs">libs</text><rect x="40" y="126" width="90" height="44" rx="6" class="d-bad"/><text x="85" y="152" text-anchor="middle" class="d-xs">guest OS (GBs)</text></g>
+      <g><rect x="155" y="40" width="110" height="140" rx="10" class="d-box"/><text x="210" y="66" text-anchor="middle" class="d-xs">app B</text><text x="210" y="96" text-anchor="middle" class="d-xs">libs</text><rect x="165" y="126" width="90" height="44" rx="6" class="d-bad"/><text x="210" y="152" text-anchor="middle" class="d-xs">guest OS</text></g>
+      <g><rect x="280" y="40" width="110" height="140" rx="10" class="d-box"/><text x="335" y="66" text-anchor="middle" class="d-xs">app C</text><text x="335" y="96" text-anchor="middle" class="d-xs">libs</text><rect x="290" y="126" width="90" height="44" rx="6" class="d-bad"/><text x="335" y="152" text-anchor="middle" class="d-xs">guest OS</text></g>
+      <text x="640" y="22" text-anchor="middle" class="d-tl">Containers</text>
+      <rect x="450" y="186" width="390" height="36" rx="8" class="d-paper"/><text x="645" y="209" text-anchor="middle" class="d-xs">hardware + host OS (one Linux kernel)</text>
+      <rect x="450" y="140" width="390" height="38" rx="8" class="d-acc"/><text x="645" y="164" text-anchor="middle" class="d-xs">container runtime (containerd) · namespaces + cgroups isolate each one</text>
+      <rect x="460" y="56" width="90" height="76" rx="10" class="d-good"/><text x="505" y="88" text-anchor="middle" class="d-xs">app A</text><text x="505" y="106" text-anchor="middle" class="d-xs">+ JRE</text>
+      <rect x="560" y="56" width="90" height="76" rx="10" class="d-good"/><text x="605" y="88" text-anchor="middle" class="d-xs">app B</text><text x="605" y="106" text-anchor="middle" class="d-xs">+ Node</text>
+      <rect x="660" y="56" width="90" height="76" rx="10" class="d-good"/><text x="705" y="88" text-anchor="middle" class="d-xs">app C</text>
+      <rect x="760" y="56" width="70" height="76" rx="10" class="d-good"/><text x="795" y="94" text-anchor="middle" class="d-xs">…</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Containers start in milliseconds to seconds and weigh MBs, because they share the host kernel. VMs give stronger isolation; in the cloud you usually run containers <em>on</em> VMs.</figcaption></figure>
+
+<div class="compare">
+<script type="text/x-code" data-lang="docker" data-variant="bad" data-title="Before: big, slow to rebuild, runs as root">
+FROM maven:3-eclipse-temurin-21
+COPY . /app                       # any file change invalidates every layer below
+WORKDIR /app
+RUN mvn package                   # downloads all dependencies on EVERY build
+EXPOSE 8080
+CMD ["java", "-jar", "target/app.jar"]
+# ~800 MB image with Maven and the JDK inside, runs as root
+</script>
+<script type="text/x-code" data-lang="docker" data-variant="good" data-title="After: multi-stage, cached, layered, non-root">
+# ---- build stage ----
+FROM maven:3-eclipse-temurin-25 AS build
+WORKDIR /src
+COPY pom.xml .
+RUN mvn -q dependency:go-offline           # cached until pom.xml changes
+COPY src ./src
+RUN mvn -q package -DskipTests && \
+    java -Djarmode=tools -jar target/app.jar extract --layers --destination /layers
+
+# ---- runtime stage ----
+FROM eclipse-temurin:25-jre                # JRE only: much smaller
+WORKDIR /app
+RUN useradd --system --uid 10001 spring
+COPY --from=build /layers/dependencies/ ./  # rarely changes → reused from cache
+COPY --from=build /layers/spring-boot-loader/ ./
+COPY --from=build /layers/snapshot-dependencies/ ./
+COPY --from=build /layers/application/ ./   # your code: the only layer that changes
+USER 10001                                 # never run as root
+EXPOSE 8080
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]
+# Alternative without a Dockerfile: mvn spring-boot:build-image (Cloud Native Buildpacks)
+</script>
+</div>
+
+  <div class="widget" data-terminal>
+    <div class="widget-head"><span class="live">Live</span>Practice terminal: the Docker commands you'll use daily</div>
+    <div class="widget-body">
+<script type="application/json">
+{"prompt":"ramu@laptop:~/orders$","welcome":"Build, run, inspect and push the orders image.","commands":[
+{"cmd":"docker build -t ramu/orders:1.4.0 .","out":"[+] Building 41.2s (14/14) FINISHED\n => CACHED [build 3/6] RUN mvn -q dependency:go-offline\n => [build 5/6] RUN mvn -q package -DskipTests\n => exporting to image\n => naming to docker.io/ramu/orders:1.4.0","note":"Builds the image from the Dockerfile. CACHED lines are reused layers: why COPY pom.xml comes before COPY src."},
+{"cmd":"docker images","out":"REPOSITORY    TAG     IMAGE ID       SIZE\nramu/orders   1.4.0   7c1e9a2b3d4f   312MB","note":"Lists local images. Tag every image with a version or git SHA, never just latest."},
+{"cmd":"docker run -d --name orders -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev ramu/orders:1.4.0","out":"9f2d3c4b5a6e7f8091a2b3c4d5e6f708","note":"-d detached, -p host:container port mapping, -e environment variable (relaxed binding → spring.profiles.active)."},
+{"cmd":"docker ps","out":"CONTAINER ID   IMAGE               STATUS          PORTS                    NAMES\n9f2d3c4b5a6e   ramu/orders:1.4.0   Up 12 seconds   0.0.0.0:8080->8080/tcp   orders","note":"Running containers. docker ps -a also shows stopped ones."},
+{"cmd":"docker logs -f orders","out":"INFO  Tomcat started on port 8080 (http)\nINFO  Started OrdersApplication in 3.1 seconds","note":"Follow the container's stdout/stderr. Apps in containers should log to stdout."},
+{"cmd":"docker exec -it orders sh","out":"$ whoami\nspring\n$ ls\napp.jar  BOOT-INF  META-INF  org","note":"Open a shell inside the running container for debugging. Note: not root."},
+{"cmd":"docker stats --no-stream","out":"NAME     CPU %   MEM USAGE / LIMIT\norders   2.31%   287MiB / 7.6GiB","note":"Live CPU and memory per container."},
+{"cmd":"docker compose up -d","out":"[+] Running 3/3\n ✔ Container orders-postgres-1  Started\n ✔ Container orders-redis-1     Started\n ✔ Container orders-app-1       Started","note":"Starts the app with its Postgres and Redis from compose.yaml: the whole local stack in one command."},
+{"cmd":"docker push 123456789012.dkr.ecr.ap-south-1.amazonaws.com/orders:1.4.0","out":"The push refers to repository [123456789012.dkr.ecr.ap-south-1.amazonaws.com/orders]\n1.4.0: digest: sha256:4e1f…a90b size: 1786","note":"Push to a registry (after aws ecr get-login-password | docker login …). Deploy by digest for immutability."},
+{"cmd":"docker stop orders && docker rm orders","out":"orders\norders","note":"Stop (SIGTERM, then SIGKILL after a timeout) and remove the container. Spring Boot's graceful shutdown handles SIGTERM."}
+]}
+</script>
+    </div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Packing instructions, a sealed tiffin, a cold room, serving.</p>
+    <p>Dockerfile → image (layers, cached) → registry → container. <span class="hl">Multi-stage, small JRE base, layered jar, non-root, versioned tags</span>, config via env vars, logs to stdout.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Container vs VM?</summary><div class="ans"><p>A VM virtualises hardware and runs a full guest OS on a hypervisor: strong isolation, GBs, minutes to boot. A container is an isolated process sharing the host's kernel (namespaces for isolation, cgroups for limits): MBs, starts in seconds, denser packing. Containers usually run on cloud VMs.</p></div></details>
+    <details><summary>How do you make Docker builds fast and images small?</summary><div class="ans"><p>Order layers from least to most frequently changing (dependencies before source), multi-stage builds so build tools don't ship, slim/distroless or JRE base images, .dockerignore, Spring Boot layered jars or buildpacks, BuildKit cache mounts in CI, and scan images for vulnerabilities.</p></div></details>
+    <details><summary>CMD vs ENTRYPOINT?</summary><div class="ans"><p>ENTRYPOINT defines the executable that always runs; CMD supplies default arguments (or the default command if there's no ENTRYPOINT) and is replaced by arguments to docker run. Use the exec (JSON array) form so the process is PID 1 and receives SIGTERM.</p></div></details>
+  </div>
+  {{done}}
+</section>

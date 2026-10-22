@@ -1,0 +1,91 @@
+<section class="chapter" id="ch-strings" data-title="Strings and the string pool">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Platform</div>
+    <h2>Strings and the string pool</h2>
+    <p class="ch-oneline"><b>A String can never change after it's created.</b> That immutability makes strings safe to share, cache and use as map keys, and it's why you build long text with StringBuilder.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>The menu card on the wall is <strong>laminated</strong>. Nobody can scribble on it, so every waiter can point customers to the same card safely. If Ramu wants "Masala Chai" to read "Masala Chai (Large)", he prints a <strong>new card</strong>. Popular cards are kept in one <strong>card box</strong> (the string pool) so the kitchen never prints a duplicate of "Masala Chai".</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 800 230" role="img" aria-label="String literals share one object in the string pool; new String creates a separate heap object">
+      <rect x="20" y="30" width="190" height="150" rx="10" class="d-vio"/><text x="115" y="54" text-anchor="middle" class="d-t">stack</text>
+      <text x="36" y="84" class="d-m">a = ● "chai"</text><text x="36" y="110" class="d-m">b = ● "chai"</text><text x="36" y="136" class="d-m">c = ● new String</text><text x="36" y="162" class="d-m">d = ● a + "!"</text>
+      <rect x="300" y="20" width="480" height="190" rx="14" class="d-paper"/><text x="540" y="42" text-anchor="middle" class="d-tl">heap</text>
+      <rect x="320" y="56" width="220" height="90" rx="10" class="d-acc"/><text x="430" y="76" text-anchor="middle" class="d-t">String pool</text>
+      <rect x="370" y="90" width="120" height="40" rx="8" class="d-amb"/><text x="430" y="115" text-anchor="middle" class="d-m">"chai"</text>
+      <rect x="580" y="70" width="170" height="40" rx="8" class="d-amb"/><text x="665" y="95" text-anchor="middle" class="d-m">"chai" (copy)</text>
+      <rect x="580" y="140" width="170" height="40" rx="8" class="d-amb"/><text x="665" y="165" text-anchor="middle" class="d-m">"chai!" (new)</text>
+      <path d="M150 80 C250 80,300 100,368 106" class="d-lacc" marker-end="url(#aa)"/>
+      <path d="M150 106 C250 110,300 112,368 114" class="d-lacc" marker-end="url(#aa)"/>
+      <path d="M180 132 C300 140,460 120,578 92" class="d-lbad" marker-end="url(#ab)"/>
+      <path d="M150 158 C300 190,460 170,578 162" class="d-lgood" marker-end="url(#ag)"/>
+      <text x="400" y="225" text-anchor="middle" class="d-s">a == b is true (same pooled object) · a == c is false · a.equals(c) is true</text>
+    </svg></div>
+  </figure>
+
+  <h3>Why immutable?</h3>
+  <div class="cards">
+    <div class="card"><h5>Safe sharing</h5><p>The pool can hand the same object to everyone because nobody can change it.</p></div>
+    <div class="card"><h5>Thread-safe for free</h5><p>No locks needed to read a string from many threads.</p></div>
+    <div class="card"><h5>Reliable map keys</h5><p>The hash code is computed once and cached; a key can't change after you put it in a HashMap.</p></div>
+    <div class="card"><h5>Security</h5><p>A file path or DB URL you validated can't be swapped underneath you.</p></div>
+  </div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: building a report with + in a loop">
+String report = "";
+for (Order o : orders) {                 // 10,000 orders
+    report += o.id() + "," + o.total() + "\n";
+    // Each += creates a NEW String and copies everything so far:
+    // O(n²) characters copied, thousands of garbage objects.
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: StringBuilder (or String.join / Collectors.joining)">
+StringBuilder sb = new StringBuilder(orders.size() * 24); // pre-size the buffer
+for (Order o : orders) {
+    sb.append(o.id()).append(',').append(o.total()).append('\n'); // edits in place
+}
+String report = sb.toString();           // one final String
+
+// Same thing, declaratively:
+String report2 = orders.stream()
+        .map(o -> o.id() + "," + o.total())
+        .collect(Collectors.joining("\n"));
+</script>
+</div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>String</th><th>StringBuilder</th><th>StringBuffer</th></tr>
+    <tr><td>Mutable?</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+    <tr><td>Thread-safe?</td><td class="yes">Yes (immutable)</td><td class="no">No</td><td class="yes">Yes (synchronized)</td></tr>
+    <tr><td>Use for</td><td>Most text</td><td>Building text in one thread (almost always)</td><td>Legacy code; rarely needed</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Useful modern String APIs">
+String sql = """
+        SELECT id, total
+        FROM orders
+        WHERE status = 'PAID'
+        """;                                  // text block (Java 15+): no \n and + soup
+
+"  masala chai  ".strip();                    // "masala chai" (Unicode-aware trim)
+"".isBlank();  "  ".isBlank();                // true, true
+"chai".repeat(3);                             // "chaichaichai"
+"a,b,,c".split(",");                          // [a, b, , c]
+String.join(" | ", List.of("chai", "samosa"));// "chai | samosa"
+"Ramu".chars().filter(Character::isUpperCase).count(); // 1
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Laminated card, one card box, a notebook for drafts.</p>
+    <p>String is <strong>immutable</strong> and pooled for literals. Compare with <code>equals</code>. Build text with <span class="hl">StringBuilder</span>, not <code>+=</code> in loops.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How many objects does <code>new String("chai")</code> create?</summary><div class="ans"><p>Up to two: the literal "chai" in the string pool (if it isn't already there, created when the class is loaded) and one new String object on the heap from <code>new</code>. Calling <code>.intern()</code> returns the pooled one.</p></div></details>
+    <details><summary>Why is String a popular HashMap key?</summary><div class="ans"><p>It's immutable (the key can't change after insertion), its <code>hashCode</code> is cached after the first call, and <code>equals</code>/<code>hashCode</code> are correctly implemented.</p></div></details>
+    <details><summary>Why are passwords often kept in <code>char[]</code> rather than String?</summary><div class="ans"><p>A String can't be wiped and may linger in memory (and the pool) until GC, appearing in heap dumps. A char array can be overwritten with zeros right after use.</p></div></details>
+  </div>
+  {{done}}
+</section>

@@ -1,0 +1,60 @@
+<section class="chapter" id="ch-hld-framework" data-title="The HLD interview framework">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Interview playbook</div>
+    <h2>The HLD interview framework</h2>
+    <p class="ch-oneline"><b>A system design interview is a guided conversation, not a quiz.</b> A fixed sequence of steps keeps you calm and makes sure you cover what interviewers grade.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>When a hotel asks Ramu to run its breakfast tea service, he doesn't start buying kettles. He asks: How many guests? What time? Only tea, or coffee too? Any VIP floor? Then he estimates, sketches the setup (one central boiler, three serving points, a runner), and only then worries about details like what happens if the boiler fails. <strong>Ask, estimate, sketch, deepen.</strong></p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 170" role="img" aria-label="Six steps of a 45 minute system design interview with time budgets">
+      <g>
+        <rect x="10" y="40" width="130" height="80" rx="12" class="d-acc"/><text x="75" y="70" text-anchor="middle" class="d-t">1 Requirements</text><text x="75" y="88" text-anchor="middle" class="d-xs">what + how well</text><text x="75" y="106" text-anchor="middle" class="d-ta">5–8 min</text>
+        <rect x="150" y="40" width="130" height="80" rx="12" class="d-amb"/><text x="215" y="70" text-anchor="middle" class="d-t">2 Estimation</text><text x="215" y="88" text-anchor="middle" class="d-xs">QPS, storage, bandwidth</text><text x="215" y="106" text-anchor="middle" class="d-tam">3–5 min</text>
+        <rect x="290" y="40" width="130" height="80" rx="12" class="d-vio"/><text x="355" y="70" text-anchor="middle" class="d-t">3 API + data</text><text x="355" y="88" text-anchor="middle" class="d-xs">endpoints, schema</text><text x="355" y="106" text-anchor="middle" class="d-tv">5 min</text>
+        <rect x="430" y="40" width="130" height="80" rx="12" class="d-good"/><text x="495" y="70" text-anchor="middle" class="d-t">4 High-level</text><text x="495" y="88" text-anchor="middle" class="d-xs">boxes and arrows</text><text x="495" y="106" text-anchor="middle" class="d-tg">10 min</text>
+        <rect x="570" y="40" width="130" height="80" rx="12" class="d-bad"/><text x="635" y="70" text-anchor="middle" class="d-t">5 Deep dives</text><text x="635" y="88" text-anchor="middle" class="d-xs">2–3 hard parts</text><text x="635" y="106" text-anchor="middle" class="d-tb">10–15 min</text>
+        <rect x="710" y="40" width="140" height="80" rx="12" class="d-teal"/><text x="780" y="70" text-anchor="middle" class="d-t">6 Wrap-up</text><text x="780" y="88" text-anchor="middle" class="d-xs">bottlenecks, trade-offs</text><text x="780" y="106" text-anchor="middle" class="d-tw" style="fill:var(--teal)">3–5 min</text>
+      </g>
+      <path d="M140 80 H150 M280 80 H290 M420 80 H430 M560 80 H570 M700 80 H710" class="d-line" marker-end="url(#ah)"/>
+      <text x="430" y="150" text-anchor="middle" class="d-s">Talk the whole time. Write requirements and numbers on the board; they justify every later choice.</text>
+    </svg></div>
+  </figure>
+
+  <ol class="steps">
+    <li><b>Clarify requirements</b>Functional: what must users be able to do? Pick 3–4 core features and say what's out of scope. Non-functional: scale (users, data), latency targets, availability, consistency needs, read/write ratio, geography.</li>
+    <li><b>Estimate</b>QPS (average and peak), storage over 5 years, bandwidth, cache size ({{ref:ch-estimate}}). Conclude: "read-heavy, so…".</li>
+    <li><b>Define the API and data model</b>3–5 endpoints with parameters. Main entities, keys and which database type, justified by access patterns.</li>
+    <li><b>Draw the high-level design</b>Client → (CDN) → LB → services → cache → DB, plus queues and workers. Walk through one write and one read request end to end.</li>
+    <li><b>Deep-dive</b>The interviewer will steer you, or you pick the hardest parts: the ID scheme, the feed fan-out, sharding key, consistency of payments, hot keys, failure handling.</li>
+    <li><b>Wrap up</b>Name bottlenecks and single points of failure, how you'd monitor it, and what you'd do at 10× scale.</li>
+  </ol>
+
+  <h3>Non-functional checklist</h3>
+  <div class="cards">
+    <div class="card"><h5>Scale</h5><p>DAU, QPS, data volume, growth rate.</p></div>
+    <div class="card"><h5>Performance</h5><p>Latency targets (p99), real-time needs.</p></div>
+    <div class="card"><h5>Availability</h5><p>How many nines; multi-region?</p></div>
+    <div class="card"><h5>Consistency</h5><p>Strong (money) or eventual (likes)?</p></div>
+    <div class="card"><h5>Durability</h5><p>Can we ever lose data?</p></div>
+    <div class="card"><h5>Security &amp; compliance</h5><p>Auth, PII, data residency.</p></div>
+  </div>
+
+  <h3>Phrases that signal seniority</h3>
+  <div class="cards">
+    <div class="card good"><h5>"The trade-off here is…"</h5><p>Every choice costs something. Name it.</p></div>
+    <div class="card good"><h5>"Given it's read-heavy, I'd…"</h5><p>Tie decisions back to the requirements and numbers.</p></div>
+    <div class="card good"><h5>"Let's start simple, then scale."</h5><p>A single-server version first, then evolve it.</p></div>
+    <div class="card good"><h5>"If this component fails…"</h5><p>Proactively discuss failure modes.</p></div>
+  </div>
+
+  <div class="box pitfall"><div class="box-tag">Common trap</div>
+    <p>Jumping into Kafka, Kubernetes and sharding in minute two, before knowing the scale. Or staying silent while drawing. Or going deep on one component and never finishing the end-to-end picture. Breadth first, then depth.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">"Real Engineers Always Draw Diagrams Wisely"</p>
+    <p><strong>R</strong>equirements → <strong>E</strong>stimation → <strong>A</strong>PI &amp; data → <strong>D</strong>esign (high-level) → <strong>D</strong>eep dives → <strong>W</strong>rap-up.</p></div>
+  {{done}}
+</section>

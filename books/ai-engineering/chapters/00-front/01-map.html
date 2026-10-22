@@ -1,0 +1,23 @@
+<section class="chapter" id="ch-map" data-title="How this book works" data-num="00">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">00</span>Orientation</div>
+    <h2>How this book works</h2>
+    <p class="ch-oneline"><b>Four parts: how LLMs work, retrieval-augmented generation, tools/agents/MCP, and production AI with Spring AI.</b> No maths beyond what you need to reason about behaviour.</p>
+  </header>
+  <div class="box story"><div class="box-tag">Ramu hires an AI assistant</div>
+    <p>Ramu hires an assistant who has <strong>read millions of books</strong> but never worked at his chain (an LLM). It writes beautifully but sometimes <strong>confidently invents</strong> things. So Ramu gives it an <strong>open recipe book</strong> to look things up before answering (RAG), a <strong>phone with speed-dial buttons</strong> to check stock and place orders (tool calling), the freedom to work through a task step by step (agents), and one <strong>standard socket</strong> that any appliance can plug into (MCP).</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>In Ramu's chain</th><th>In AI engineering</th><th>Chapter</th></tr>
+    <tr><td>A well-read assistant guessing the next word</td><td>LLM, next-token prediction</td><td>{{n:ch-llm-basics}}</td></tr>
+    <tr><td>How adventurous its word choices are</td><td>temperature, top-p</td><td>{{n:ch-sampling}}</td></tr>
+    <tr><td>Clear instructions on a job card</td><td>prompt engineering</td><td>{{n:ch-prompting}}</td></tr>
+    <tr><td>Arranging recipes by taste, not by title</td><td>embeddings, vector search</td><td>{{n:ch-embeddings}}</td></tr>
+    <tr><td>An open recipe book during the exam</td><td>RAG</td><td>{{n:ch-rag}}</td></tr>
+    <tr><td>Speed-dial buttons on the phone</td><td>tool / function calling</td><td>{{n:ch-tools}}</td></tr>
+    <tr><td>Working through a task step by step</td><td>agents</td><td>{{n:ch-agents}}</td></tr>
+    <tr><td>One standard socket for all appliances</td><td>Model Context Protocol</td><td>{{n:ch-mcp}}</td></tr>
+  </table></div>
+  <div class="box tip"><div class="box-tag">What SDE-2 interviews ask in 2026</div><p>Expect "design a RAG chatbot over our docs", "how do you stop hallucinations?", "how would you evaluate it?", "what is MCP and how is it different from function calling?", "how do you control cost and latency?" and "how do you defend against prompt injection?". The last chapter, {{ref:ch-ai-sd}}, walks a full design answer. Code is Java with Spring AI 2.0 (on Spring Boot 4, see {{xref:spring-boot/ch-boot4}}).</p></div>
+  {{done}}
+</section>

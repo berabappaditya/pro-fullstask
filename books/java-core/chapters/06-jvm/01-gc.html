@@ -1,0 +1,103 @@
+<section class="chapter" id="ch-gc" data-title="Garbage collection">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Under the hood</div>
+    <h2>Garbage collection: who cleans the heap</h2>
+    <p class="ch-oneline"><b>The GC finds objects no live reference can reach and frees their memory.</b> Most objects die young, so the heap is split into a young area cleaned often and an old area cleaned rarely.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>The <strong>cleaner</strong> doesn't ask "is this plate dirty?". He starts from what chefs are <strong>currently holding or pointing at</strong> and marks everything reachable from there. Anything unmarked is cleared. He cleans the <strong>prep counter</strong> (young generation) every few minutes because most things there are scraps used once. Plates that survive several cleanings get moved to the <strong>long-term shelf</strong> (old generation), which he cleans only occasionally because it's slow.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 230" role="img" aria-label="GC roots point to reachable objects which survive; unreachable objects including a cycle are collected">
+      <rect x="10" y="20" width="150" height="190" rx="12" class="d-vio"/><text x="85" y="44" text-anchor="middle" class="d-tl">GC roots</text>
+      <text x="85" y="72" text-anchor="middle" class="d-xs">local variables on</text><text x="85" y="86" text-anchor="middle" class="d-xs">thread stacks</text>
+      <text x="85" y="112" text-anchor="middle" class="d-xs">static fields</text>
+      <text x="85" y="138" text-anchor="middle" class="d-xs">active threads</text>
+      <text x="85" y="164" text-anchor="middle" class="d-xs">JNI references</text>
+      <rect x="230" y="30" width="110" height="40" rx="8" class="d-good"/><text x="285" y="55" text-anchor="middle" class="d-m">Order</text>
+      <rect x="400" y="30" width="110" height="40" rx="8" class="d-good"/><text x="455" y="55" text-anchor="middle" class="d-m">List</text>
+      <rect x="570" y="30" width="110" height="40" rx="8" class="d-good"/><text x="625" y="55" text-anchor="middle" class="d-m">Line</text>
+      <rect x="230" y="110" width="110" height="40" rx="8" class="d-good"/><text x="285" y="135" text-anchor="middle" class="d-m">Customer</text>
+      <path d="M160 70 C200 60,210 50,228 50" class="d-lgood" marker-end="url(#ag)"/><path d="M160 130 L228 130" class="d-lgood" marker-end="url(#ag)"/><path d="M340 50 H398" class="d-lgood" marker-end="url(#ag)"/><path d="M510 50 H568" class="d-lgood" marker-end="url(#ag)"/>
+      <rect x="430" y="140" width="110" height="40" rx="8" class="d-bad"/><text x="485" y="165" text-anchor="middle" class="d-m">old Cart</text>
+      <rect x="620" y="140" width="110" height="40" rx="8" class="d-bad"/><text x="675" y="165" text-anchor="middle" class="d-m">CartItem</text>
+      <path d="M540 152 H618" class="d-lbad" marker-end="url(#ab)"/><path d="M620 172 C580 200,560 200,540 172" class="d-lbad" marker-end="url(#ab)"/>
+      <text x="580" y="214" text-anchor="middle" class="d-xs">a cycle with no path from a root: still garbage</text>
+      <text x="770" y="56" text-anchor="middle" class="d-t">reachable</text><text x="770" y="72" text-anchor="middle" class="d-xs">survives</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Java uses reachability tracing, not reference counting, so circular references are not a leak by themselves.</figcaption></figure>
+
+  <h3>Generations</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 170" role="img" aria-label="Heap: young generation with Eden and two survivor spaces, and old generation; objects are promoted after surviving several minor GCs">
+      <rect x="10" y="30" width="420" height="100" rx="12" class="d-good"/><text x="220" y="52" text-anchor="middle" class="d-tl">Young generation</text>
+      <rect x="26" y="64" width="230" height="52" rx="8" class="d-box"/><text x="141" y="86" text-anchor="middle" class="d-t">Eden</text><text x="141" y="104" text-anchor="middle" class="d-xs">new objects are born here</text>
+      <rect x="268" y="64" width="72" height="52" rx="8" class="d-box"/><text x="304" y="94" text-anchor="middle" class="d-xs">S0</text>
+      <rect x="348" y="64" width="72" height="52" rx="8" class="d-box"/><text x="384" y="94" text-anchor="middle" class="d-xs">S1</text>
+      <rect x="470" y="30" width="380" height="100" rx="12" class="d-amb"/><text x="660" y="52" text-anchor="middle" class="d-tl">Old generation</text><text x="660" y="84" text-anchor="middle" class="d-xs">long-lived objects: caches, pools, sessions</text><text x="660" y="102" text-anchor="middle" class="d-xs">collected by major / mixed GCs</text>
+      <path d="M420 90 H468" class="d-lamb" marker-end="url(#am)"/><text x="444" y="146" text-anchor="middle" class="d-xs">promote after ~15 survivals</text>
+      <text x="220" y="156" text-anchor="middle" class="d-xs">minor GC: frequent, fast, copies survivors between S0/S1</text>
+    </svg></div></figure>
+
+  <div class="widget" id="w-gc">
+    <div class="widget-head"><span class="live">Live</span>Generational GC: allocate objects, run minor GCs, watch promotion</div>
+    <div class="widget-body">
+      <div class="controls" id="gcControls"></div>
+      <div class="gc-heap" id="gcHeap"></div>
+      <div class="statrow" id="gcStats"></div>
+      <div class="wlog" id="gcLog" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <h3>Which collector?</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Collector</th><th>Flag</th><th>Pause goal</th><th>Best for</th></tr>
+    <tr><td>Serial</td><td><code>-XX:+UseSerialGC</code></td><td>stop-the-world, single thread</td><td>tiny heaps, small containers, CLIs</td></tr>
+    <tr><td>Parallel</td><td><code>-XX:+UseParallelGC</code></td><td>throughput over pauses</td><td>batch jobs</td></tr>
+    <tr><td><strong>G1</strong> (default since 9)</td><td><code>-XX:+UseG1GC</code></td><td>predictable, ~200 ms target (<code>MaxGCPauseMillis</code>)</td><td>most services</td></tr>
+    <tr><td>ZGC (generational in 21+)</td><td><code>-XX:+UseZGC</code></td><td>sub-millisecond, mostly concurrent</td><td>large heaps, latency-critical APIs</td></tr>
+    <tr><td>Shenandoah (generational in 25)</td><td><code>-XX:+UseShenandoahGC</code></td><td>low pause, concurrent compaction</td><td>latency-sensitive (OpenJDK builds)</td></tr>
+  </table></div>
+  <p class="small">G1 splits the heap into equal regions (1–32 MB) and collects the regions with the most garbage first, hence "Garbage First".</p>
+
+  <h3>Memory leaks in a garbage-collected language</h3>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Classic leaks: references that never go away">
+public class OrderCache {
+    private static final Map<Long, Order> CACHE = new HashMap<>();   // static, unbounded:
+    public void remember(Order o) { CACHE.put(o.id(), o); }           // grows until OOM
+}
+// Also: listeners registered and never removed, ThreadLocals in pools never removed,
+// mutated HashMap keys, unclosed streams/connections, huge session objects
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Bounded, expiring, cleaned up">
+Cache<Long, Order> cache = Caffeine.newBuilder()
+        .maximumSize(10_000)                         // bounded
+        .expireAfterWrite(Duration.ofMinutes(10))    // expiring
+        .recordStats()
+        .build();
+try { CTX.set(user); handle(); } finally { CTX.remove(); }   // ThreadLocal hygiene
+</script>
+</div>
+
+<script type="text/x-code" data-lang="sh" data-variant="good" data-title="Container-friendly JVM flags (sensible defaults for a Spring Boot pod)">
+java -XX:MaxRAMPercentage=75 \          # heap = 75% of the CONTAINER limit (not the host)
+     -XX:+UseG1GC \                      # or -XX:+UseZGC for very low latency
+     -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/dumps \
+     -Xlog:gc*:file=/logs/gc.log:time,uptime:filecount=5,filesize=20m \
+     -jar app.jar
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Mark from the roots, sweep the rest. Clean the counter often, the shelf rarely.</p>
+    <p>Reachability, not ref-counting. Most objects die young. G1 is the default; <span class="hl">ZGC for tiny pauses</span>. Leaks = references you forgot to drop.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Can you force garbage collection?</summary><div class="ans"><p><code>System.gc()</code> is only a request; the JVM may ignore it (and <code>-XX:+DisableExplicitGC</code> disables it). Calling it in application code is almost always a mistake.</p></div></details>
+    <details><summary>What is a stop-the-world pause?</summary><div class="ans"><p>A phase where all application threads are paused so the GC can work safely (at safepoints). Modern collectors (G1, ZGC, Shenandoah) do most of their marking and compaction concurrently to keep these pauses short.</p></div></details>
+    <details><summary>Strong, soft, weak and phantom references?</summary><div class="ans"><p>Strong: normal; never collected while reachable. Soft: collected only when memory is low (memory-sensitive caches). Weak: collected at the next GC once only weakly reachable (WeakHashMap keys, canonical maps). Phantom: used with a ReferenceQueue for post-mortem cleanup (Cleaner).</p></div></details>
+    <details><summary>What is finalize() and why avoid it?</summary><div class="ans"><p>A method the GC might call before reclaiming an object. It's unpredictable, slow, can resurrect objects, and is deprecated for removal. Use try-with-resources or <code>java.lang.ref.Cleaner</code>.</p></div></details>
+  </div>
+  {{done}}
+</section>

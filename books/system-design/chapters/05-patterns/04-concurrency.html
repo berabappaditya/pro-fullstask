@@ -1,0 +1,70 @@
+<section class="chapter" id="ch-concurrency" data-title="Concurrency in LLD">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>LLD · Correctness</div>
+    <h2>Concurrency in LLD: when two people grab the last samosa</h2>
+    <p class="ch-oneline"><b>Many LLD questions (booking seats, parking spots, wallets) are really about concurrency.</b> Interviewers want to see you protect shared state.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>One samosa left. Two cashiers each check the tray ("yes, one left"), each take money from a customer, each walk to the tray. One customer gets a samosa; the other gets an apology. Checking and taking were two separate steps, and someone squeezed in between. That's a <strong>race condition</strong>.</p></div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: check-then-act race">
+public class SeatInventory {
+    private final Map<String, Boolean> booked = new HashMap<>();   // not thread-safe
+
+    public boolean book(String seat) {
+        if (!booked.getOrDefault(seat, false)) {   // thread A and B both pass the check
+            booked.put(seat, true);                 // both write: seat sold twice
+            return true;
+        }
+        return false;
+    }
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: make check-and-act one atomic step">
+public class SeatInventory {
+    private final ConcurrentHashMap<String, String> owner = new ConcurrentHashMap<>();
+
+    public boolean book(String seat, String userId) {
+        // putIfAbsent is atomic: exactly one thread wins for a given seat
+        return owner.putIfAbsent(seat, userId) == null;
+    }
+}
+// Across many servers, push atomicity into the database:
+//   UPDATE seats SET user_id = ? WHERE seat_no = ? AND user_id IS NULL;  -- 1 row = you won
+// or Redis: SET seat:42 u17 NX EX 600  (hold for 10 minutes during payment)
+</script>
+</div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Tool</th><th>Use for</th><th>Note</th></tr>
+    <tr><td><code>synchronized</code></td><td>Simple mutual exclusion on an object</td><td>Easy; one lock per object; no timeout</td></tr>
+    <tr><td><code>ReentrantLock</code></td><td>Try-lock with timeout, fairness, multiple conditions</td><td>Always unlock in <code>finally</code></td></tr>
+    <tr><td><code>ReadWriteLock</code></td><td>Many readers, few writers (a menu cache)</td><td>Readers don't block each other</td></tr>
+    <tr><td><code>AtomicInteger/Long</code>, <code>LongAdder</code></td><td>Counters (cups sold, IDs)</td><td>Lock-free compare-and-swap</td></tr>
+    <tr><td><code>ConcurrentHashMap</code></td><td>Shared maps; <code>compute</code>, <code>putIfAbsent</code></td><td>Never use plain <code>HashMap</code> across threads</td></tr>
+    <tr><td><code>BlockingQueue</code></td><td>Producer–consumer (order slips to cooks)</td><td><code>put()</code> waits when full, <code>take()</code> waits when empty</td></tr>
+    <tr><td>Immutable objects</td><td>Value objects (Money, Address, records)</td><td>No shared mutable state = no races</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Producer–consumer: cashiers produce slips, cooks consume them">
+BlockingQueue<OrderSlip> spike = new ArrayBlockingQueue<>(50); // bounded: backpressure
+
+Runnable cashier = () -> {
+    while (true) spike.put(takeNextOrder());       // blocks if 50 slips are waiting
+};
+Runnable cook = () -> {
+    while (true) brew(spike.take());               // blocks while there's nothing to do
+};
+
+ExecutorService pool = Executors.newFixedThreadPool(5);
+pool.submit(cashier);
+for (int i = 0; i < 4; i++) pool.submit(cook);     // 1 producer, 4 consumers
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Check-then-act must be one step.</p>
+    <p>In one JVM: <strong>atomic operations, concurrent collections, locks</strong>. Across servers: <strong>DB conditional updates, unique constraints, optimistic versions, or Redis <code>SET NX</code></strong>. Prefer immutability where you can.</p></div>
+  {{done}}
+</section>

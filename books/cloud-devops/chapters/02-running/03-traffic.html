@@ -1,0 +1,61 @@
+<section class="chapter" id="ch-lb-dns-cdn" data-title="Load balancers, DNS and CDN">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Running code</div>
+    <h2>Getting traffic in: DNS, CDN and load balancers</h2>
+    <p class="ch-oneline"><b>DNS turns the name into an address, the CDN serves what it can from the edge, and the load balancer spreads the rest over healthy instances.</b></p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>A customer asks the <strong>information desk</strong> for "Ramu Chai" and is told "stall 42" (DNS). Bottled water and biscuits are sold at <strong>kiosks by every entrance</strong> so nobody walks all the way in (CDN). At stall 42, a <strong>host</strong> sends each customer to whichever counter is free and skips the one with a broken till (load balancer + health checks).</p></div>
+
+  <div class="widget" data-sequence>
+    <div class="widget-head"><span class="live">Live</span>What happens when a user opens https://ramuchai.in/menu</div>
+    <div class="widget-body">
+<script type="application/json">
+{"actors":[
+ {"id":"u","label":"Browser","sub":"user in Pune","cls":"d-vio"},
+ {"id":"d","label":"DNS","sub":"Route 53 / Cloud DNS","cls":"d-teal"},
+ {"id":"c","label":"CDN edge","sub":"CloudFront / Cloud CDN","cls":"d-amb"},
+ {"id":"l","label":"Load balancer","sub":"ALB · L7","cls":"d-acc"},
+ {"id":"a","label":"App","sub":"healthy target","cls":"d-good"}],
+ "steps":[
+ {"from":"u","to":"d","msg":"ramuchai.in → ?","text":"The resolver asks the authoritative DNS. An alias/CNAME record points the name at the CDN distribution. Records have a TTL: low TTLs make changes propagate fast."},
+ {"from":"d","to":"u","msg":"edge IP (nearby)","ret":true,"text":"Latency-based or anycast routing returns an edge location close to Pune (Mumbai or Hyderabad)."},
+ {"from":"u","to":"c","msg":"GET /menu (TLS)","text":"TLS terminates at the edge with the certificate from ACM / Certificate Manager. WAF rules can block bad bots and SQL injection here."},
+ {"from":"c","to":"c","msg":"cache lookup","text":"Static assets (JS, images, /menu if cacheable for 60 s) are served from the edge cache: no trip to the origin. Cache key = path + selected headers/query params."},
+ {"from":"c","to":"l","msg":"cache miss → origin","text":"On a miss the CDN forwards to the origin: the public load balancer in ap-south-1, over the provider's backbone."},
+ {"from":"l","to":"a","msg":"route /menu → target","text":"The L7 load balancer picks a healthy target (round robin / least outstanding requests) based on host and path rules. Unhealthy targets (failed /actuator/health/readiness) get no traffic."},
+ {"from":"a","to":"l","msg":"200 + Cache-Control","ret":true,"text":"The app answers and sets Cache-Control headers that tell the CDN how long it may cache."},
+ {"from":"l","to":"c","msg":"response","ret":true,"text":"The response flows back through the load balancer."},
+ {"from":"c","to":"u","msg":"200 (cached for next user)","ret":true,"text":"The edge stores a copy, so the next user in the region gets it in a few milliseconds."}]}
+</script>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Application LB (L7)</th><th>Network LB (L4)</th></tr>
+    <tr><td>Understands</td><td>HTTP: host, path, headers, cookies</td><td>TCP/UDP/TLS: IPs and ports</td></tr>
+    <tr><td>Features</td><td>path routing, redirects, auth, WebSockets, gRPC, WAF</td><td>millions of req/s, static IPs, very low latency, preserves source IP</td></tr>
+    <tr><td>Use for</td><td>web apps and REST APIs</td><td>non-HTTP protocols, extreme throughput, PrivateLink</td></tr>
+    <tr><td>GCP</td><td>External/Internal Application LB</td><td>External/Internal passthrough Network LB</td></tr>
+  </table></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>DNS record</th><th>Maps</th><th>Example</th></tr>
+    <tr><td>A / AAAA</td><td>name → IPv4 / IPv6</td><td><code>api.ramuchai.in → 203.0.113.7</code></td></tr>
+    <tr><td>CNAME</td><td>name → another name (not at the zone apex)</td><td><code>www → ramuchai.in</code></td></tr>
+    <tr><td>Alias (Route 53)</td><td>apex → AWS resource, free queries</td><td><code>ramuchai.in → ALB / CloudFront</code></td></tr>
+    <tr><td>MX / TXT</td><td>mail / verification, SPF, DKIM</td><td>domain ownership proofs</td></tr>
+  </table></div>
+  <p class="small">Route 53 routing policies: simple, weighted (canary 10%), latency-based, failover (health-checked primary/secondary), geolocation.</p>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Information desk, kiosks at the entrance, a host at the stall.</p>
+    <p>DNS (TTL, alias, routing policies) → CDN (edge cache, TLS, WAF) → <span class="hl">L7 LB with health checks</span> → app. L4 for raw TCP/UDP and extreme scale.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How do health checks and connection draining work during a deploy?</summary><div class="ans"><p>The LB probes each target's health endpoint; only healthy targets receive traffic. When an instance is being removed, it's deregistered: the LB stops sending new requests and waits (deregistration delay) for in-flight requests to finish while the app shuts down gracefully. Readiness probes play the same role in Kubernetes.</p></div></details>
+    <details><summary>How do you invalidate CDN content after a deploy?</summary><div class="ans"><p>Prefer versioned filenames (app.3f9a1.js) with long max-age so new deploys reference new URLs and nothing needs purging; keep HTML short-lived. For emergencies use an invalidation (CloudFront invalidation / Cloud CDN cache invalidation), which can take minutes and may cost money.</p></div></details>
+  </div>
+  {{done}}
+</section>

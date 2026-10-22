@@ -1,0 +1,180 @@
+<section class="chapter" id="ch-upi" data-title="How UPI works and scales">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Real-world · Payments for a billion people</div>
+    <h2>How UPI works and scales</h2>
+    <p class="ch-oneline"><b>UPI is a central switch (run by NPCI) that every bank and every payments app plugs into.</b> A simple address like <code>ramu@okaxis</code> hides the bank account, and a carefully designed message flow moves money in seconds.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><b>24.51 bn</b><span>UPI transactions in August 2026, a monthly record</span></div>
+    <div class="stat"><b>₹29.82 L cr</b><span>value moved that month (₹29.82 lakh crore)</span></div>
+    <div class="stat"><b>~791 M/day</b><span>average daily transactions</span></div>
+    <div class="stat"><b>~9,000/s</b><span>average per second; evening peaks run several times higher</span></div>
+  </div>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Imagine every customer's bank needing a private phone line to every shop's bank before money could move. With 600+ banks, that's hundreds of thousands of lines, and each bank must trust and test every other bank. Instead, India built <strong>one telephone exchange</strong> that every bank calls. A customer scans the QR code on Ramu's counter, which says only <code>ramu@okaxis</code>. The exchange looks up which bank and account that is, asks the customer's bank to take ₹15 out, asks Ramu's bank to put ₹15 in, and tells both sides it's done. Ramu's soundbox says "₹15 received" a couple of seconds later.</p>
+    <p>The exchange is the <strong>NPCI UPI switch</strong>. <code>ramu@okaxis</code> is a <strong>VPA</strong> (Virtual Payment Address, now usually called a UPI ID).</p></div>
+
+  <h3>The cast</h3>
+  <div class="cards">
+    <div class="card"><span class="k">you</span><h5>Payer and payer's app</h5><p>PhonePe, Google Pay, Paytm, BHIM or your bank's app. A third-party app works through a "sponsor" PSP bank.</p></div>
+    <div class="card"><span class="k">PSP</span><h5>Payment Service Provider bank</h5><p>The bank that connects an app to UPI, issues UPI IDs (<code>@okaxis</code>, <code>@ybl</code>) and talks to NPCI on the app's behalf.</p></div>
+    <div class="card"><span class="k">switch</span><h5>NPCI UPI switch</h5><p>The central hub: routes every message, resolves addresses, enforces rules and timeouts, and keeps the master record of each transaction.</p></div>
+    <div class="card"><span class="k">remitter</span><h5>Payer's bank (issuer)</h5><p>Holds the payer's account, verifies the UPI PIN, and debits the money.</p></div>
+    <div class="card"><span class="k">beneficiary</span><h5>Payee's bank (acquirer)</h5><p>Holds the receiver's account and credits the money.</p></div>
+    <div class="card"><span class="k">settlement</span><h5>RBI settlement</h5><p>Banks don't move real money per transaction. NPCI nets everything and banks settle in batches through their RBI accounts several times a day.</p></div>
+  </div>
+
+  <h3>Why a central switch: hub and spoke</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 260" role="img" aria-label="Point-to-point connections between every bank grow as n squared; a central switch needs only one connection per bank">
+      <text x="200" y="22" text-anchor="middle" class="d-tb">Every bank to every bank</text>
+      <g>
+        <circle cx="200" cy="60" r="16" class="d-box"/><circle cx="290" cy="100" r="16" class="d-box"/><circle cx="310" cy="185" r="16" class="d-box"/>
+        <circle cx="240" cy="235" r="16" class="d-box"/><circle cx="150" cy="230" r="16" class="d-box"/><circle cx="95" cy="175" r="16" class="d-box"/><circle cx="110" cy="95" r="16" class="d-box"/>
+        <path d="M200 60 L290 100 M200 60 L310 185 M200 60 L240 235 M200 60 L150 230 M200 60 L95 175 M200 60 L110 95 M290 100 L310 185 M290 100 L240 235 M290 100 L150 230 M290 100 L95 175 M290 100 L110 95 M310 185 L240 235 M310 185 L150 230 M310 185 L95 175 M310 185 L110 95 M240 235 L150 230 M240 235 L95 175 M240 235 L110 95 M150 230 L95 175 M150 230 L110 95 M95 175 L110 95" class="d-lbad" style="stroke-width:1"/>
+      </g>
+      <text x="200" y="256" text-anchor="middle" class="d-s">7 banks → 21 links · 600 banks → ~180,000</text>
+      <line x1="410" y1="15" x2="410" y2="250" class="d-line d-dash"/>
+      <text x="620" y="22" text-anchor="middle" class="d-tg">One switch in the middle</text>
+      <g>
+        <circle cx="620" cy="60" r="16" class="d-box"/><circle cx="710" cy="100" r="16" class="d-box"/><circle cx="730" cy="185" r="16" class="d-box"/>
+        <circle cx="660" cy="235" r="16" class="d-box"/><circle cx="570" cy="230" r="16" class="d-box"/><circle cx="515" cy="175" r="16" class="d-box"/><circle cx="530" cy="95" r="16" class="d-box"/>
+        <path d="M620 60 L625 148 M710 100 L640 140 M730 185 L645 158 M660 235 L630 172 M570 230 L612 172 M515 175 L603 157 M530 95 L605 140" class="d-lgood"/>
+        <circle cx="622" cy="155" r="26" class="d-amb"/><text x="622" y="159" text-anchor="middle" class="d-t">NPCI</text>
+      </g>
+      <text x="620" y="256" text-anchor="middle" class="d-s">600 banks → 600 links, one rulebook</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Interoperability through a hub: any app can pay any bank account. The hub also becomes the single place to enforce rules, timeouts and fraud checks, which is why it must be extremely reliable.</figcaption>
+  </figure>
+
+  <div class="box layman"><div class="box-tag">In plain words</div>
+    <p>A UPI ID works like a website name. You type <code>google.com</code>, not an IP address; DNS finds the address. You pay <code>ramu@okaxis</code>, not an account number and IFSC; the switch finds the account. Ramu can change banks without reprinting his QR code if he moves the ID. This <strong>layer of indirection</strong> is one of the most useful tricks in system design ({{ref:ch-request}}).</p></div>
+
+  <h3>Following one payment, step by step</h3>
+  <div class="widget" id="w-upi">
+    <div class="widget-head"><span class="live">Live</span>A ₹250 UPI payment, message by message</div>
+    <div class="widget-body">
+      <div class="controls">
+        <button class="btn primary" id="upiNext">Next step</button>
+        <button class="btn" id="upiAuto">Play all</button>
+        <button class="btn" id="upiFail">Scenario: happy path</button>
+        <button class="btn" id="upiReset">Reset</button>
+      </div>
+      <div class="svgwrap" style="overflow-x:auto"><svg id="upiSvg" viewBox="0 0 760 350" style="min-width:600px" role="img" aria-label="UPI message flow between payer app, payer PSP, NPCI switch, payee PSP, payer bank and payee bank"></svg></div>
+      <div class="upi-step" id="upiText" aria-live="polite"></div>
+      <div class="statrow" id="upiStatus"></div>
+    </div>
+  </div>
+
+  <ol class="steps">
+    <li><b>Start</b>Priya scans Ramu's QR (<code>upi://pay?pa=ramu@okaxis&amp;am=250</code>) in her app. The app creates a unique transaction ID.</li>
+    <li><b>Enter UPI PIN</b>The PIN is typed into NPCI's secure library inside the app and encrypted with keys only the bank can use. Neither PhonePe nor Google Pay ever sees it.</li>
+    <li><b>Resolve the address</b>The payer's PSP sends the request to NPCI, which asks Ramu's PSP to turn <code>ramu@okaxis</code> into a real account.</li>
+    <li><b>Debit</b>NPCI sends a debit request to Priya's bank, which verifies the PIN and device and takes ₹250 out.</li>
+    <li><b>Credit</b>NPCI sends a credit request to Ramu's bank, which puts ₹250 in.</li>
+    <li><b>Confirm</b>NPCI marks the transaction successful and notifies both sides. Priya sees the tick; Ramu's soundbox speaks.</li>
+  </ol>
+
+  <h3>When something goes wrong in the middle</h3>
+  <p>The hardest case: Priya's bank debited the money, but Ramu's bank doesn't answer in time. Money has left one account and might or might not have reached the other. UPI's design handles it with patterns you know:</p>
+  <div class="cards">
+    <div class="card"><h5>Unique transaction IDs</h5><p>Every message carries the same ID and reference number, so retries and status checks are <strong>idempotent</strong>: asking twice never moves money twice. ({{ref:ch-api}})</p></div>
+    <div class="card"><h5>Strict timeouts</h5><p>NPCI caps how long each step may take. A hung bank doesn't hang the whole network. ({{ref:ch-reliability}})</p></div>
+    <div class="card"><h5>"Pending" is a real state</h5><p>The app shows "pending" instead of guessing. The transaction is a state machine: initiated → debited → credited / pending → success / reversed. ({{ref:ch-behavioral}})</p></div>
+    <div class="card"><h5>Check status, then reverse</h5><p>After a wait, the system asks for the final status; if the credit never happened, the debit is automatically reversed. That's a compensating action, exactly like a saga. ({{ref:ch-dtx}})</p></div>
+  </div>
+
+  <div class="box pitfall"><div class="box-tag">Real-world lesson: the retry storm of 2025</div>
+    <p>In April 2025, UPI suffered a major outage. NPCI found that some banks and payment apps were calling the "check transaction status" API far too often and at very high rates, so the switch's queues overflowed and genuine payments slowed down and failed. The fix, in a circular dated 21 May 2025 (compliance by 31 July 2025), was classic rate limiting ({{ref:ch-rate}}):</p>
+    <ul>
+      <li>The first status check may only be sent <strong>90 seconds</strong> after the original transaction.</li>
+      <li><strong>Balance enquiries</strong> capped at 50 per app, per customer, per day; "list accounts" at 25.</li>
+      <li>Background jobs (autopay mandate execution, merchant list syncs) moved to <strong>non-peak hours</strong>; peak hours are 10 AM to 1 PM and 5 PM to 9:30 PM.</li>
+      <li>Members that don't comply risk API restrictions or a freeze on onboarding new customers.</li>
+    </ul>
+    <p>The lesson: <span class="hl">retries without backoff and limits turn a small slowdown into an outage.</span></p></div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: a PSP polls status every second (multiplied by millions of users)">
+public TxnStatus waitForResult(String txnId) {
+    while (true) {
+        TxnStatus s = npci.checkStatus(txnId);   // hammers the switch
+        if (s != TxnStatus.PENDING) return s;
+        sleep(1_000);                             // 1 call/second/pending txn
+        // When the switch slows down, MORE txns are pending, so MORE polling,
+        // so the switch slows further: a feedback loop that ends in an outage.
+    }
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: wait for the callback, check late, back off, then reconcile">
+public void onPending(String txnId) {
+    // 1. Most results arrive as a push callback from NPCI: don't poll at all.
+    // 2. Only if no callback arrives, schedule the FIRST check no earlier than 90 s.
+    scheduler.schedule(() -> checkWithBackoff(txnId, 1), Duration.ofSeconds(90));
+}
+
+private void checkWithBackoff(String txnId, int attempt) {
+    TxnStatus s = npci.checkStatus(txnId);            // idempotent: same txnId every time
+    if (s != TxnStatus.PENDING) { ledger.finalise(txnId, s); return; }
+    if (attempt == MAX_ATTEMPTS) {                    // stop asking; hand over to the
+        reconciliation.enqueue(txnId);                // end-of-day reconciliation file
+        return;
+    }
+    long delay = (long) (90 * Math.pow(2, attempt));  // 180 s, 360 s, 720 s ...
+    long jitter = ThreadLocalRandom.current().nextLong(delay / 4); // spread the herd
+    scheduler.schedule(() -> checkWithBackoff(txnId, attempt + 1),
+                       Duration.ofSeconds(delay + jitter));
+}
+</script>
+</div>
+
+  <h3>How UPI stays secure</h3>
+  <div class="cards">
+    <div class="card"><h5>Device binding</h5><p>On setup, the app sends an SMS from your SIM to prove the phone number is really in this device. Your UPI profile is tied to that device + SIM.</p></div>
+    <div class="card"><h5>Two factors</h5><p>Something you have (the bound device) + something you know (UPI PIN). Both are checked on every payment.</p></div>
+    <div class="card"><h5>PIN never leaves encrypted</h5><p>NPCI's common library encrypts the PIN on the phone; only the issuing bank can verify it. Apps and PSPs handle only ciphertext.</p></div>
+    <div class="card"><h5>Limits and risk checks</h5><p>Per-transaction and daily limits, cooling periods for new devices, and fraud scoring at banks and the switch.</p></div>
+  </div>
+
+  <h3>How it scales to billions of transactions a month</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 250" role="img" aria-label="UPI scaling: apps and PSPs scale horizontally, NPCI runs an active-active switch across data centres, and bank core banking systems are often the slowest part">
+      <rect x="10" y="60" width="150" height="130" rx="12" class="d-vio"/><text x="85" y="86" text-anchor="middle" class="d-t">Apps + PSPs</text>
+      <text x="85" y="108" text-anchor="middle" class="d-xs">stateless API fleets</text><text x="85" y="124" text-anchor="middle" class="d-xs">autoscaling, caching</text><text x="85" y="140" text-anchor="middle" class="d-xs">idempotent txn IDs</text><text x="85" y="156" text-anchor="middle" class="d-xs">rate limits per user</text>
+      <rect x="230" y="30" width="280" height="190" rx="14" class="d-amb"/><text x="370" y="56" text-anchor="middle" class="d-tl">NPCI UPI switch</text>
+      <rect x="250" y="72" width="115" height="74" rx="10" class="d-box"/><text x="307" y="98" text-anchor="middle" class="d-t">Data centre A</text><text x="307" y="116" text-anchor="middle" class="d-xs">active</text><text x="307" y="132" text-anchor="middle" class="d-xs">switch nodes ×N</text>
+      <rect x="375" y="72" width="115" height="74" rx="10" class="d-box"/><text x="432" y="98" text-anchor="middle" class="d-t">Data centre B</text><text x="432" y="116" text-anchor="middle" class="d-xs">active</text><text x="432" y="132" text-anchor="middle" class="d-xs">switch nodes ×N</text>
+      <path d="M365 109 H375" class="d-line" style="stroke-width:3"/>
+      <text x="370" y="170" text-anchor="middle" class="d-xs">address lookup, routing, timeouts,</text><text x="370" y="186" text-anchor="middle" class="d-xs">API rate limits, fraud rules, txn log</text><text x="370" y="202" text-anchor="middle" class="d-xs">net settlement files for RBI</text>
+      <rect x="580" y="30" width="270" height="190" rx="14" class="d-good"/><text x="715" y="56" text-anchor="middle" class="d-tl">600+ banks</text>
+      <rect x="600" y="72" width="230" height="44" rx="9" class="d-box"/><text x="715" y="99" text-anchor="middle" class="d-t">Bank's UPI switch (scales out)</text>
+      <rect x="600" y="140" width="230" height="56" rx="9" class="d-bad"/><text x="715" y="162" text-anchor="middle" class="d-t">Core banking system</text><text x="715" y="180" text-anchor="middle" class="d-xs">often the bottleneck → "bank declines"</text>
+      <path d="M715 116 V138" class="d-line" marker-end="url(#ah)"/>
+      <path d="M160 125 H228" class="d-lvio" marker-end="url(#av)"/>
+      <path d="M510 125 H578" class="d-lgood" marker-end="url(#ag)"/>
+      <text x="430" y="242" text-anchor="middle" class="d-s">A payment is only as fast as the slowest bank in its path, so the switch protects everyone with timeouts and limits.</text>
+    </svg></div>
+  </figure>
+  <div class="cards">
+    <div class="card"><h5>Horizontal scale everywhere</h5><p>App backends, PSP gateways and the switch itself are fleets of stateless nodes behind load balancers. ({{ref:ch-scaling}})</p></div>
+    <div class="card"><h5>Active-active data centres</h5><p>The switch runs across data centres at once, so losing one doesn't stop payments. ({{ref:ch-reliability}})</p></div>
+    <div class="card"><h5>Asynchronous settlement</h5><p>Real money between banks moves in net batches, not per payment: the fast path only updates ledgers. ({{ref:ch-queue}})</p></div>
+    <div class="card"><h5>Tight response times</h5><p>NPCI shortened its response-time limits for key APIs in 2025, so slow members fail fast instead of holding everyone up.</p></div>
+    <div class="card"><h5>Protecting the hub</h5><p>Per-member API rate limits and peak-hour rules stop one misbehaving bank or app from hurting everyone. ({{ref:ch-rate}})</p></div>
+    <div class="card"><h5>Concentration limits</h5><p>A proposed 30% cap on any one app's share of UPI volume (deferred to 31 December 2026) is about systemic risk: no single app should be a single point of failure for the country.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">One exchange, a name instead of a number, and "pending" is an honest answer.</p>
+    <p><strong>Hub and spoke</strong> for interoperability, <strong>VPA indirection</strong> like DNS, <strong>idempotent IDs + timeouts + reversal</strong> for in-flight failures, and <span class="hl">rate limits with backoff</span> so retries can't take the network down.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Design a UPI-like payment system. What are the critical properties?</summary><div class="ans"><p>Exactly-once money movement (idempotent transaction IDs, unique constraints), strong consistency for balances (CP: the debit and credit must reconcile), strict timeouts and an explicit pending state, automatic reversal for failed credits, a full audit trail, security (device binding, 2FA, encryption end to end), and protection of the central switch (rate limits, backpressure, active-active deployment). Settlement can be asynchronous and batched.</p></div></details>
+    <details><summary>Money left my account but the payment shows "failed". What happened, technically?</summary><div class="ans"><p>The debit succeeded at the remitter bank, but the credit leg failed or timed out. The transaction is then reconciled: after status checks confirm the credit didn't happen, the switch triggers a reversal to the remitter bank. Until reconciliation completes, it can look "failed" in the app while the money is in transit back.</p></div></details>
+    <details><summary>Why doesn't UPI just retry the credit forever?</summary><div class="ans"><p>Unbounded retries hold resources and can amplify load on an already struggling bank. A bounded number of checks with backoff, followed by a deterministic outcome (success or reversal) and end-of-day reconciliation, keeps the system stable and the customer informed.</p></div></details>
+  </div>
+  <p class="sources">Sources: <a href="https://startuptalky.com/india-upi-transactions-august-2026-record-volume/">StartupTalky on NPCI data for August 2026</a>; <a href="https://inc42.com/buzz/npci-brings-in-additional-measures-to-curb-upi-outage">Inc42 on NPCI's May 2025 API guidelines</a>; <a href="https://www.impriindia.com/insights/policy-update/scaling-upi-the-economics-behind-npcis-new-operational-limits/">IMPRI on NPCI's operational limits</a>. The per-second average is derived from the daily figure.</p>
+  {{done}}
+</section>

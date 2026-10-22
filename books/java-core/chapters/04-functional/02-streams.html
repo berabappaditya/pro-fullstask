@@ -1,0 +1,123 @@
+<section class="chapter" id="ch-streams" data-title="Streams: pipelines, laziness, collectors">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Functional</div>
+    <h2>Streams: pipelines, laziness and collectors</h2>
+    <p class="ch-oneline"><b>A stream is an assembly line: a source, some intermediate steps, and one terminal step.</b> Nothing happens until the terminal step pulls items through, one at a time.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>Ramu's assembly line has stations: <strong>wash → peel → chop → fry → plate</strong>. Potatoes don't all get washed first and then all peeled; each potato goes down the whole line before the next. And if the order is "just 3 plates of fries", the line <strong>stops after the third plate</strong>: the rest of the sack is never touched. That's laziness and short-circuiting.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 170" role="img" aria-label="Source, then intermediate operations filter, map, sorted, then a terminal operation collect">
+      <rect x="10" y="50" width="130" height="66" rx="12" class="d-vio"/><text x="75" y="78" text-anchor="middle" class="d-t">Source</text><text x="75" y="96" text-anchor="middle" class="d-xs">list.stream()</text>
+      <path d="M140 83 H180" class="d-lacc d-flow" marker-end="url(#aa)"/>
+      <rect x="182" y="50" width="130" height="66" rx="12" class="d-box"/><text x="247" y="78" text-anchor="middle" class="d-t">filter</text><text x="247" y="96" text-anchor="middle" class="d-xs">stateless, lazy</text>
+      <path d="M312 83 H352" class="d-lacc d-flow" marker-end="url(#aa)"/>
+      <rect x="354" y="50" width="130" height="66" rx="12" class="d-box"/><text x="419" y="78" text-anchor="middle" class="d-t">map</text><text x="419" y="96" text-anchor="middle" class="d-xs">stateless, lazy</text>
+      <path d="M484 83 H524" class="d-lacc d-flow" marker-end="url(#aa)"/>
+      <rect x="526" y="50" width="130" height="66" rx="12" class="d-amb"/><text x="591" y="78" text-anchor="middle" class="d-t">sorted</text><text x="591" y="96" text-anchor="middle" class="d-xs">stateful: needs all</text>
+      <path d="M656 83 H696" class="d-lacc d-flow" marker-end="url(#aa)"/>
+      <rect x="698" y="50" width="150" height="66" rx="12" class="d-good"/><text x="773" y="78" text-anchor="middle" class="d-t">collect</text><text x="773" y="96" text-anchor="middle" class="d-xs">terminal: runs it all</text>
+      <text x="420" y="26" text-anchor="middle" class="d-s">intermediate operations return a new Stream and do nothing yet</text>
+      <text x="430" y="152" text-anchor="middle" class="d-s">A stream can be consumed only once. It never modifies its source.</text>
+    </svg></div></figure>
+
+  <div class="widget" id="w-stream">
+    <div class="widget-head"><span class="live">Live</span>Watch laziness: items flow one by one, and limit() stops the line early</div>
+    <div class="widget-body">
+      <div class="controls" id="stControls"></div>
+      <div class="st-lanes" id="stLanes"></div>
+      <div class="statrow" id="stStats"></div>
+      <div class="wlog" id="stLog" aria-live="polite"></div>
+    </div>
+  </div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: loops, temp lists and a mutable map">
+Map<String, Integer> revenueByCategory = new HashMap<>();
+for (Order o : orders) {
+    if (o.status() != Status.PAID) continue;
+    for (Line l : o.lines()) {
+        String cat = l.dish().category();
+        Integer cur = revenueByCategory.get(cat);
+        revenueByCategory.put(cat, (cur == null ? 0 : cur) + l.price() * l.qty());
+    }
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: one declarative pipeline">
+Map<String, Integer> revenueByCategory = orders.stream()
+        .filter(o -> o.status() == Status.PAID)          // keep paid orders
+        .flatMap(o -> o.lines().stream())                // one stream of all lines
+        .collect(Collectors.groupingBy(
+                l -> l.dish().category(),                // key: category
+                Collectors.summingInt(l -> l.price() * l.qty())));  // value: sum
+</script>
+</div>
+
+  <h3>The collectors interviewers love</h3>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Collectors you should be able to write without looking">
+List<String> names = dishes.stream().map(Dish::name).toList();          // Java 16+: unmodifiable list
+Set<String> cats   = dishes.stream().map(Dish::category).collect(Collectors.toSet());
+
+Map<String, Dish> byName = dishes.stream()
+        .collect(Collectors.toMap(Dish::name, d -> d,
+                 (a, b) -> a));                       // merge fn: REQUIRED if keys can repeat,
+                                                      // otherwise IllegalStateException
+
+Map<String, List<Dish>> byCat   = dishes.stream().collect(Collectors.groupingBy(Dish::category));
+Map<String, Long>       countCat = dishes.stream().collect(Collectors.groupingBy(Dish::category, Collectors.counting()));
+Map<Boolean, List<Dish>> vegSplit = dishes.stream().collect(Collectors.partitioningBy(Dish::veg));
+String menu = dishes.stream().map(Dish::name).collect(Collectors.joining(", ", "[", "]"));
+IntSummaryStatistics st = dishes.stream().mapToInt(Dish::price).summaryStatistics(); // min max avg sum count
+
+Optional<Dish> priciest = dishes.stream().max(Comparator.comparingInt(Dish::price));
+int total = dishes.stream().mapToInt(Dish::price).sum();               // primitive stream: no boxing
+int total2 = dishes.stream().map(Dish::price).reduce(0, Integer::sum); // reduce: identity + combiner
+
+// Classic interview one-liner: frequency of each character
+Map<Character, Long> freq = "masala".chars().mapToObj(c -> (char) c)
+        .collect(Collectors.groupingBy(Function.identity(), LinkedHashMap::new, Collectors.counting()));
+// {m=1, a=3, s=1, l=1}
+</script>
+
+  <h3>map vs flatMap</h3>
+  <div class="cards">
+    <div class="card"><h5><code>map</code>: one in, one out</h5><p><code>orders.map(Order::lines)</code> gives a <code>Stream&lt;List&lt;Line&gt;&gt;</code>: a stream of lists.</p></div>
+    <div class="card good"><h5><code>flatMap</code>: one in, many out, flattened</h5><p><code>orders.flatMap(o -&gt; o.lines().stream())</code> gives a <code>Stream&lt;Line&gt;</code>.</p></div>
+  </div>
+
+  <h3>Optional: say "maybe empty" in the type</h3>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Misusing Optional">
+Optional<User> u = repo.findById(id);
+if (u.isPresent()) return u.get().getEmail();   // just a null check with extra steps
+return u.get();                                 // NoSuchElementException if empty
+// Also avoid: Optional fields, Optional parameters, Optional in collections.
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Using it as a pipeline">
+String email = repo.findById(id)
+        .map(User::getEmail)                    // transform if present
+        .filter(e -> e.endsWith("@ramu.in"))
+        .orElse("support@ramu.in");             // default value
+
+User user = repo.findById(id)
+        .orElseThrow(() -> new UserNotFound(id)); // the most common pattern in Spring services
+</script>
+</div>
+
+  <h3>Parallel streams: careful</h3>
+  <div class="box pitfall"><div class="box-tag">Common trap</div><p><code>.parallelStream()</code> splits work over the shared <code>ForkJoinPool.commonPool()</code> (cores - 1 threads). It helps only for large, CPU-heavy, independent work on easily splittable sources (arrays, ArrayList). It hurts for small lists, LinkedList, I/O calls (one slow call blocks the shared pool for the whole JVM), and any code with shared mutable state. In a web server, it's usually the wrong tool.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Source, steps, one terminal. Nothing runs until the terminal.</p>
+    <p>Streams are <span class="hl">lazy, single-use and don't change the source</span>. Use <code>toMap</code> with a merge function, <code>groupingBy</code> for buckets, primitive streams for numbers.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Intermediate vs terminal operations?</summary><div class="ans"><p>Intermediate (filter, map, flatMap, sorted, distinct, limit, peek) return a stream and are lazy. Terminal (collect, forEach, reduce, count, findFirst, anyMatch, toList) trigger processing and end the stream. Short-circuiting ones (limit, findFirst, anyMatch) can stop early, even on infinite streams.</p></div></details>
+    <details><summary>findFirst vs findAny?</summary><div class="ans"><p>findFirst returns the first element in encounter order. findAny may return any element, which lets parallel streams return whichever finishes first. In sequential streams they usually behave the same.</p></div></details>
+    <details><summary>Find the second highest salary with streams.</summary><div class="ans"><p><code>emps.stream().map(Employee::salary).distinct().sorted(Comparator.reverseOrder()).skip(1).findFirst()</code> returns an Optional. Mention that a SQL query with <code>OFFSET 1</code> or <code>DENSE_RANK</code> is better when the data is in a database.</p></div></details>
+    <details><summary>What does peek() do and when should you use it?</summary><div class="ans"><p>It runs an action on each element as it passes, without changing it. It's meant for debugging; don't rely on it for side effects because with laziness or short-circuiting it may not run for every element.</p></div></details>
+  </div>
+  {{done}}
+</section>

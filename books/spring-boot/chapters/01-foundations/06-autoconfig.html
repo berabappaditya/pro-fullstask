@@ -1,0 +1,80 @@
+<section class="chapter" id="ch-autoconfig" data-title="Auto-configuration and starters">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Foundations</div>
+    <h2>Auto-configuration and starters: how Boot "just knows"</h2>
+    <p class="ch-oneline"><b>Boot reads a list of candidate configuration classes and keeps only those whose @Conditional checks pass:</b> is this class on the classpath, is that bean missing, is this property set?</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>The kit has a rule book: "<strong>If</strong> the shop has a gas line, fit a gas stove. <strong>If</strong> the owner already brought their own stove, don't fit ours. <strong>If</strong> the owner ticked 'serve coffee', install the coffee machine." The installer reads the rules on opening day and fits only what applies. That's auto-configuration.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 200" role="img" aria-label="Classpath jars feed EnableAutoConfiguration, which reads the AutoConfiguration.imports file; each candidate's Conditional checks decide whether its beans are registered">
+      <rect x="10" y="60" width="150" height="80" rx="12" class="d-vio"/><text x="85" y="88" text-anchor="middle" class="d-t">Classpath</text><text x="85" y="106" text-anchor="middle" class="d-xs">starter-webmvc,</text><text x="85" y="122" text-anchor="middle" class="d-xs">postgresql driver…</text>
+      <path d="M160 100 H196" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="198" y="60" width="190" height="80" rx="12" class="d-acc"/><text x="293" y="88" text-anchor="middle" class="d-t">@EnableAutoConfiguration</text><text x="293" y="106" text-anchor="middle" class="d-xs">reads META-INF/spring/</text><text x="293" y="122" text-anchor="middle" class="d-xs">…AutoConfiguration.imports</text>
+      <path d="M388 100 H424" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="426" y="40" width="210" height="120" rx="12" class="d-amb"/><text x="531" y="64" text-anchor="middle" class="d-t">@Conditional checks</text>
+      <text x="444" y="88" class="d-xs">OnClass: DataSource present?</text><text x="444" y="106" class="d-xs">OnMissingBean: user defined one?</text><text x="444" y="124" class="d-xs">OnProperty: feature enabled?</text><text x="444" y="142" class="d-xs">OnWebApplication: servlet app?</text>
+      <path d="M636 80 H690" class="d-lgood" marker-end="url(#ag)"/><path d="M636 130 H690" class="d-lbad" marker-end="url(#ab)"/>
+      <rect x="692" y="56" width="156" height="46" rx="10" class="d-good"/><text x="770" y="84" text-anchor="middle" class="d-t">beans registered</text>
+      <rect x="692" y="110" width="156" height="46" rx="10" class="d-bad"/><text x="770" y="138" text-anchor="middle" class="d-t">skipped (backs off)</text>
+    </svg></div></figure>
+
+  <div class="widget" id="w-autoconfig">
+    <div class="widget-head"><span class="live">Live</span>Condition evaluator: change the classpath and your own beans, see what Boot configures</div>
+    <div class="widget-body">
+      <div class="ac-inputs" id="acInputs"></div>
+      <div class="ac-out" id="acOut"></div>
+    </div>
+  </div>
+
+<script type="text/x-code" data-lang="java" data-variant="plain" data-title="What an auto-configuration class looks like (simplified)">
+@AutoConfiguration
+@ConditionalOnClass({ DataSource.class, EmbeddedDatabaseType.class })   // JDBC on the classpath?
+@EnableConfigurationProperties(DataSourceProperties.class)             // binds spring.datasource.*
+public class DataSourceAutoConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean(DataSource.class)       // YOUR DataSource bean always wins
+    @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
+    public HikariDataSource dataSource(DataSourceProperties props) {
+        return props.initializeDataSourceBuilder().type(HikariDataSource.class).build();
+    }
+}
+</script>
+
+  <h3>Starters</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Starter (Boot 4 name)</th><th>Brings</th></tr>
+    <tr><td><code>spring-boot-starter-webmvc</code> (was <code>-web</code>)</td><td>Spring MVC, embedded Tomcat, Jackson 3</td></tr>
+    <tr><td><code>spring-boot-starter-data-jpa</code></td><td>Spring Data JPA, Hibernate 7, HikariCP</td></tr>
+    <tr><td><code>spring-boot-starter-security</code></td><td>Spring Security 7</td></tr>
+    <tr><td><code>spring-boot-starter-validation</code></td><td>Jakarta Bean Validation (Hibernate Validator)</td></tr>
+    <tr><td><code>spring-boot-starter-actuator</code></td><td>health, metrics, Micrometer</td></tr>
+    <tr><td><code>spring-boot-starter-webmvc-test</code>, <code>-data-jpa-test</code>…</td><td>Boot 4 splits test support per technology (JUnit 6, Mockito, AssertJ)</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="properties" data-variant="good" data-title="Overriding, excluding and debugging auto-configuration">
+# 1. Most defaults are just properties
+server.port=9090
+spring.datasource.hikari.maximum-pool-size=20
+
+# 2. Exclude a whole auto-configuration
+spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+
+# 3. See every condition that matched or didn't (the "conditions evaluation report")
+debug=true
+# or run:  java -jar app.jar --debug   ·   or GET /actuator/conditions
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">If there's gas, fit a stove, unless the owner brought one.</p>
+    <p>Imports file → <span class="hl">@ConditionalOnClass / OnMissingBean / OnProperty</span> → beans. Your bean wins. <code>--debug</code> shows why.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How does auto-configuration work internally?</summary><div class="ans"><p>@EnableAutoConfiguration imports AutoConfigurationImportSelector, which loads candidate classes from <code>META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports</code> in every jar (spring.factories before Boot 2.7/3). Each candidate is a @Configuration guarded by @Conditional annotations evaluated against the classpath, existing beans, properties and environment. Matching ones register their beans, after user configuration, so @ConditionalOnMissingBean lets user beans take precedence.</p></div></details>
+    <details><summary>How would you write your own starter?</summary><div class="ans"><p>Create an autoconfigure module with an @AutoConfiguration class (conditions + @ConfigurationProperties), list it in the AutoConfiguration.imports file, and a starter module that depends on it plus the libraries. Name it <code>acme-spring-boot-starter</code> (only Spring's own starters use the spring-boot-starter-* prefix).</p></div></details>
+  </div>
+  {{done}}
+</section>

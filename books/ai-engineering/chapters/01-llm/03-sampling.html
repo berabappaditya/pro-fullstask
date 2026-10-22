@@ -1,0 +1,60 @@
+<section class="chapter" id="ch-sampling" data-title="Tokens, sampling, cost and latency">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>LLMs</div>
+    <h2>Tokens, sampling, cost and latency</h2>
+    <p class="ch-oneline"><b>Temperature and top-p decide how the next token is picked from the probability list.</b> Tokens decide what you pay and how long you wait.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>Asked to name today's special, a <strong>cautious</strong> assistant always says the most popular dish (temperature 0). A <strong>creative</strong> one sometimes suggests something unusual (high temperature). For writing invoices Ramu wants cautious; for Instagram captions, creative.</p></div>
+
+  <div class="widget" id="w-temp">
+    <div class="widget-head"><span class="live">Live</span>Temperature and top-p: how the next token gets picked</div>
+    <div class="widget-body">
+      <div class="controls" id="tempControls"></div>
+      <div class="temp-bars" id="tempBars"></div>
+      <div class="statrow" id="tempStats"></div>
+      <div class="wlog" id="tempLog" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Parameter</th><th>Effect</th><th>Typical</th></tr>
+    <tr><td><code>temperature</code></td><td>flattens (high) or sharpens (low) the probability distribution</td><td>0–0.3 extraction, classification, code · 0.7–1.0 creative writing</td></tr>
+    <tr><td><code>top_p</code> (nucleus)</td><td>sample only from the smallest set of tokens whose probabilities add to p</td><td>0.9–1.0; tune temperature <em>or</em> top_p, not both</td></tr>
+    <tr><td><code>top_k</code></td><td>sample from the k most likely tokens</td><td>some APIs only</td></tr>
+    <tr><td><code>max_tokens</code></td><td>caps the output length (and cost)</td><td>always set it</td></tr>
+    <tr><td><code>stop</code></td><td>sequences that end generation</td><td>delimiters in templated output</td></tr>
+  </table></div>
+
+  <h3>Cost and latency in practice</h3>
+  <div class="cards">
+    <div class="card"><span class="k">pricing</span><h5>Per million tokens, input and output priced separately</h5><p>Output tokens usually cost several times more than input. Reasoning models also bill their thinking tokens. Check your provider's current price list.</p></div>
+    <div class="card"><span class="k">latency</span><h5>Time to first token + tokens per second</h5><p>Long prompts slow the first token; long outputs slow the end. Stream responses so users see progress.</p></div>
+    <div class="card"><span class="k">prompt caching</span><h5>Reuse a long static prefix</h5><p>Providers cache repeated prompt prefixes (system prompt, tool definitions, documents) and charge much less for cached input. Put static content first.</p></div>
+    <div class="card"><span class="k">batch</span><h5>Asynchronous batch APIs</h5><p>Large discounts for jobs that can wait hours (nightly classification).</p></div>
+    <div class="card"><span class="k">model routing</span><h5>Small model first</h5><p>Route easy requests to a small, cheap model; escalate hard ones to a frontier model.</p></div>
+  </div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Estimating monthly cost (illustrative prices; use your provider's real ones)">
+// A support bot: 50,000 conversations/day, each call ≈ 3,000 input tokens (system + RAG context)
+// and 300 output tokens. Prices are PLACEHOLDERS per 1M tokens.
+double inPerM = 3.00, outPerM = 15.00, cachedInPerM = 0.30;
+long calls = 50_000L * 30;                                  // per month
+double inputCost  = calls * 3_000 / 1e6 * inPerM;           // 13,500
+double outputCost = calls *   300 / 1e6 * outPerM;          //  6,750
+// If 2,000 of the 3,000 input tokens are a cached static prefix:
+double cachedCost = calls * (2_000 / 1e6 * cachedInPerM + 1_000 / 1e6 * inPerM) ;   // 5,400 instead of 13,500
+System.out.printf("before %.0f, with caching %.0f per month%n", inputCost + outputCost, cachedCost + outputCost);
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Cautious for invoices, creative for captions.</p>
+    <p>Low temperature = predictable, high = varied. <span class="hl">Pay per input and output token</span>; output costs more. Stream, cache static prefixes, cap max_tokens, route to smaller models.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Does temperature 0 make outputs deterministic?</summary><div class="ans"><p>Mostly but not fully: it picks the top token (greedy), but floating-point non-determinism on GPUs, batching and model updates can still change results. For reproducibility, pin the model version, log prompts and outputs, and design tests that tolerate variation (evaluate meaning, not exact strings).</p></div></details>
+    <details><summary>How do you reduce LLM latency for a chat feature?</summary><div class="ans"><p>Stream tokens; shorten prompts (fewer, better retrieved chunks); prompt caching for static prefixes; smaller/faster models for simple turns; cap output length; parallelise retrieval and tool calls; cache whole answers for frequent questions (semantic cache); run close to users (regional endpoints).</p></div></details>
+  </div>
+  {{done}}
+</section>

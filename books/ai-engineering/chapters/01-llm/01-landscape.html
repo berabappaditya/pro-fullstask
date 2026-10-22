@@ -1,0 +1,45 @@
+<section class="chapter" id="ch-ai-landscape" data-title="The AI landscape for engineers">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>LLMs</div>
+    <h2>The AI landscape for engineers</h2>
+    <p class="ch-oneline"><b>Most product work is not training models; it's composing them:</b> calling a hosted model through an API, giving it the right context, letting it use tools, and measuring the result.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>Ramu doesn't raise and educate an assistant from birth (training a model). He <strong>hires</strong> one from an agency (a model API), gives it a <strong>job card</strong> (prompt), the <strong>company handbook</strong> (RAG), a <strong>phone</strong> (tools), and a <strong>supervisor checking its work</strong> (evaluation and guardrails).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 250" role="img" aria-label="The AI stack: foundation models at the bottom, then inference platforms, orchestration frameworks, then your application layer with RAG, tools, agents and evaluation">
+      <rect x="20" y="190" width="820" height="46" rx="10" class="d-vio"/><text x="430" y="210" text-anchor="middle" class="d-t">Foundation models</text><text x="430" y="226" text-anchor="middle" class="d-xs">closed: Claude, GPT, Gemini · open-weight: Llama, Mistral, Qwen, DeepSeek, Gemma</text>
+      <rect x="20" y="136" width="820" height="46" rx="10" class="d-amb"/><text x="430" y="156" text-anchor="middle" class="d-t">Access and inference</text><text x="430" y="172" text-anchor="middle" class="d-xs">vendor APIs · Amazon Bedrock · Google Vertex AI · Azure · self-hosted (vLLM, Ollama)</text>
+      <rect x="20" y="82" width="820" height="46" rx="10" class="d-acc"/><text x="430" y="102" text-anchor="middle" class="d-t">Orchestration frameworks and protocols</text><text x="430" y="118" text-anchor="middle" class="d-xs">Spring AI · LangChain4j · LangChain/LangGraph · LlamaIndex · MCP for tools and context</text>
+      <rect x="20" y="20" width="820" height="54" rx="10" class="d-good"/><text x="430" y="42" text-anchor="middle" class="d-t">Your application (where SDE work happens)</text><text x="430" y="60" text-anchor="middle" class="d-xs">prompts · RAG pipeline · tools · agents · memory · evaluation · guardrails · observability · cost control</text>
+    </svg></div></figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Term</th><th>Plain meaning</th></tr>
+    <tr><td>AI ⊃ ML ⊃ deep learning ⊃ generative AI</td><td>each is a subset of the one before; LLMs are generative deep-learning models for text (and more)</td></tr>
+    <tr><td>Foundation model / LLM</td><td>a large model pre-trained on huge data, usable for many tasks</td></tr>
+    <tr><td>Multimodal</td><td>takes or produces images, audio, video as well as text</td></tr>
+    <tr><td>Reasoning model</td><td>spends extra "thinking" tokens before answering; better at maths, code, planning; slower and costlier</td></tr>
+    <tr><td>Open-weight</td><td>weights downloadable; run it yourself (privacy, cost control) at the price of operating GPUs</td></tr>
+    <tr><td>Inference</td><td>running the model to get outputs (what you pay per token for)</td></tr>
+    <tr><td>Context engineering</td><td>deciding exactly what goes into the model's context window: instructions, retrieved data, tool results, memory</td></tr>
+  </table></div>
+
+  <div class="cards">
+    <div class="card"><span class="k">pattern 1</span><h5>Prompt-only</h5><p>Summarise, classify, extract, rewrite. Cheap and fast to build.</p></div>
+    <div class="card"><span class="k">pattern 2</span><h5>RAG</h5><p>Answer from your documents and data with citations.</p></div>
+    <div class="card"><span class="k">pattern 3</span><h5>Tools / agents</h5><p>Take actions and fetch live data: check an order, create a ticket.</p></div>
+    <div class="card"><span class="k">pattern 4</span><h5>Fine-tuning</h5><p>Change style or teach a narrow task; rarely the first step ({{n:ch-finetune}}).</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Hire, don't raise. Then give it a job card, a handbook, a phone and a supervisor.</p>
+    <p>Engineers mostly <span class="hl">compose models</span>: prompt → RAG → tools/agents, wrapped in evaluation, guardrails and observability.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Hosted API vs self-hosted open-weight model?</summary><div class="ans"><p>Hosted (Claude, GPT, Gemini via vendor or cloud): best quality, no GPU ops, pay per token, data leaves your boundary (mitigated by enterprise terms, cloud-region hosting like Bedrock/Vertex). Self-hosted open-weight (Llama, Mistral, Qwen with vLLM): full data control, predictable cost at high volume, customisation, but you operate GPUs, scaling and upgrades, and quality may trail frontier models.</p></div></details>
+  </div>
+  {{done}}
+</section>

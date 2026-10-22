@@ -1,0 +1,41 @@
+<section class="chapter" id="ch-finetune" data-title="Prompting vs RAG vs fine-tuning">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Production AI</div>
+    <h2>Prompting vs RAG vs fine-tuning</h2>
+    <p class="ch-oneline"><b>RAG changes what the model knows right now; fine-tuning changes how it behaves.</b> Try prompting first, RAG for knowledge, fine-tuning for style, format or a narrow skill at scale.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>To teach the assistant <strong>today's prices</strong>, Ramu hands him the price list (RAG). To make him <strong>write like Ramu's brand</strong>, short, warm and in Hinglish, Ramu sends him on a <strong>training course</strong> with hundreds of examples (fine-tuning). A course won't teach tomorrow's prices.</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Prompt engineering</th><th>RAG</th><th>Fine-tuning (e.g. LoRA)</th></tr>
+    <tr><td>Changes</td><td>instructions per request</td><td>knowledge in the context</td><td>model weights: behaviour, style, format</td></tr>
+    <tr><td>Fresh / private data</td><td>small amounts</td><td class="yes">best</td><td class="no">poor (stale, can't cite, no ACLs)</td></tr>
+    <tr><td>Effort and cost</td><td>low</td><td>medium (pipeline, vector store)</td><td>high (data prep, training, hosting, re-training)</td></tr>
+    <tr><td>Good for</td><td>most tasks to start</td><td>Q&amp;A over docs, support, search</td><td>consistent tone/format, classification at scale, smaller cheaper model matching a bigger one (distillation), domain jargon</td></tr>
+  </table></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 200" role="img" aria-label="Decision flow: start with prompting; if knowledge is missing use RAG; if behaviour or format is wrong at scale consider fine-tuning; combine both when needed">
+      <rect x="10" y="74" width="150" height="52" rx="10" class="d-vio"/><text x="85" y="98" text-anchor="middle" class="d-t">Prompting +</text><text x="85" y="114" text-anchor="middle" class="d-t">examples</text>
+      <path d="M160 100 H200" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="202" y="64" width="190" height="72" rx="10" class="d-box"/><text x="297" y="90" text-anchor="middle" class="d-t">Good enough?</text><text x="297" y="110" text-anchor="middle" class="d-xs">measure on an eval set</text>
+      <path d="M392 84 C430 84,430 40,466 40" class="d-lbad" marker-end="url(#ab)"/><text x="430" y="54" text-anchor="middle" class="d-xs">lacks knowledge</text>
+      <path d="M392 116 C430 116,430 160,466 160" class="d-lbad" marker-end="url(#ab)"/><text x="430" y="152" text-anchor="middle" class="d-xs">wrong style / format</text>
+      <rect x="468" y="16" width="160" height="48" rx="10" class="d-amb"/><text x="548" y="45" text-anchor="middle" class="d-t">Add RAG / tools</text>
+      <rect x="468" y="136" width="160" height="48" rx="10" class="d-amb"/><text x="548" y="158" text-anchor="middle" class="d-t">Fine-tune</text><text x="548" y="174" text-anchor="middle" class="d-xs">(with enough examples)</text>
+      <path d="M628 40 C680 40,690 90,718 96 M628 160 C680 160,690 110,718 104" class="d-lgood"/>
+      <rect x="720" y="74" width="130" height="52" rx="10" class="d-good"/><text x="785" y="98" text-anchor="middle" class="d-t">Combine</text><text x="785" y="114" text-anchor="middle" class="d-xs">tuned model + RAG</text>
+    </svg></div></figure>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Price list for facts, training course for style.</p>
+    <p>Prompt first → <span class="hl">RAG for knowledge</span> → fine-tune for behaviour/format/cost at scale → combine. Always decide with an evaluation set.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>A team wants to fine-tune a model on their docs so it answers questions about them. What do you advise?</summary><div class="ans"><p>Use RAG instead (or first): fine-tuning doesn't reliably inject facts, can't cite, goes stale on every doc change, and can't respect per-user permissions. Fine-tune later only if evaluation shows a behaviour/format gap that prompting and RAG can't close, or to cut cost with a smaller tuned model.</p></div></details>
+    <details><summary>What is LoRA?</summary><div class="ans"><p>Low-Rank Adaptation: instead of updating all weights, train small low-rank matrices added to certain layers. Far cheaper in compute and storage; many adapters can share one base model. QLoRA does it on a quantised base model to fit on smaller GPUs.</p></div></details>
+  </div>
+  {{done}}
+</section>

@@ -1,0 +1,87 @@
+<section class="chapter" id="ch-config" data-title="Configuration, properties and profiles">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Foundations</div>
+    <h2>Configuration, properties and profiles</h2>
+    <p class="ch-oneline"><b>Same JAR, different settings per environment.</b> Properties come from many sources with a clear precedence; bind groups of them into typed objects with @ConfigurationProperties.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>Every branch gets the <strong>same kit</strong>, but the Kolkata branch sets the price list in rupees and opens at 6 am, while the airport branch opens 24 hours. The settings live on a <strong>card pinned inside the door</strong> (properties), not welded into the stove. A note from head office on the day (command-line argument) beats the card.</p></div>
+
+  <h3>Where values come from (highest priority first)</h3>
+  <ol class="steps">
+    <li><b>Command-line arguments</b><code>java -jar app.jar --server.port=9090</code></li>
+    <li><b>Environment variables</b><code>SERVER_PORT=9090</code>, <code>SPRING_DATASOURCE_URL=…</code> (relaxed binding: dots → underscores, upper case). The usual way in Docker/Kubernetes.</li>
+    <li><b>Profile-specific files</b><code>application-prod.yml</code> when <code>spring.profiles.active=prod</code></li>
+    <li><b>application.properties / application.yml</b>in <code>src/main/resources</code> (or <code>./config/</code> next to the JAR, which wins over the packaged one)</li>
+    <li><b>Defaults</b>in code: <code>@Value("${x:default}")</code>, field initialisers in properties classes.</li>
+  </ol>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="@Value scattered everywhere">
+@Service
+class SmsService {
+    @Value("${sms.provider.url}") String url;
+    @Value("${sms.provider.key}") String key;
+    @Value("${sms.retry.max:3}") int maxRetries;      // typos fail only at runtime,
+    @Value("${sms.timeout-ms:2000}") long timeout;    // no validation, no IDE help
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="@ConfigurationProperties: typed, grouped, validated">
+@ConfigurationProperties(prefix = "sms")
+@Validated
+public record SmsProperties(
+        @NotBlank String url,
+        @NotBlank String key,
+        @DefaultValue("3") @Min(0) int maxRetries,
+        @DefaultValue("2s") Duration timeout) {}     // "2s", "500ms" converted automatically
+
+@SpringBootApplication
+@ConfigurationPropertiesScan                          // registers all @ConfigurationProperties records
+public class ChaiApplication { ... }
+
+@Service
+class SmsService {
+    private final SmsProperties props;
+    SmsService(SmsProperties props) { this.props = props; }   // injected like any bean
+}
+</script>
+</div>
+
+<script type="text/x-code" data-lang="yaml" data-variant="good" data-title="application.yml with profiles (one file, several documents)">
+spring:
+  application:
+    name: ramu-orders
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orders
+    username: ${DB_USER:ramu}          # env var with a default
+    password: ${DB_PASSWORD}           # secret from the environment, never committed
+sms:
+  url: https://sms.example.in/v2
+  key: ${SMS_KEY}
+  timeout: 2s
+---
+spring:
+  config:
+    activate:
+      on-profile: prod                 # this block applies only when 'prod' is active
+  jpa:
+    hibernate:
+      ddl-auto: validate               # never let Hibernate change a prod schema
+logging:
+  level:
+    root: WARN
+</script>
+
+  <div class="box pitfall"><div class="box-tag">Secrets</div><p>Never commit passwords or API keys in properties files. Inject them as environment variables from a secrets manager (AWS Secrets Manager, GCP Secret Manager, Vault, Kubernetes Secrets). See {{xref:cloud-devops/ch-cloud-security}}.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Same kit, a different card on each door.</p>
+    <p>Command line &gt; env vars &gt; profile file &gt; application file &gt; defaults. <span class="hl">@ConfigurationProperties for groups</span>, @Value for one-offs. Profiles: <code>spring.profiles.active</code>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>@Value vs @ConfigurationProperties?</summary><div class="ans"><p>@Value injects single values with SpEL support but no grouping, validation or metadata. @ConfigurationProperties binds a whole prefix to a typed object (records work well) with relaxed binding, validation, conversion (Duration, DataSize), IDE autocompletion via the configuration processor, and one place to see all settings.</p></div></details>
+    <details><summary>How do you manage config across dev, test and prod?</summary><div class="ans"><p>One artifact; profile-specific files or blocks for non-secret differences; environment variables or a config server / secrets manager for secrets and per-environment values; ddl-auto none/validate in prod with Flyway or Liquibase migrations.</p></div></details>
+  </div>
+  {{done}}
+</section>

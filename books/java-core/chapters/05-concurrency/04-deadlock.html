@@ -1,0 +1,104 @@
+<section class="chapter" id="ch-deadlock" data-title="Deadlock, livelock and starvation">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Concurrency</div>
+    <h2>Deadlock, livelock and starvation</h2>
+    <p class="ch-oneline"><b>A deadlock is two or more threads each waiting for a lock the other holds, forever.</b> No crash, no error, just a frozen program.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>A dish needs both the <strong>frying pan</strong> and the <strong>spatula</strong>. Chef A grabs the pan. At the same moment Chef B grabs the spatula. Chef A waits for the spatula ("I won't let go of my pan!"); Chef B waits for the pan ("I won't let go of my spatula!"). Both follow the rules, both wait forever. The kitchen is frozen.</p></div>
+
+  <div class="widget" id="w-deadlock">
+    <div class="widget-head"><span class="live">Live</span>Pan and spatula: run both chefs, then fix it with lock ordering</div>
+    <div class="widget-body">
+      <div class="controls" id="dlControls"></div>
+      <div class="dl-stage" id="dlStage"></div>
+      <div class="wlog" id="dlLog" aria-live="polite"></div>
+    </div>
+  </div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Deadlock: opposite lock order">
+public class DeadlockDemo {
+    private static final Object PAN = new Object();          // lock #1
+    private static final Object SPATULA = new Object();      // lock #2
+
+    public static void main(String[] args) {
+        Thread chefA = new Thread(() -> {
+            synchronized (PAN) {                             // A takes PAN first
+                System.out.println("Chef A: got the pan");
+                sleep(100);                                  // gives B time to take the spatula
+                synchronized (SPATULA) {                     // waits for SPATULA, which B holds: STUCK
+                    System.out.println("Chef A: got both!"); // never prints
+                }
+            }
+        });
+        Thread chefB = new Thread(() -> {
+            synchronized (SPATULA) {                         // B takes SPATULA first (opposite order!)
+                System.out.println("Chef B: got the spatula");
+                sleep(100);
+                synchronized (PAN) {                         // waits for PAN, which A holds: STUCK
+                    System.out.println("Chef B: got both!");
+                }
+            }
+        });
+        chefA.start(); chefB.start();                        // program hangs forever
+    }
+    private static void sleep(long ms) { try { Thread.sleep(ms); } catch (InterruptedException e) { } }
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Fix 1: same order everywhere · Fix 2: tryLock with timeout">
+// Fix 1: every chef takes PAN before SPATULA. Circular wait can't form.
+Runnable cook = () -> {
+    synchronized (PAN) {
+        synchronized (SPATULA) { System.out.println(Thread.currentThread().getName() + " cooked"); }
+    }
+};
+
+// Fix 2: back off instead of waiting forever
+private final ReentrantLock pan = new ReentrantLock(), spatula = new ReentrantLock();
+boolean cook() throws InterruptedException {
+    if (pan.tryLock(50, TimeUnit.MILLISECONDS)) {
+        try {
+            if (spatula.tryLock(50, TimeUnit.MILLISECONDS)) {
+                try { /* cook */ return true; }
+                finally { spatula.unlock(); }
+            }
+        } finally { pan.unlock(); }        // put the pan back and retry later
+    }
+    return false;
+}
+// Real-world version: transfer(from, to) locks the account with the SMALLER id first.
+</script>
+</div>
+
+  <h3>The four ingredients (Coffman conditions)</h3>
+  <div class="cards">
+    <div class="card"><span class="k">1</span><h5>Mutual exclusion</h5><p>Only one holder per lock.</p></div>
+    <div class="card"><span class="k">2</span><h5>Hold and wait</h5><p>Holding one lock while asking for another.</p></div>
+    <div class="card"><span class="k">3</span><h5>No preemption</h5><p>Locks can't be forcibly taken away.</p></div>
+    <div class="card good"><span class="k">4</span><h5>Circular wait</h5><p>A waits for B, B waits for A. <strong>Break this one</strong> with a global lock order.</p></div>
+  </div>
+
+  <div class="cards">
+    <div class="card bad"><h5>Livelock</h5><p>Two chefs keep politely stepping aside for each other in a corridor: both active, neither progressing. Fix with random back-off.</p></div>
+    <div class="card bad"><h5>Starvation</h5><p>One chef never gets the stove because others always grab it first. Fix with fair locks (<code>new ReentrantLock(true)</code>) or bounded queues.</p></div>
+  </div>
+
+<script type="text/x-code" data-lang="sh" data-variant="plain" data-title="Finding a deadlock in a running JVM">
+jps -l                          # list Java processes and their PIDs
+jstack 4242 | grep -A 20 "Found one Java-level deadlock"
+# or: jcmd 4242 Thread.print
+# The dump shows: "chef-A" waiting to lock <0x...> (a java.lang.Object) which is held by "chef-B"
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Pan before spatula, always.</p>
+    <p>Deadlock needs all four conditions; <span class="hl">break circular wait with lock ordering</span>, or use tryLock with timeouts. Diagnose with a thread dump.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How would you prevent deadlock in a bank transfer between two accounts?</summary><div class="ans"><p>Always lock the two accounts in a consistent global order, e.g. by account id: lock the smaller id first, then the larger, regardless of transfer direction. Alternatively use tryLock with timeout and retry, or avoid application locks entirely with a single database transaction using <code>SELECT … FOR UPDATE</code> in id order.</p></div></details>
+    <details><summary>Can a deadlock happen with a single lock?</summary><div class="ans"><p>Not with Java's reentrant monitors on the same thread. But a thread can block forever waiting on itself in other ways, e.g. a task submitted to a single-thread executor that waits for another task submitted to the same executor (thread-starvation deadlock).</p></div></details>
+  </div>
+  {{done}}
+</section>

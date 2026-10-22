@@ -1,0 +1,65 @@
+<section class="chapter" id="ch-cloud-security" data-title="Cloud security essentials">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Operate</div>
+    <h2>Cloud security essentials</h2>
+    <p class="ch-oneline"><b>Most cloud breaches are misconfigurations: public buckets, leaked keys, over-broad permissions.</b> Defend in layers: identity, network, data, workload, detection.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>Ramu's security isn't one big lock. Staff badges (identity), fences and back gates (network), a <strong>safe for cash with its own key held by head office</strong> (encryption with KMS), the <strong>recipe vault</strong> nobody copies into notebooks (secrets manager), CCTV that records who opened what (audit logs), and a guard who turns away troublemakers at the gate (WAF).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 220" role="img" aria-label="Defence in depth: edge (WAF, DDoS protection), network (private subnets, security groups), identity (least privilege, MFA, roles), workload (patched images, non-root), data (encryption, KMS, backups), detection (audit logs, GuardDuty, Security Command Center)">
+      <rect x="10" y="20" width="840" height="190" rx="18" class="d-bad"/><text x="30" y="42" class="d-t">Edge: WAF, DDoS protection (Shield / Cloud Armor), TLS</text>
+      <rect x="40" y="52" width="780" height="150" rx="16" class="d-amb"/><text x="60" y="74" class="d-t">Network: private subnets, security groups, VPC endpoints</text>
+      <rect x="70" y="84" width="720" height="110" rx="14" class="d-vio"/><text x="90" y="106" class="d-t">Identity: least privilege, roles not keys, SSO + MFA</text>
+      <rect x="100" y="116" width="660" height="70" rx="12" class="d-box"/><text x="120" y="138" class="d-t">Workload: scanned images, non-root, patched OS, dependency updates</text>
+      <rect x="130" y="146" width="600" height="34" rx="10" class="d-good"/><text x="430" y="168" text-anchor="middle" class="d-t">Data: encrypted at rest (KMS) and in transit, backups, access logs</text>
+      <text x="430" y="216" text-anchor="middle" class="d-xs">around all of it: detection: CloudTrail / Audit Logs, GuardDuty / Security Command Center, alerts</text>
+    </svg></div></figure>
+
+<div class="compare">
+<script type="text/x-code" data-lang="properties" data-variant="bad" data-title="Secrets in config files (committed to Git)">
+spring.datasource.password=Sup3rS3cret!
+razorpay.key-secret=rzp_live_9f8a7b6c5d
+# Anyone with repo access (or a leaked laptop, or a public fork) owns production.
+</script>
+<script type="text/x-code" data-lang="yaml" data-variant="good" data-title="Secrets fetched at runtime by the workload's identity">
+# Kubernetes: External Secrets Operator syncs from AWS Secrets Manager / GCP Secret Manager
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata: { name: orders-db }
+spec:
+  refreshInterval: 1h
+  secretStoreRef: { name: aws-secrets, kind: ClusterSecretStore }
+  target: { name: orders-db }                 # creates a K8s Secret the pod reads as env vars
+  data:
+    - secretKey: password
+      remoteRef: { key: prod/orders/db, property: password }
+# Or in Spring: spring.config.import=aws-secretsmanager:prod/orders/db  (Spring Cloud AWS)
+# Rotation: Secrets Manager rotates DB passwords automatically; apps re-read on refresh.
+</script>
+</div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Threat</th><th>Control</th></tr>
+    <tr><td>Public S3/GCS bucket leak</td><td>Block Public Access at account level / uniform bucket-level access + org policy; presigned URLs</td></tr>
+    <tr><td>Leaked access keys</td><td>no long-lived keys: roles, OIDC federation; secret scanning in Git; rotate</td></tr>
+    <tr><td>Over-privileged service</td><td>least-privilege policies, IAM Access Analyzer / Recommender, separate roles per service</td></tr>
+    <tr><td>Data theft at rest</td><td>KMS encryption (default on S3/EBS/RDS), customer-managed keys for sensitive data, key policies</td></tr>
+    <tr><td>Snooping in transit</td><td>TLS everywhere, including inside the VPC (mTLS with a mesh)</td></tr>
+    <tr><td>Web attacks (SQLi, bots, DDoS)</td><td>WAF managed rules, rate limiting, Shield/Cloud Armor</td></tr>
+    <tr><td>Vulnerable images</td><td>scan in CI and registry, minimal base images, regular rebuilds</td></tr>
+    <tr><td>Nobody noticed</td><td>CloudTrail/Audit Logs to a separate locked account, GuardDuty/Security Command Center, alerting</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Badges, fences, a safe, a vault, CCTV and a guard.</p>
+    <p>Defence in depth. <span class="hl">No secrets in code; roles not keys; private by default; encrypt everything; log every API call.</span></p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How do you store and rotate database credentials for a service?</summary><div class="ans"><p>Keep them in Secrets Manager / Secret Manager, encrypted with KMS; grant only the service's role read access to that one secret; inject at runtime (External Secrets, Spring Cloud AWS/GCP, CSI driver); enable automatic rotation and make the app re-read or use short-lived IAM database authentication where supported. Never bake into images or env files in Git.</p></div></details>
+    <details><summary>What is envelope encryption?</summary><div class="ans"><p>Data is encrypted with a data key; the data key is encrypted with a master key in KMS that never leaves KMS. You store the encrypted data key next to the data. Decrypting needs a KMS call (permission-checked and audited) to unwrap the data key. It scales to large data and lets you rotate/revoke the master key centrally.</p></div></details>
+  </div>
+  {{done}}
+</section>

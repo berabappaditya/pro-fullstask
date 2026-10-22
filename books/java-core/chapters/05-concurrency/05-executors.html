@@ -1,0 +1,110 @@
+<section class="chapter" id="ch-executors" data-title="Executors and thread pools">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Concurrency</div>
+    <h2>Executors and thread pools</h2>
+    <p class="ch-oneline"><b>Don't create a thread per task; hire a fixed team and put tasks on a queue.</b> ThreadPoolExecutor's core → queue → max → reject order is a top SDE-2 question.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>The old way: every time an order arrives, hire a brand-new chef, they cook one dish, then fire them. Absurdly wasteful. A <strong>thread pool</strong> is the sane way: hire a fixed team of, say, 4 chefs once. Orders go onto a <strong>ticket rail</strong> (a queue). Whenever a chef is free, they grab the next ticket. On a busy night with 100 orders, still just 4 calm chefs working through the rail.</p></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="ExecutorService: your kitchen manager">
+ExecutorService kitchen = Executors.newFixedThreadPool(3);   // a permanent team of 3 chef threads
+for (int i = 1; i <= 7; i++) {
+    int orderNo = i;                                         // effectively final copy for the lambda
+    kitchen.submit(() ->                                     // put the ticket on the rail
+        System.out.println("Order " + orderNo + " cooked by " + Thread.currentThread().getName()));
+}                                                            // pool-1-thread-1/2/3 each grab new tickets
+kitchen.shutdown();                                          // no NEW orders; finish what's on the rail
+kitchen.awaitTermination(30, TimeUnit.SECONDS);              // wait for them to finish
+
+// Need a result? Callable + Future: a receipt you redeem later
+ExecutorService pool = Executors.newFixedThreadPool(2);
+Future<Integer> receipt = pool.submit(() -> { Thread.sleep(1000); return 40 + 2; });
+System.out.println("Main thread keeps working...");          // not blocked
+Integer answer = receipt.get(2, TimeUnit.SECONDS);           // blocks until ready (always use a timeout!)
+pool.shutdown();
+</script>
+
+  <h3>How ThreadPoolExecutor decides what to do with a new task</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 230" role="img" aria-label="Decision flow: fewer than core threads starts a thread; else queue if not full; else start up to max threads; else reject">
+      <rect x="10" y="90" width="110" height="50" rx="10" class="d-vio"/><text x="65" y="120" text-anchor="middle" class="d-t">new task</text>
+      <path d="M120 115 H150" class="d-line" marker-end="url(#ah)"/>
+      <rect x="152" y="80" width="150" height="70" rx="10" class="d-box"/><text x="227" y="108" text-anchor="middle" class="d-t">threads &lt; core?</text><text x="227" y="128" text-anchor="middle" class="d-xs">e.g. core = 5</text>
+      <path d="M227 80 V40 H340" class="d-lgood" marker-end="url(#ag)"/><text x="290" y="32" text-anchor="middle" class="d-xs">yes</text>
+      <rect x="342" y="16" width="150" height="44" rx="10" class="d-good"/><text x="417" y="43" text-anchor="middle" class="d-t">start new thread</text>
+      <path d="M302 115 H340" class="d-line" marker-end="url(#ah)"/><text x="321" y="108" text-anchor="middle" class="d-xs">no</text>
+      <rect x="342" y="80" width="150" height="70" rx="10" class="d-box"/><text x="417" y="108" text-anchor="middle" class="d-t">queue not full?</text><text x="417" y="128" text-anchor="middle" class="d-xs">e.g. capacity 100</text>
+      <path d="M492 100 H530" class="d-lgood" marker-end="url(#ag)"/><text x="511" y="93" text-anchor="middle" class="d-xs">yes</text>
+      <rect x="532" y="78" width="130" height="40" rx="10" class="d-amb"/><text x="597" y="103" text-anchor="middle" class="d-t">add to queue</text>
+      <path d="M417 150 V190 H530" class="d-line" marker-end="url(#ah)"/><text x="430" y="178" class="d-xs">no</text>
+      <rect x="532" y="164" width="150" height="56" rx="10" class="d-box"/><text x="607" y="188" text-anchor="middle" class="d-t">threads &lt; max?</text><text x="607" y="206" text-anchor="middle" class="d-xs">e.g. max = 10</text>
+      <path d="M682 180 H720" class="d-lgood" marker-end="url(#ag)"/><text x="701" y="172" text-anchor="middle" class="d-xs">yes</text>
+      <rect x="722" y="150" width="130" height="40" rx="10" class="d-good"/><text x="787" y="175" text-anchor="middle" class="d-t">extra thread</text>
+      <path d="M682 208 H720" class="d-lbad" marker-end="url(#ab)"/><text x="701" y="222" text-anchor="middle" class="d-xs">no</text>
+      <rect x="722" y="196" width="130" height="30" rx="8" class="d-bad"/><text x="787" y="216" text-anchor="middle" class="d-t">reject</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Surprise for many people: extra threads beyond core are created only <strong>after the queue is full</strong>. With an unbounded queue, max is never reached.</figcaption></figure>
+
+  <div class="widget" id="w-pool">
+    <div class="widget-head"><span class="live">Live</span>ThreadPoolExecutor: core 2, queue 3, max 4. Submit tasks and watch</div>
+    <div class="widget-body">
+      <div class="controls" id="poolControls"></div>
+      <div class="pool-stage" id="poolStage"></div>
+      <div class="statrow" id="poolStats"></div>
+      <div class="wlog" id="poolLog" aria-live="polite"></div>
+    </div>
+  </div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="The Executors factory traps">
+Executors.newFixedThreadPool(10);
+// uses an UNBOUNDED LinkedBlockingQueue: under overload, tasks pile up → OutOfMemoryError
+
+Executors.newCachedThreadPool();
+// max threads = Integer.MAX_VALUE: a traffic spike creates thousands of threads → crash
+
+Executors.newSingleThreadExecutor();   // also unbounded queue
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Production: explicit, bounded, named">
+ThreadPoolExecutor pool = new ThreadPoolExecutor(
+        5,                                     // corePoolSize: always-alive threads
+        10,                                    // maximumPoolSize: burst ceiling
+        60, TimeUnit.SECONDS,                  // keepAlive: extra threads die after 60s idle
+        new ArrayBlockingQueue<>(100),         // BOUNDED queue: back-pressure instead of OOM
+        Thread.ofPlatform().name("report-", 0).factory(),   // named threads: readable thread dumps
+        new ThreadPoolExecutor.CallerRunsPolicy());          // when full, the caller runs it: natural slow-down
+// Other policies: AbortPolicy (default, throws RejectedExecutionException),
+//                 DiscardPolicy, DiscardOldestPolicy
+</script>
+</div>
+
+  <h3>How many threads?</h3>
+  <div class="cards">
+    <div class="card"><span class="k">CPU-bound</span><h5>≈ number of cores</h5><p>Image resizing, encryption, parsing. More threads just add context switching. <code>Runtime.getRuntime().availableProcessors()</code>.</p></div>
+    <div class="card"><span class="k">I/O-bound</span><h5>cores × (1 + wait / compute)</h5><p>A task that waits 90 ms on a DB and computes 10 ms: 8 cores × 10 = ~80 threads. Or use virtual threads.</p></div>
+    <div class="card"><span class="k">bounded by downstream</span><h5>≤ connection pool</h5><p>100 threads sharing a 10-connection DB pool means 90 threads waiting. Size them together.</p></div>
+  </div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Scheduled tasks and invokeAll">
+ScheduledExecutorService timer = Executors.newScheduledThreadPool(1);
+timer.scheduleAtFixedRate(() -> flushMetrics(), 0, 10, TimeUnit.SECONDS);   // every 10s from start
+timer.scheduleWithFixedDelay(() -> syncStock(), 0, 5, TimeUnit.MINUTES);    // 5 min AFTER each run ends
+
+List<Callable<Price>> quotes = List.of(() -> swiggy.quote(), () -> zomato.quote());
+List<Future<Price>> all = pool.invokeAll(quotes, 2, TimeUnit.SECONDS);      // wait for all (or timeout)
+Price fastest = pool.invokeAny(quotes);                                    // first successful one wins
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Core, then queue, then max, then reject.</p>
+    <p>Always <span class="hl">bounded queue, named threads, explicit rejection policy</span>, and call <code>shutdown()</code>. Size CPU pools to cores and I/O pools to waiting time.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Explain the ThreadPoolExecutor parameters.</summary><div class="ans"><p>corePoolSize (threads kept alive), maximumPoolSize (upper limit), keepAliveTime (idle time before extra threads die), workQueue (where tasks wait), threadFactory (creates/names threads), and RejectedExecutionHandler (what to do when queue and max are full). New tasks go: start a core thread → else queue → else start a non-core thread up to max → else reject.</p></div></details>
+    <details><summary>submit() vs execute()?</summary><div class="ans"><p><code>execute(Runnable)</code> returns nothing; an exception goes to the thread's uncaught exception handler. <code>submit()</code> accepts Runnable or Callable and returns a Future; exceptions are stored inside it and rethrown (wrapped in ExecutionException) only when you call <code>get()</code>.</p></div></details>
+    <details><summary>shutdown() vs shutdownNow()?</summary><div class="ans"><p>shutdown stops accepting new tasks but finishes queued ones. shutdownNow also interrupts running tasks and returns the list of tasks that never started. Follow either with awaitTermination.</p></div></details>
+  </div>
+  {{done}}
+</section>

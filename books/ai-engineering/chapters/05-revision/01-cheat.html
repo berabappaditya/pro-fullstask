@@ -1,0 +1,39 @@
+<section class="chapter" id="ch-cheat" data-title="The cheat sheet" data-num="R1">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">R1</span>Revision</div>
+    <h2>The cheat sheet</h2>
+    <p class="ch-oneline"><b>Every concept in one or two lines</b>, with the picture of Ramu's assistant that helps you remember it.</p>
+  </header>
+  <h3>LLMs</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-ai-landscape}}</span><h5>Landscape</h5><p>Hire, don't raise: compose models with prompts, RAG, tools, evaluation. Closed vs open-weight.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-llm-basics}}</span><h5>How LLMs work</h5><p>Tokens → embeddings → attention layers → next-token probabilities → sample → repeat. Stateless, cutoff, hallucinations.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-llm-basics}}</span><h5>Training</h5><p>Pre-training → instruction tuning (SFT) → preference tuning (RLHF/DPO); reasoning models add RL.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-sampling}}</span><h5>Sampling</h5><p>Temperature low = predictable, high = creative; top-p trims the tail. Set max_tokens.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-sampling}}</span><h5>Cost and latency</h5><p>Pay per input/output token; output costs more. Stream, prompt-cache static prefixes, route to small models, batch.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-prompting}}</span><h5>Prompting</h5><p>Role, task, context, rules, format, examples. Delimit data. Structured output + validation.</p></div>
+  </div>
+  <h3>RAG</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-embeddings}}</span><h5>Embeddings</h5><p>Taste map: similar meaning = nearby vectors; cosine similarity; same model for docs and queries.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-vector-db}}</span><h5>Vector DBs</h5><p>ANN (HNSW) = fast approximate search. Metadata filters for tenant/ACL. pgvector first.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-rag}}</span><h5>RAG</h5><p>Open-book exam: load → chunk → embed → store; embed query → retrieve → augment → generate with citations.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-chunking}}</span><h5>Chunking</h5><p>Cut by section, keep titles, overlap a little; 200–800 tokens to start; parent–child; rich metadata.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-advanced-rag}}</span><h5>Advanced RAG</h5><p>Hybrid (BM25 + vectors, RRF) + rerank; query rewriting, HyDE; GraphRAG; agentic RAG; semantic cache.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-rag-eval}}</span><h5>Evaluation</h5><p>Golden set: recall@k, groundedness, correctness; LLM-as-judge calibrated with humans; run in CI.</p></div>
+  </div>
+  <h3>Tools, agents, MCP and production</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-tools}}</span><h5>Tool calling</h5><p>Model emits a call with JSON args; your code validates, authorises and executes; result goes back.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-agents}}</span><h5>Agents</h5><p>LLM + tools + loop + memory + guardrails. Workflows first; budgets and human approval for side effects.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-mcp}}</span><h5>MCP</h5><p>Standard socket: hosts' clients ↔ servers (tools, resources, prompts) over stdio / Streamable HTTP, JSON-RPC.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-mcp}}</span><h5>MCP 2026-07-28</h5><p>Stateless (no initialize, no session id), server/discover, MRTR (input_required), subscriptions/listen, Roots/Sampling/Logging deprecated.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-mcp-server}}</span><h5>Java MCP server</h5><p>Spring AI MCP server starter + @McpTool/@McpResource; OAuth; test with MCP Inspector.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-mcp-security}}</span><h5>Security</h5><p>Prompts aren't a security boundary. Least privilege, per-user tokens, confirmations, break the lethal trifecta.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-spring-ai}}</span><h5>Spring AI</h5><p>ChatClient + advisors (memory, RAG, safety, tools), VectorStore, ETL, MCP starters, evaluators.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-llmops}}</span><h5>LLMOps</h5><p>Trace, version prompts, eval in CI, guardrails, budgets, fallback models, privacy.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-finetune}}</span><h5>Fine-tune?</h5><p>Facts → RAG; style/format/cost at scale → fine-tune (LoRA); often both.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-ai-sd}}</span><h5>AI system design</h5><p>Requirements, numbers, ingestion, retrieval, chat service, LLM gateway, tools, eval, safety, cost.</p></div>
+  </div>
+  {{done}}
+</section>

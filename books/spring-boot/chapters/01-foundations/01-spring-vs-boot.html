@@ -1,0 +1,59 @@
+<section class="chapter" id="ch-spring-vs-boot" data-title="Spring vs Spring Boot">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Foundations</div>
+    <h2>What are Spring and Spring Boot?</h2>
+    <p class="ch-oneline"><b>Spring is the framework</b> (IoC, DI, AOP, MVC, data, security). <b>Spring Boot is the opinionated starter kit</b> on top: auto-configuration, starters and an embedded server, so you can run with <code>java -jar</code>.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">The franchise kit</div>
+    <p>Plain Spring is a <strong>warehouse of excellent kitchen equipment</strong>: you choose every part, wire the gas, plumb the sink and write the manual yourself. Spring Boot is the <strong>franchise kit</strong>: the same equipment, pre-assembled with sensible defaults, plug in and start serving. You can still swap any part.</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Feature</th><th>Spring Framework</th><th>Spring Boot</th></tr>
+    <tr><td>Configuration</td><td>Manual (Java config or XML)</td><td>Auto-configuration, overridable</td></tr>
+    <tr><td>Setup</td><td>Complex: pick and align versions</td><td>Starters with managed, compatible versions</td></tr>
+    <tr><td>Server</td><td>External Tomcat/Jetty; deploy a WAR</td><td>Embedded Tomcat (default) or Jetty; run a JAR</td></tr>
+    <tr><td>Monitoring</td><td>Manual</td><td>Actuator built in</td></tr>
+    <tr><td>Goal</td><td>Full control</td><td>Convention over configuration</td></tr>
+  </table></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 230" role="img" aria-label="Spring Boot sits on Spring Framework modules: core, AOP, data access, web MVC and WebFlux, security, and adds auto-configuration, starters, embedded server and Actuator">
+      <rect x="20" y="20" width="820" height="70" rx="14" class="d-good"/><text x="430" y="46" text-anchor="middle" class="d-tl">Spring Boot</text>
+      <text x="430" y="72" text-anchor="middle" class="d-s">auto-configuration · starters · embedded Tomcat/Jetty · externalized config · Actuator · fat JAR</text>
+      <rect x="20" y="104" width="820" height="110" rx="14" class="d-paper"/><text x="430" y="126" text-anchor="middle" class="d-tl">Spring Framework 7</text>
+      <rect x="40" y="140" width="120" height="58" rx="10" class="d-acc"/><text x="100" y="164" text-anchor="middle" class="d-t">Core</text><text x="100" y="182" text-anchor="middle" class="d-xs">IoC, DI, events</text>
+      <rect x="172" y="140" width="110" height="58" rx="10" class="d-box"/><text x="227" y="164" text-anchor="middle" class="d-t">AOP</text><text x="227" y="182" text-anchor="middle" class="d-xs">proxies, aspects</text>
+      <rect x="294" y="140" width="130" height="58" rx="10" class="d-box"/><text x="359" y="164" text-anchor="middle" class="d-t">Data access</text><text x="359" y="182" text-anchor="middle" class="d-xs">JDBC, tx, ORM</text>
+      <rect x="436" y="140" width="130" height="58" rx="10" class="d-box"/><text x="501" y="164" text-anchor="middle" class="d-t">Web MVC</text><text x="501" y="182" text-anchor="middle" class="d-xs">servlet, REST</text>
+      <rect x="578" y="140" width="120" height="58" rx="10" class="d-box"/><text x="638" y="164" text-anchor="middle" class="d-t">WebFlux</text><text x="638" y="182" text-anchor="middle" class="d-xs">reactive</text>
+      <rect x="710" y="140" width="112" height="58" rx="10" class="d-box"/><text x="766" y="164" text-anchor="middle" class="d-t">Test</text><text x="766" y="182" text-anchor="middle" class="d-xs">MockMvc, TCF</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Spring Security, Spring Data, Spring Cloud, Spring Batch and Spring AI are separate projects in the same family; Boot auto-configures them all.</figcaption></figure>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="A complete Spring Boot web app">
+@SpringBootApplication                       // = @Configuration + @EnableAutoConfiguration + @ComponentScan
+public class ChaiApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(ChaiApplication.class, args);  // starts the container + embedded Tomcat on 8080
+    }
+}
+
+@RestController
+class HelloController {
+    @GetMapping("/hello")
+    String hello() { return "Namaste from Ramu Chai"; }    // GET /hello → plain text
+}
+// mvn package → target/chai.jar → java -jar chai.jar. No web.xml, no external server.
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Spring = the equipment. Boot = the kit, assembled.</p>
+    <p>Boot = <span class="hl">auto-configuration + starters + embedded server + production features</span>. Opinionated defaults, overridable anytime. Non-web apps work too (<code>spring.main.web-application-type=none</code>, CommandLineRunner).</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What is "convention over configuration"?</summary><div class="ans"><p>The framework assumes sensible defaults (port 8080, Jackson for JSON, Hikari for connection pooling, component scanning from the main package) so you only configure what differs from the convention.</p></div></details>
+    <details><summary>What are the advantages of an embedded server?</summary><div class="ans"><p>The app is a single self-contained JAR: same artifact in every environment, no server installation or WAR deployment, easy containerisation (one process per container), and server settings live in application properties.</p></div></details>
+  </div>
+  {{done}}
+</section>

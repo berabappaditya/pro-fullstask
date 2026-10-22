@@ -1,0 +1,66 @@
+<section class="chapter" id="ch-tools" data-title="Tool (function) calling">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Tools &amp; agents</div>
+    <h2>Tool calling: the model asks, your code acts</h2>
+    <p class="ch-oneline"><b>You describe functions (name, description, JSON schema); the model replies with a request to call one; your code runs it and sends the result back; the model writes the final answer.</b> The model never executes anything itself.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>The assistant's phone has <strong>speed-dial buttons with labels</strong>: "check order status (needs order number)", "check stock (needs item, branch)". When a customer asks "where's my order 7?", the assistant <strong>presses the right button</strong> and reads out the result. He can't dial numbers that aren't on the buttons.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 230" role="img" aria-label="Tool calling loop: app sends question and tool definitions to the LLM; LLM returns a tool call with arguments; app executes the function and sends the result; LLM returns the final answer">
+      <rect x="10" y="80" width="150" height="70" rx="12" class="d-acc"/><text x="85" y="108" text-anchor="middle" class="d-t">Your app</text><text x="85" y="128" text-anchor="middle" class="d-xs">owns the tools</text>
+      <rect x="700" y="80" width="150" height="70" rx="12" class="d-vio"/><text x="775" y="108" text-anchor="middle" class="d-t">LLM</text><text x="775" y="128" text-anchor="middle" class="d-xs">decides, never executes</text>
+      <path d="M160 92 H698" class="d-lacc" marker-end="url(#aa)"/><text x="430" y="84" text-anchor="middle" class="d-xs">1. "Where is order 7?" + tools: [getOrderStatus(orderId)]</text>
+      <path d="M698 112 H162" class="d-lvio d-dash" marker-end="url(#av)"/><text x="430" y="108" text-anchor="middle" class="d-xs">2. tool_call: getOrderStatus({"orderId": 7})</text>
+      <rect x="20" y="170" width="200" height="44" rx="10" class="d-good"/><text x="120" y="190" text-anchor="middle" class="d-t">3. run the Java method</text><text x="120" y="206" text-anchor="middle" class="d-xs">validate · authorise · execute</text>
+      <path d="M85 150 V168" class="d-line" marker-end="url(#ah)"/>
+      <path d="M220 192 C400 192,500 140,698 132" class="d-lacc" marker-end="url(#aa)"/><text x="470" y="172" text-anchor="middle" class="d-xs">4. tool result: {"status":"OUT_FOR_DELIVERY","eta":"19:40"}</text>
+      <path d="M775 150 C775 220,500 222,260 214" class="d-lvio d-dash" marker-end="url(#av)"/><text x="560" y="226" text-anchor="middle" class="d-xs">5. "Your order is out for delivery, arriving around 7:40 pm."</text>
+    </svg></div></figure>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Tools in Spring AI: annotate methods, hand them to the ChatClient">
+@Component
+class OrderTools {
+    private final OrderService orders;
+    OrderTools(OrderService orders) { this.orders = orders; }
+
+    @Tool(description = "Get the current status and ETA of a customer's order by its numeric id")
+    OrderStatus getOrderStatus(@ToolParam(description = "the order id, e.g. 7") long orderId,
+                               ToolContext ctx) {
+        String userId = (String) ctx.getContext().get("userId");     // identity from YOUR app, not the model
+        return orders.statusFor(orderId, userId);                     // authorisation enforced in code
+    }
+
+    @Tool(description = "Cancel an order that has not been dispatched yet. Requires explicit user confirmation.")
+    CancelResult cancelOrder(long orderId, boolean userConfirmed, ToolContext ctx) {
+        if (!userConfirmed) return CancelResult.needsConfirmation();   // human in the loop for side effects
+        return orders.cancel(orderId, (String) ctx.getContext().get("userId"));
+    }
+}
+
+String answer = chatClient.prompt()
+        .user("Where is my order 7?")
+        .tools(orderTools)                                   // schemas generated from the method signatures
+        .toolContext(Map.of("userId", currentUser.id()))     // passed to tools, never shown to the model
+        .call()
+        .content();                                          // Spring AI runs the tool loop for you
+</script>
+
+  <div class="cards">
+    <div class="card"><span class="k">design</span><h5>Good tools</h5><p>Clear names and descriptions (the model reads them), few required parameters, enums over free text, idempotent where possible, small structured results.</p></div>
+    <div class="card"><span class="k">safety</span><h5>Your code is the gatekeeper</h5><p>Validate arguments, authorise against the real user, rate-limit, require confirmation for destructive actions, log every call.</p></div>
+    <div class="card"><span class="k">scale</span><h5>Many tools</h5><p>Dozens of tool definitions cost tokens and confuse selection. Group them, load relevant ones dynamically (tool search), or split across agents.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Labelled speed-dial buttons; the assistant presses, your phone dials.</p>
+    <p>Define tools (name + description + schema) → model emits a call → <span class="hl">your code validates and executes</span> → result back → final answer. Parallel calls are possible.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Does the LLM execute the function?</summary><div class="ans"><p>No. It only outputs a structured request (tool name + JSON arguments). Your application decides whether to execute it, with what permissions, and sends back the result. That's where validation, authorisation and auditing must live.</p></div></details>
+    <details><summary>Tool calling vs structured output?</summary><div class="ans"><p>Both use JSON schemas. Structured output constrains the model's final answer format. Tool calling lets the model request actions or data mid-conversation and continue with the results; it's the basis of agents.</p></div></details>
+  </div>
+  {{done}}
+</section>

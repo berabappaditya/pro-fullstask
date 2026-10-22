@@ -1,0 +1,92 @@
+<section class="chapter" id="ch-ioc" data-title="IoC container and dependency injection">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Foundations</div>
+    <h2>IoC container and dependency injection</h2>
+    <p class="ch-oneline"><b>Inversion of Control: your classes stop creating their own collaborators.</b> The container creates every bean and injects what each one needs.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>Without a manager, the chef would have to <strong>hire his own storekeeper</strong>, and if the storekeeper changes, the chef's job description changes too (tight coupling). With a manager, the chef just says "I need <em>a</em> storekeeper". The <strong>manager hires everyone, introduces them, and replaces anyone</strong> when needed, even with a stand-in for training day (a mock in tests).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 220" role="img" aria-label="Without IoC, OrderService creates JpaOrderRepository with new. With IoC, the container reads bean definitions, creates objects and injects the repository into the service through its constructor">
+      <text x="200" y="22" text-anchor="middle" class="d-tl">Without IoC</text>
+      <rect x="40" y="50" width="140" height="56" rx="10" class="d-box"/><text x="110" y="76" text-anchor="middle" class="d-t">OrderService</text><text x="110" y="94" text-anchor="middle" class="d-xs">new JpaRepo()</text>
+      <path d="M180 78 H240" class="d-lbad" marker-end="url(#ab)"/><text x="210" y="70" text-anchor="middle" class="d-xs">creates</text>
+      <rect x="242" y="50" width="140" height="56" rx="10" class="d-box"/><text x="312" y="76" text-anchor="middle" class="d-t">JpaOrderRepo</text><text x="312" y="94" text-anchor="middle" class="d-xs">concrete class</text>
+      <text x="210" y="140" text-anchor="middle" class="d-s">tight coupling: can't swap or mock</text>
+      <line x1="420" y1="20" x2="420" y2="200" class="d-line d-dash"/>
+      <text x="640" y="22" text-anchor="middle" class="d-tl">With IoC + DI</text>
+      <rect x="460" y="40" width="360" height="160" rx="14" class="d-good"/><text x="640" y="62" text-anchor="middle" class="d-t">ApplicationContext (the container)</text>
+      <rect x="480" y="84" width="140" height="50" rx="10" class="d-amb"/><text x="550" y="106" text-anchor="middle" class="d-t">OrderRepository</text><text x="550" y="122" text-anchor="middle" class="d-xs">bean #1</text>
+      <rect x="660" y="84" width="140" height="50" rx="10" class="d-amb"/><text x="730" y="106" text-anchor="middle" class="d-t">OrderService</text><text x="730" y="122" text-anchor="middle" class="d-xs">bean #2</text>
+      <path d="M620 109 H658" class="d-lgood" marker-end="url(#ag)"/><text x="640" y="152" text-anchor="middle" class="d-xs">container injects #1 into #2's constructor</text>
+      <text x="640" y="180" text-anchor="middle" class="d-xs">OrderService depends on the interface only</text>
+    </svg></div></figure>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: the class builds its own dependencies">
+public class OrderService {
+    private final OrderRepository repo = new JpaOrderRepository();  // hard-wired
+    private final PaymentClient payments = new RazorpayClient("key"); // config inside code
+    // To unit test this you'd hit a real DB and a real payment API.
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: declare what you need; the container supplies it">
+@Service
+public class OrderService {
+    private final OrderRepository repo;          // depends on interfaces
+    private final PaymentClient payments;
+
+    public OrderService(OrderRepository repo, PaymentClient payments) {  // single constructor:
+        this.repo = repo;                                                  // @Autowired is implied
+        this.payments = payments;
+    }
+}
+// Test: new OrderService(mockRepo, fakePayments): no Spring needed at all.
+</script>
+</div>
+
+  <h3>Three ways to inject</h3>
+  <div class="cards">
+    <div class="card good"><span class="k">recommended</span><h5>Constructor</h5><p>Dependencies are <code>final</code> and mandatory, the object is never half-built, cycles fail fast, and tests just call <code>new</code>.</p></div>
+    <div class="card"><span class="k">optional deps</span><h5>Setter</h5><p>For truly optional or re-configurable dependencies. The object can exist without them.</p></div>
+    <div class="card bad"><span class="k">avoid</span><h5>Field (<code>@Autowired</code> on a field)</h5><p>Hidden dependencies, can't be final, needs reflection or Spring to test. Common in old code and tutorials.</p></div>
+  </div>
+
+<script type="text/x-code" data-lang="java" data-variant="plain" data-title="Two ways to define beans">
+@Component                     // 1. your own class: annotate it, component scan finds it
+public class InvoiceNumberGenerator { ... }
+
+@Configuration                 // 2. third-party class you can't annotate: a @Bean factory method
+public class AppConfig {
+    @Bean
+    public ObjectMapper objectMapper() { return JsonMapper.builder().build(); }
+
+    @Bean
+    public RazorpayClient razorpay(@Value("${razorpay.key}") String key) {
+        return new RazorpayClient(key);          // parameters are injected too
+    }
+}
+</script>
+
+  <h3>BeanFactory vs ApplicationContext</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>BeanFactory</th><th>ApplicationContext</th></tr>
+    <tr><td>What</td><td>Basic container: create and wire beans</td><td>BeanFactory + events, i18n messages, resource loading, environment/profiles, AOP integration</td></tr>
+    <tr><td>Singletons created</td><td>Lazily, on first request</td><td>Eagerly at startup (fail fast on config errors)</td></tr>
+    <tr><td>Used by</td><td>Almost nobody directly</td><td>Spring Boot (e.g. AnnotationConfigServletWebServerApplicationContext)</td></tr>
+  </table></div>
+
+  <div class="box pitfall"><div class="box-tag">Circular dependencies</div><p>A needs B and B needs A. Since Boot 2.6 circular references are <strong>prohibited by default</strong>, and with constructor injection they fail at startup with "The dependencies of some of the beans form a cycle". The right fix is a redesign: extract the shared logic into a third bean, or use events. <code>@Lazy</code> on one constructor parameter is a workaround, not a fix.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Don't hire your own staff. Ask the manager.</p>
+    <p>IoC = container controls object creation. DI = it hands you dependencies. <span class="hl">Constructor injection, depend on interfaces.</span></p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>IoC vs DI?</summary><div class="ans"><p>IoC is the principle: control over creating and wiring objects moves from your code to a framework. DI is the technique Spring uses to implement it: dependencies are passed in (constructor, setter or field) instead of looked up or created.</p></div></details>
+    <details><summary>Why is constructor injection preferred?</summary><div class="ans"><p>Immutability (final fields), required dependencies are obvious and guaranteed, no partially constructed objects, easy unit testing without a container, and circular dependencies surface immediately. Too many constructor parameters is a useful smell that the class does too much.</p></div></details>
+  </div>
+  {{done}}
+</section>

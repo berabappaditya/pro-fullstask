@@ -1,0 +1,42 @@
+/* ---------- figures & diagrams ---------- */
+.figure{margin:24px 0; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:var(--shadow)}
+.figure .svgwrap{overflow-x:auto}
+.figure svg{display:block; width:100%; height:auto; margin:0 auto}
+.figure svg.wide{min-width:640px}
+.figure figcaption{font-size:13.5px; color:var(--ink-2); margin-top:10px; padding-top:10px; border-top:1px solid var(--line)}
+.figure figcaption b{color:var(--ink)}
+svg text{font-family:var(--f-body)}
+.d-box{fill:var(--card); stroke:var(--ink); stroke-width:1.5}
+.d-paper{fill:var(--paper); stroke:var(--line); stroke-width:1}
+.d-acc{fill:var(--accent-soft); stroke:var(--accent); stroke-width:1.5}
+.d-amb{fill:var(--amber-soft); stroke:var(--amber-line); stroke-width:1.5}
+.d-good{fill:var(--good-soft); stroke:var(--good); stroke-width:1.5}
+.d-bad{fill:var(--bad-soft); stroke:var(--bad); stroke-width:1.5}
+.d-vio{fill:var(--violet-soft); stroke:var(--violet); stroke-width:1.5}
+.d-teal{fill:var(--teal-soft); stroke:var(--teal); stroke-width:1.5}
+.d-ink{fill:var(--ink)} .d-ink2{fill:var(--ink-2)} .d-accf{fill:var(--accent)} .d-goodf{fill:var(--good)} .d-badf{fill:var(--bad)} .d-ambf{fill:var(--amber-line)} .d-viof{fill:var(--violet)} .d-tealf{fill:var(--teal)} .d-cardf{fill:var(--card)} .d-linef{fill:var(--line)}
+.d-t{fill:var(--ink); font-size:13px; font-weight:600}
+.d-tl{fill:var(--ink); font-size:15px; font-weight:700; font-family:var(--f-display)}
+.d-s{fill:var(--ink-2); font-size:11.5px}
+.d-xs{fill:var(--ink-3); font-size:10.5px}
+.d-m{fill:var(--ink-2); font-size:11px; font-family:var(--f-mono)}
+.d-tw{fill:#fff; font-size:12px; font-weight:700}
+.d-ta{fill:var(--accent); font-size:12px; font-weight:700}
+.d-tg{fill:var(--good); font-size:12px; font-weight:700}
+.d-tb{fill:var(--bad); font-size:12px; font-weight:700}
+.d-tv{fill:var(--violet); font-size:12px; font-weight:700}
+.d-tam{fill:var(--amber); font-size:12px; font-weight:700}
+.d-line{stroke:var(--ink-2); stroke-width:1.6; fill:none}
+.d-lacc{stroke:var(--accent); stroke-width:2; fill:none}
+.d-lgood{stroke:var(--good); stroke-width:2; fill:none}
+.d-lbad{stroke:var(--bad); stroke-width:2; fill:none}
+.d-lamb{stroke:var(--amber-line); stroke-width:2; fill:none}
+.d-lvio{stroke:var(--violet); stroke-width:2; fill:none}
+.d-dash{stroke-dasharray:5 5}
+.d-flow{stroke-dasharray:7 7; animation:flow 1.1s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-14}}
+.d-pulse{animation:pulse 1.8s ease-in-out infinite; transform-origin:center; transform-box:fill-box}
+@keyframes pulse{50%{opacity:.45}}
+.m-ah{fill:var(--ink-2)} .m-aa{fill:var(--accent)} .m-ag{fill:var(--good)} .m-ab{fill:var(--bad)} .m-av{fill:var(--violet)} .m-am{fill:var(--amber-line)}
+.m-hollow{fill:var(--card); stroke:var(--ink-2); stroke-width:1.4}
+.m-diam{fill:var(--ink-2)} .m-diamo{fill:var(--card); stroke:var(--ink-2); stroke-width:1.4}

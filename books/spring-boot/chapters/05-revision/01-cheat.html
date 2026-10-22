@@ -1,0 +1,61 @@
+<section class="chapter" id="ch-cheat" data-title="Rapid-fire sheet" data-num="R1">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">R1</span>Revision</div>
+    <h2>The rapid-fire sheet</h2>
+    <p class="ch-oneline"><b>One-line answers to the questions asked in almost every Spring Boot interview.</b> Each links back to its chapter.</p>
+  </header>
+
+  <h3>Foundations</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-spring-vs-boot}}</span><h5>@SpringBootApplication</h5><p>@SpringBootConfiguration + @EnableAutoConfiguration + @ComponentScan.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-spring-vs-boot}}</span><h5>Spring vs Boot</h5><p>Framework vs opinionated kit: auto-config, starters, embedded server, Actuator.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-architecture}}</span><h5>Request flow</h5><p>Filters → DispatcherServlet → HandlerMapping → controller → service → repository → DB; Jackson writes JSON back.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-ioc}}</span><h5>IoC / DI</h5><p>Container creates and wires beans. Prefer constructor injection: final, mandatory, testable.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-ioc}}</span><h5>BeanFactory vs ApplicationContext</h5><p>Basic lazy container vs full container (events, i18n, env, eager singletons). Boot uses ApplicationContext.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-lifecycle}}</span><h5>Lifecycle</h5><p>Constructor → inject → Aware → BPP before → @PostConstruct → BPP after (proxy) → ready → @PreDestroy.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-lifecycle}}</span><h5>Scopes</h5><p>Singleton (default, per container), prototype, request, session, application, websocket. Prototype-in-singleton → ObjectProvider.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-annotations}}</span><h5>@Component vs @Bean</h5><p>Class-level auto-detection vs method-level factory (third-party classes).</p></div>
+    <div class="card"><span class="k">ch {{n:ch-annotations}}</span><h5>@Primary vs @Qualifier</h5><p>Default among candidates vs explicit pick at the injection point (wins).</p></div>
+    <div class="card"><span class="k">ch {{n:ch-annotations}}</span><h5>@Controller vs @RestController</h5><p>View names vs @ResponseBody JSON.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-autoconfig}}</span><h5>Auto-configuration</h5><p>AutoConfiguration.imports + @ConditionalOnClass / OnMissingBean / OnProperty. Your bean wins. <code>--debug</code> shows the report.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-config}}</span><h5>Config precedence</h5><p>Command line &gt; env vars &gt; profile files &gt; application.yml &gt; defaults. @ConfigurationProperties for groups.</p></div>
+  </div>
+
+  <h3>REST APIs</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-rest}}</span><h5>PUT vs PATCH vs POST</h5><p>Replace (idempotent) vs partial vs create (not idempotent). 201 + Location, 204 on delete.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-rest}}</span><h5>@PathVariable vs @RequestParam</h5><p>/orders/<b>5</b> vs /orders?<b>status=PAID</b>.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-crud}}</span><h5>Run a Boot app</h5><p>IDE, <code>mvn spring-boot:run</code>, <code>gradle bootRun</code>, <code>java -jar</code> (fat JAR). Port: <code>server.port</code>.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-dto}}</span><h5>DTOs</h5><p>Never expose entities. Records for DTOs, MapStruct for mapping, no @Data on entities.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-validation}}</span><h5>Validation</h5><p>@Valid on @RequestBody. @NotNull ⊂ @NotEmpty ⊂ @NotBlank. Custom: @Constraint + ConstraintValidator.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-errors}}</span><h5>Errors</h5><p>@RestControllerAdvice + @ExceptionHandler → ProblemDetail (RFC 9457). Never leak stack traces.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-http-clients}}</span><h5>HTTP clients</h5><p>RestClient (sync), WebClient (reactive), @HttpExchange interfaces. Always timeouts.</p></div>
+  </div>
+
+  <h3>Data</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-jpa}}</span><h5>JPA vs Hibernate</h5><p>Specification vs implementation; Spring Data on top.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-jpa}}</span><h5>Fetch defaults</h5><p>*ToOne EAGER, *ToMany LAZY. Make everything LAZY; fetch explicitly.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-jpa}}</span><h5>N+1</h5><p>1 + N queries. JOIN FETCH, @EntityGraph, batch size, DTO projection.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-repos}}</span><h5>Repositories</h5><p>JpaRepository ⊃ paging ⊃ CRUD. Derived names, @Query, @Modifying, Page vs Slice.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-repos}}</span><h5>findById vs getReferenceById</h5><p>Query + Optional vs lazy proxy (no query until accessed).</p></div>
+    <div class="card"><span class="k">ch {{n:ch-transactions}}</span><h5>@Transactional</h5><p>Proxy; rollback on unchecked; REQUIRED joins, REQUIRES_NEW suspends; self-invocation and private methods bypass it.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-data-prod}}</span><h5>Locking</h5><p>@Version optimistic (rare conflicts) vs FOR UPDATE pessimistic (hot rows).</p></div>
+    <div class="card"><span class="k">ch {{n:ch-data-prod}}</span><h5>Prod data</h5><p>Flyway migrations, ddl-auto validate/none, Hikari pool sizing, open-in-view off.</p></div>
+  </div>
+
+  <h3>Production</h3>
+  <div class="cheat">
+    <div class="card"><span class="k">ch {{n:ch-security}}</span><h5>AuthN vs AuthZ</h5><p>Who you are (401) vs what you may do (403).</p></div>
+    <div class="card"><span class="k">ch {{n:ch-security}}</span><h5>JWT</h5><p>Signed, stateless bearer token. Short expiry + refresh. STATELESS sessions, CSRF off, BCrypt passwords.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-aop}}</span><h5>AOP</h5><p>Proxy + advice powers @Transactional, @Async, @Cacheable, @PreAuthorize. Calls from outside only.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-cache-async}}</span><h5>Cache annotations</h5><p>@Cacheable skips on hit, @CachePut refreshes, @CacheEvict removes. Always a TTL.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-cache-async}}</span><h5>@Async / @Scheduled</h5><p>Bounded executor; cron = sec min hour day month weekday; ShedLock for multi-instance.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-actuator}}</span><h5>Actuator</h5><p>Only /health exposed by default. Prometheus metrics, probes, /loggers to change levels live.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-testing}}</span><h5>Testing</h5><p>Unit → @WebMvcTest/@DataJpaTest → @SpringBootTest + Testcontainers. @MockitoBean (Boot 4).</p></div>
+    <div class="card"><span class="k">ch {{n:ch-microservices}}</span><h5>Microservices</h5><p>DB per service, gateway, circuit breaker, Kafka + idempotent consumers, outbox + saga, tracing.</p></div>
+    <div class="card"><span class="k">ch {{n:ch-boot4}}</span><h5>Boot 4</h5><p>Framework 7, Jackson 3, modular starters (-webmvc), API versioning, HTTP service clients, no Undertow.</p></div>
+    <div class="card"><span class="k">servers</span><h5>Embedded servers</h5><p>Tomcat (default) and Jetty in Boot 4; Undertow was removed. Reactive apps use Netty.</p></div>
+  </div>
+  {{done}}
+</section>

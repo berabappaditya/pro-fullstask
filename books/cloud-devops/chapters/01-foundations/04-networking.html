@@ -1,0 +1,65 @@
+<section class="chapter" id="ch-networking" data-title="VPC networking">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Foundations</div>
+    <h2>VPC networking: subnets, routes, NAT and firewalls</h2>
+    <p class="ch-oneline"><b>A VPC is your private network in the cloud.</b> Public subnets face the internet through an internet gateway; private subnets reach out through NAT; security groups decide which traffic each resource accepts.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>Ramu's section is <strong>fenced off</strong> (VPC). The <strong>serving counter</strong> faces the public hall (public subnet). The <strong>kitchen and storeroom</strong> are at the back with no public door (private subnets); staff can still go out to buy supplies through a <strong>back gate</strong> that only opens outward (NAT gateway). Each room has its own <strong>bouncer with a guest list</strong> (security group).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 346" role="img" aria-label="VPC 10.0.0.0/16 across two availability zones; public subnets contain the load balancer and NAT gateways; private app subnets contain services; private data subnets contain the database; internet gateway connects public subnets to the internet">
+      <rect x="10" y="20" width="110" height="50" rx="10" class="d-vio"/><text x="65" y="50" text-anchor="middle" class="d-t">Internet</text>
+      <rect x="150" y="20" width="120" height="50" rx="10" class="d-acc"/><text x="210" y="42" text-anchor="middle" class="d-t">Internet GW</text><text x="210" y="58" text-anchor="middle" class="d-xs">IGW</text>
+      <path d="M120 45 H148" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="10" y="88" width="840" height="252" rx="16" class="d-paper"/><text x="30" y="110" class="d-t">VPC 10.0.0.0/16 · ap-south-1</text>
+      <text x="300" y="110" text-anchor="middle" class="d-tl">AZ-a</text><text x="640" y="110" text-anchor="middle" class="d-tl">AZ-b</text>
+      <rect x="140" y="120" width="320" height="56" rx="10" class="d-good"/><text x="156" y="140" class="d-xs">public 10.0.1.0/24</text><rect x="250" y="134" width="90" height="34" rx="7" class="d-acc"/><text x="295" y="156" text-anchor="middle" class="d-xs">ALB</text><rect x="352" y="134" width="96" height="34" rx="7" class="d-amb"/><text x="400" y="156" text-anchor="middle" class="d-xs">NAT GW</text>
+      <rect x="480" y="120" width="320" height="56" rx="10" class="d-good"/><text x="496" y="140" class="d-xs">public 10.0.2.0/24</text><rect x="590" y="134" width="90" height="34" rx="7" class="d-acc"/><text x="635" y="156" text-anchor="middle" class="d-xs">ALB</text><rect x="692" y="134" width="96" height="34" rx="7" class="d-amb"/><text x="740" y="156" text-anchor="middle" class="d-xs">NAT GW</text>
+      <rect x="140" y="186" width="320" height="60" rx="10" class="d-box"/><text x="156" y="206" class="d-xs">private app 10.0.11.0/24</text><rect x="250" y="204" width="90" height="34" rx="7" class="d-vio"/><text x="295" y="226" text-anchor="middle" class="d-xs">orders svc</text>
+      <rect x="480" y="186" width="320" height="60" rx="10" class="d-box"/><text x="496" y="206" class="d-xs">private app 10.0.12.0/24</text><rect x="590" y="204" width="90" height="34" rx="7" class="d-vio"/><text x="635" y="226" text-anchor="middle" class="d-xs">orders svc</text>
+      <rect x="140" y="256" width="320" height="60" rx="10" class="d-box"/><text x="156" y="276" class="d-xs">private data 10.0.21.0/24</text><rect x="250" y="274" width="110" height="34" rx="7" class="d-teal"/><text x="305" y="296" text-anchor="middle" class="d-xs">RDS primary</text>
+      <rect x="480" y="256" width="320" height="60" rx="10" class="d-box"/><text x="496" y="276" class="d-xs">private data 10.0.22.0/24</text><rect x="590" y="274" width="110" height="34" rx="7" class="d-teal"/><text x="645" y="296" text-anchor="middle" class="d-xs">RDS standby</text>
+      <path d="M210 70 L210 118" class="d-lacc" marker-end="url(#aa)"/>
+      <path d="M295 168 V202" class="d-line" marker-end="url(#ah)"/><path d="M295 238 V272" class="d-line" marker-end="url(#ah)"/>
+      <path d="M340 214 C370 214,400 200,400 170" class="d-lamb d-dash" marker-end="url(#am)"/>
+      <path d="M360 291 H588" class="d-lgood d-dash" marker-end="url(#ag)"/><text x="474" y="332" text-anchor="middle" class="d-xs">synchronous replication (Multi-AZ)</text>
+      <text x="70" y="200" text-anchor="middle" class="d-xs">no route to</text><text x="70" y="214" text-anchor="middle" class="d-xs">IGW from</text><text x="70" y="228" text-anchor="middle" class="d-xs">private subnets</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> The standard three-tier layout. Only the load balancer is reachable from the internet; app servers call out (to package mirrors, third-party APIs) through NAT; the database accepts traffic only from the app tier's security group.</figcaption></figure>
+
+  <h3>CIDR in 30 seconds</h3>
+  <p><code>10.0.0.0/16</code> means "the first 16 bits are fixed": 2<sup>16</sup> = 65,536 addresses. A <code>/24</code> has 256. Each extra bit halves the block. AWS reserves 5 addresses in every subnet.</p>
+  <div class="widget" id="w-cidr">
+    <div class="widget-head"><span class="live">Live</span>CIDR calculator: how many addresses, which range?</div>
+    <div class="widget-body">
+      <div class="controls" id="cidrControls"></div>
+      <div class="cidr-out" id="cidrOut"></div>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Security group (AWS) / firewall rule (GCP)</th><th>Network ACL (AWS)</th></tr>
+    <tr><td>Applies to</td><td>an instance / ENI (GCP: by network tags or service accounts)</td><td>a whole subnet</td></tr>
+    <tr><td>State</td><td><b>stateful</b>: replies are allowed automatically</td><td><b>stateless</b>: allow both directions explicitly</td></tr>
+    <tr><td>Rules</td><td>allow only; can reference other security groups</td><td>allow and deny, numbered order</td></tr>
+    <tr><td>Typical use</td><td>"DB accepts 5432 only from the app SG"</td><td>coarse subnet blocks, rarely needed</td></tr>
+  </table></div>
+
+  <div class="cards">
+    <div class="card"><span class="k">VPC peering / Transit Gateway</span><h5>Connect VPCs</h5><p>Peering is 1:1 and non-transitive; Transit Gateway (or GCP Network Connectivity Center / Shared VPC) is a hub for many.</p></div>
+    <div class="card"><span class="k">VPC endpoints / Private Service Connect</span><h5>Reach cloud services privately</h5><p>Call S3, DynamoDB or other APIs without going through NAT or the internet: cheaper and safer.</p></div>
+    <div class="card"><span class="k">VPN / Direct Connect / Interconnect</span><h5>Connect to an office or data centre</h5><p>Encrypted tunnels over the internet, or dedicated private links.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Counter faces the hall, kitchen at the back, a back gate that only opens outward.</p>
+    <p>Public subnet = route to IGW; private = route to NAT. <span class="hl">Only the load balancer is public.</span> Security groups are stateful, NACLs stateless. Two AZs minimum.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What makes a subnet public?</summary><div class="ans"><p>Its route table has a route for 0.0.0.0/0 to an internet gateway (and resources have public IPs). Private subnets route 0.0.0.0/0 to a NAT gateway (outbound only) or have no internet route at all.</p></div></details>
+    <details><summary>An app in a private subnet can't reach a third-party API. What do you check?</summary><div class="ans"><p>The subnet's route table (0.0.0.0/0 → NAT gateway in a public subnet, and that NAT's subnet routes to the IGW), the security group's outbound rules, the NACL in both directions (stateless, including ephemeral ports), DNS resolution, and whether the third party allow-lists your NAT's elastic IP.</p></div></details>
+  </div>
+  {{done}}
+</section>

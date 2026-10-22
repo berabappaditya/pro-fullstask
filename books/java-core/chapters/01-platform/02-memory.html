@@ -1,0 +1,82 @@
+<section class="chapter" id="ch-memory" data-title="Memory: stack, heap and references">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Platform</div>
+    <h2>Memory: stack, heap and references</h2>
+    <p class="ch-oneline"><b>Each thread has its own stack for method calls and local variables; all objects live on one shared heap.</b> Variables hold references (addresses), not objects.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>Every chef carries a small <strong>notepad</strong>: what they're doing right now, quick numbers, and "the big pot is on shelf 7". When a chef finishes a task, they tear off that page. The actual pots and ingredients sit on the shared <strong>storeroom shelves</strong>, which every chef can reach. Two chefs can have "shelf 7" written on their notepads: both are pointing at the same pot.</p>
+    <p>Notepad = <strong>stack</strong> (one per thread, a page per method call). Storeroom = <strong>heap</strong> (shared). "Shelf 7" = a <strong>reference</strong>.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 300" role="img" aria-label="Two thread stacks with frames holding primitives and references pointing to objects on the shared heap; metaspace holds class metadata">
+      <text x="140" y="22" text-anchor="middle" class="d-tl">Thread 1 stack</text>
+      <rect x="40" y="34" width="200" height="110" rx="8" class="d-vio"/><text x="56" y="54" class="d-t">main()</text>
+      <text x="56" y="76" class="d-m">int cups = 3</text><text x="56" y="96" class="d-m">Order o = ●</text><text x="56" y="116" class="d-m">String name = ●</text>
+      <rect x="40" y="152" width="200" height="70" rx="8" class="d-vio" style="opacity:.75"/><text x="56" y="172" class="d-t">total(o)</text><text x="56" y="194" class="d-m">Order order = ●</text><text x="56" y="212" class="d-xs">top frame: popped when it returns</text>
+      <text x="140" y="246" text-anchor="middle" class="d-xs">private · fast · LIFO · size ~512 KB–1 MB</text>
+      <rect x="300" y="20" width="330" height="240" rx="14" class="d-paper"/><text x="465" y="44" text-anchor="middle" class="d-tl">Heap (shared)</text>
+      <rect x="340" y="70" width="130" height="60" rx="8" class="d-amb"/><text x="405" y="94" text-anchor="middle" class="d-t">Order</text><text x="405" y="112" text-anchor="middle" class="d-m">cups=3 items=●</text>
+      <rect x="490" y="70" width="120" height="50" rx="8" class="d-amb"/><text x="550" y="92" text-anchor="middle" class="d-t">String</text><text x="550" y="108" text-anchor="middle" class="d-m">"Priya"</text>
+      <rect x="360" y="170" width="150" height="50" rx="8" class="d-amb"/><text x="435" y="192" text-anchor="middle" class="d-t">ArrayList</text><text x="435" y="208" text-anchor="middle" class="d-m">[●, ●]</text>
+      <rect x="530" y="180" width="80" height="40" rx="8" class="d-bad"/><text x="570" y="198" text-anchor="middle" class="d-xs">no refs:</text><text x="570" y="211" text-anchor="middle" class="d-xs">garbage</text>
+      <path d="M150 92 C230 92,280 100,338 100" class="d-lacc" marker-end="url(#aa)"/>
+      <path d="M170 112 C260 130,420 140,520 120" class="d-lacc" marker-end="url(#aa)"/>
+      <path d="M175 190 C260 190,300 140,345 118" class="d-lacc d-dash" marker-end="url(#aa)"/>
+      <path d="M440 130 L435 168" class="d-line" marker-end="url(#ah)"/>
+      <text x="740" y="22" text-anchor="middle" class="d-tl">Thread 2 stack</text>
+      <rect x="660" y="34" width="150" height="80" rx="8" class="d-vio"/><text x="676" y="54" class="d-t">run()</text><text x="676" y="78" class="d-m">Order o2 = ●</text><text x="676" y="98" class="d-m">long t = 120</text>
+      <path d="M676 78 C640 60,620 85,472 92" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="660" y="160" width="150" height="80" rx="8" class="d-teal"/><text x="735" y="186" text-anchor="middle" class="d-t">Metaspace</text><text x="735" y="204" text-anchor="middle" class="d-xs">class metadata,</text><text x="735" y="218" text-anchor="middle" class="d-xs">native memory</text>
+      <text x="410" y="290" text-anchor="middle" class="d-s">Both threads point at the same Order: shared heap objects are why concurrency needs care (Part 5).</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Primitives inside a method live in the stack frame. Objects always live on the heap; variables hold references to them. An object with no references left is garbage.</figcaption>
+  </figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Stack</th><th>Heap</th></tr>
+    <tr><td>Holds</td><td>Method frames: local primitives and references</td><td>All objects and arrays (and their fields)</td></tr>
+    <tr><td>Shared?</td><td>No, one per thread</td><td>Yes, all threads</td></tr>
+    <tr><td>Lifetime</td><td>Frame removed when the method returns</td><td>Until no references remain, then GC</td></tr>
+    <tr><td>Error when full</td><td><code>StackOverflowError</code> (deep recursion)</td><td><code>OutOfMemoryError: Java heap space</code></td></tr>
+    <tr><td>Size flag</td><td><code>-Xss</code></td><td><code>-Xms</code> (start) / <code>-Xmx</code> (max)</td></tr>
+  </table></div>
+
+  <h3>Java is always pass-by-value</h3>
+  <p>The value passed for an object is the <em>reference</em> (a copy of the address). You can change the object it points to, but you can't make the caller's variable point somewhere else.</p>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="What people expect to happen">
+static void reset(Order o) {
+    o = new Order();          // reassigns ONLY the method's copy of the reference
+}
+
+Order mine = new Order(3);
+reset(mine);
+System.out.println(mine.cups);  // still 3: 'mine' was never changed
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="What actually changes the caller's object">
+static void addCup(Order o) {
+    o.cups++;                 // follows the copied reference to the SAME object
+}
+
+Order mine = new Order(3);
+addCup(mine);
+System.out.println(mine.cups);  // 4: the shared object was modified
+// Rule: the reference is copied (pass-by-value); the object is shared.
+</script>
+</div>
+
+  <div class="box pitfall"><div class="box-tag">Common trap</div><p>"Objects are passed by reference in Java." No: references are passed <em>by value</em>. The swap function <code>swap(a, b)</code> on two objects can never swap the caller's variables in Java.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Notepad per chef, shelves for everyone.</p>
+    <p><strong>Stack</strong>: per thread, frames, locals, fast, auto-cleaned. <strong>Heap</strong>: shared objects, GC-managed. <strong>Metaspace</strong>: class metadata. Java is <span class="hl">always pass-by-value</span>; for objects the value is a reference.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Where are static variables stored?</summary><div class="ans"><p>Static fields belong to the class. Since Java 8 they're stored with the class's <code>Class</code> object on the heap, while the class metadata itself lives in Metaspace (which replaced PermGen and uses native memory).</p></div></details>
+    <details><summary>What causes StackOverflowError vs OutOfMemoryError?</summary><div class="ans"><p>StackOverflowError: a thread's stack ran out of frames, usually unbounded recursion. OutOfMemoryError: the heap (or metaspace, or native memory for threads) couldn't satisfy an allocation even after GC, often from a memory leak or undersized -Xmx.</p></div></details>
+    <details><summary>What is escape analysis?</summary><div class="ans"><p>A JIT optimisation: if an object never escapes a method (no reference leaves it), the JVM can avoid allocating it on the heap (scalar replacement) and remove locks on it. Small, short-lived objects can become almost free.</p></div></details>
+  </div>
+  {{done}}
+</section>

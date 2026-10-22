@@ -1,0 +1,35 @@
+<section class="chapter" id="ch-map" data-title="How this book works" data-num="00">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">00</span>Orientation</div>
+    <h2>How this book works</h2>
+    <p class="ch-oneline"><b>Six parts, from "what is the JVM?" to "why is my server out of memory?"</b> Read in order the first time; jump around when revising.</p>
+  </header>
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>Before Ramu's chai stall became a chain (that's the System Design book), it was one busy kitchen. The kitchen is our running picture for Java. The <strong>restaurant building</strong> is a process. The <strong>chefs</strong> are threads. The <strong>recipe cards</strong> are classes; the <strong>dishes</strong> made from them are objects. The <strong>storeroom shelves</strong> are the heap, each chef's <strong>personal notepad</strong> is their stack, and the <strong>cleaner</strong> who clears plates nobody uses is the garbage collector.</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>In Ramu's kitchen</th><th>In Java</th><th>Chapter</th></tr>
+    <tr><td>Recipe written in English, translated into a universal kitchen language</td><td>.java source compiled to bytecode</td><td>{{n:ch-jvm}}</td></tr>
+    <tr><td>Storeroom shelves vs each chef's notepad</td><td>Heap vs stack</td><td>{{n:ch-memory}}</td></tr>
+    <tr><td>A laminated menu card that can't be edited</td><td>Immutable String</td><td>{{n:ch-strings}}</td></tr>
+    <tr><td>Recipe card vs the dish made from it</td><td>Class vs object</td><td>{{n:ch-classes}}</td></tr>
+    <tr><td>Labelled spice jars on numbered racks</td><td>HashMap buckets</td><td>{{n:ch-hashmap}}</td></tr>
+    <tr><td>An assembly line: wash, chop, cook, plate</td><td>Stream pipeline</td><td>{{n:ch-streams}}</td></tr>
+    <tr><td>Several chefs working at once</td><td>Threads</td><td>{{n:ch-threads}}</td></tr>
+    <tr><td>Two chefs grabbing the same pan</td><td>Race condition / deadlock</td><td>{{n:ch-sync}}, {{n:ch-deadlock}}</td></tr>
+    <tr><td>A fixed team of chefs and a ticket rail</td><td>Thread pool</td><td>{{n:ch-executors}}</td></tr>
+    <tr><td>The cleaner clearing abandoned plates</td><td>Garbage collector</td><td>{{n:ch-gc}}</td></tr>
+  </table></div>
+
+  <h3>The parts</h3>
+  <div class="cards">
+    <div class="card"><span class="k">part 1</span><h5>The platform</h5><p>JVM, memory, types, strings.</p></div>
+    <div class="card"><span class="k">part 2</span><h5>Object-oriented Java</h5><p>Classes, interfaces, records, equals/hashCode, exceptions, generics.</p></div>
+    <div class="card"><span class="k">part 3</span><h5>Collections</h5><p>Which collection when, HashMap internals, iterators.</p></div>
+    <div class="card"><span class="k">part 4</span><h5>Functional Java</h5><p>Lambdas, streams, modern Java up to 25.</p></div>
+    <div class="card"><span class="k">part 5</span><h5>Concurrency</h5><p>Threads to virtual threads, with Spring Boot in practice.</p></div>
+    <div class="card"><span class="k">part 6</span><h5>Under the hood</h5><p>Garbage collection and JVM troubleshooting.</p></div>
+  </div>
+  <p class="small">Object-oriented design (SOLID, patterns, UML) lives in the System Design book: {{xref:system-design/ch-oop}} onwards. This book covers how the Java <em>language and runtime</em> work.</p>
+  {{done}}
+</section>

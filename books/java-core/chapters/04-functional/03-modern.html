@@ -1,0 +1,104 @@
+<section class="chapter" id="ch-modern" data-title="Modern Java: 8 to 25">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Functional</div>
+    <h2>Modern Java: what changed from 8 to 25</h2>
+    <p class="ch-oneline"><b>Java ships every six months, with a long-term-support (LTS) release every two years: 8, 11, 17, 21, 25.</b> Know the headline features of each LTS.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>Ramu's kitchen gets new equipment every season. Most of it is small (a better peeler), but every few years there's a big upgrade the whole chain adopts (an LTS). Interviewers ask "what version do you use and what do you like in it?": have one or two features ready per LTS.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 880 230" role="img" aria-label="Timeline of Java LTS releases 8, 11, 17, 21, 25 with headline features">
+      <line x1="30" y1="60" x2="850" y2="60" class="d-line"/>
+      <g>
+        <circle cx="70" cy="60" r="14" class="d-acc"/><text x="70" y="65" text-anchor="middle" class="d-t">8</text><text x="70" y="30" text-anchor="middle" class="d-xs">2014</text>
+        <text x="70" y="98" text-anchor="middle" class="d-xs">lambdas</text><text x="70" y="114" text-anchor="middle" class="d-xs">streams</text><text x="70" y="130" text-anchor="middle" class="d-xs">Optional</text><text x="70" y="146" text-anchor="middle" class="d-xs">java.time</text><text x="70" y="162" text-anchor="middle" class="d-xs">default methods</text>
+      </g>
+      <g>
+        <circle cx="250" cy="60" r="14" class="d-acc"/><text x="250" y="65" text-anchor="middle" class="d-t">11</text><text x="250" y="30" text-anchor="middle" class="d-xs">2018</text>
+        <text x="250" y="98" text-anchor="middle" class="d-xs">var (10)</text><text x="250" y="114" text-anchor="middle" class="d-xs">HttpClient</text><text x="250" y="130" text-anchor="middle" class="d-xs">String strip/isBlank</text><text x="250" y="146" text-anchor="middle" class="d-xs">List.of (9), modules (9)</text><text x="250" y="162" text-anchor="middle" class="d-xs">run .java directly</text>
+      </g>
+      <g>
+        <circle cx="440" cy="60" r="14" class="d-acc"/><text x="440" y="65" text-anchor="middle" class="d-t">17</text><text x="440" y="30" text-anchor="middle" class="d-xs">2021</text>
+        <text x="440" y="98" text-anchor="middle" class="d-xs">records</text><text x="440" y="114" text-anchor="middle" class="d-xs">sealed classes</text><text x="440" y="130" text-anchor="middle" class="d-xs">text blocks</text><text x="440" y="146" text-anchor="middle" class="d-xs">switch expressions</text><text x="440" y="162" text-anchor="middle" class="d-xs">instanceof patterns</text>
+      </g>
+      <g>
+        <circle cx="630" cy="60" r="14" class="d-acc"/><text x="630" y="65" text-anchor="middle" class="d-t">21</text><text x="630" y="30" text-anchor="middle" class="d-xs">2023</text>
+        <text x="630" y="98" text-anchor="middle" class="d-xs">virtual threads</text><text x="630" y="114" text-anchor="middle" class="d-xs">pattern-matching switch</text><text x="630" y="130" text-anchor="middle" class="d-xs">record patterns</text><text x="630" y="146" text-anchor="middle" class="d-xs">sequenced collections</text><text x="630" y="162" text-anchor="middle" class="d-xs">generational ZGC</text>
+      </g>
+      <g>
+        <circle cx="810" cy="60" r="16" class="d-good"/><text x="810" y="65" text-anchor="middle" class="d-t">25</text><text x="810" y="30" text-anchor="middle" class="d-xs">Sept 2025</text>
+        <text x="810" y="98" text-anchor="middle" class="d-xs">scoped values</text><text x="810" y="114" text-anchor="middle" class="d-xs">flexible constructors</text><text x="810" y="130" text-anchor="middle" class="d-xs">compact source files</text><text x="810" y="146" text-anchor="middle" class="d-xs">module imports</text><text x="810" y="162" text-anchor="middle" class="d-xs">compact object headers</text>
+      </g>
+      <text x="440" y="210" text-anchor="middle" class="d-s">Spring Boot 4 needs Java 17+ and supports Java 25. New projects in 2026 typically start on 21 or 25.</text>
+    </svg></div></figure>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Java 8 style">
+String describe(Object o) {
+    if (o instanceof Cash) {
+        Cash c = (Cash) o;                       // cast after the check
+        return "cash " + c.amount();
+    } else if (o instanceof Upi) {
+        Upi u = (Upi) o;
+        return "upi " + u.vpa();
+    }
+    return "unknown";
+}
+Map<String, List<Integer>> m = new HashMap<String, List<Integer>>();
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Java 21+ style">
+String describe(Object o) {
+    return switch (o) {
+        case Cash c -> "cash " + c.amount();     // type pattern: test + cast + bind
+        case Upi(String vpa, int amt) -> "upi " + vpa;   // record pattern
+        case null -> "null";                     // switch can handle null explicitly
+        default -> "unknown";
+    };
+}
+var m = new HashMap<String, List<Integer>>();    // var: local type inference (Java 10)
+</script>
+</div>
+
+  <h3>What's new in Java 25 (LTS, September 2025)</h3>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Final (non-preview) Java 25 features you can mention">
+// JEP 513 · Flexible constructor bodies: validate BEFORE calling super()
+class Employee extends Person {
+    Employee(String name, int age) {
+        if (age < 18) throw new IllegalArgumentException("too young"); // allowed before super now
+        super(name, age);
+    }
+}
+
+// JEP 506 · Scoped values: an immutable, safer, cheaper alternative to ThreadLocal,
+// designed for virtual threads (e.g. pass the current request's user down the call chain)
+static final ScopedValue<String> USER = ScopedValue.newInstance();
+ScopedValue.where(USER, "priya").run(() -> service.handle());   // inside: USER.get() == "priya"
+
+// JEP 512 · Compact source files + instance main: a whole program, for scripts and learning
+void main() {
+    IO.println("Hello, Ramu");      // java.lang.IO helper
+}
+
+// JEP 511 · Module import declarations: import a whole module's exported packages
+import module java.base;            // List, Map, Path, Stream... all available
+</script>
+  <div class="cards">
+    <div class="card"><span class="k">JEP 519</span><h5>Compact object headers</h5><p>Object headers shrink from 12 to 8 bytes on 64-bit, cutting heap use for object-heavy apps. Opt in with <code>-XX:+UseCompactObjectHeaders</code>.</p></div>
+    <div class="card"><span class="k">JEP 514/515</span><h5>AOT ergonomics and method profiling</h5><p>Easier ahead-of-time caches that store class loading and JIT profiles from a training run, so services warm up faster.</p></div>
+    <div class="card"><span class="k">JEP 521</span><h5>Generational Shenandoah</h5><p>The low-pause Shenandoah GC gets a young/old split, now a product feature.</p></div>
+    <div class="card"><span class="k">still preview</span><h5>Structured concurrency, primitive patterns, stable values</h5><p>Good to name, not to depend on in production. See {{n:ch-juc}} for structured concurrency.</p></div>
+  </div>
+
+  <div class="box tip"><div class="box-tag">Interview tip</div><p>"Why upgrade from 8/11 to 21 or 25?" A strong answer names one productivity win (records, pattern matching), one performance win (virtual threads for blocking I/O, better GCs, compact headers) and one ecosystem reason (Spring Boot 3+ needs Java 17, Boot 4 is built for 17-25).</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">8 lambdas · 11 var + HttpClient · 17 records + sealed · 21 virtual threads + patterns · 25 scoped values + flexible constructors.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Is <code>var</code> dynamic typing?</summary><div class="ans"><p>No. The type is inferred at compile time and fixed; <code>var x = 5; x = "a";</code> doesn't compile. It's only for local variables (and lambda parameters), not fields, method parameters or return types.</p></div></details>
+    <details><summary>What's the difference between a preview feature and a final one?</summary><div class="ans"><p>Preview features are complete but may still change; you need <code>--enable-preview</code> to compile and run them, and they may change in the next release. Final features are permanent parts of the language.</p></div></details>
+  </div>
+  {{done}}
+</section>

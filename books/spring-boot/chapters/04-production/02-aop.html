@@ -1,0 +1,72 @@
+<section class="chapter" id="ch-aop" data-title="AOP and proxies: Spring's hidden assistant">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Production</div>
+    <h2>AOP and proxies: the hidden assistant behind the annotations</h2>
+    <p class="ch-oneline"><b>@Transactional, @Async, @Cacheable, @PreAuthorize and @Retryable all work the same way:</b> Spring wraps your bean in a proxy that runs extra code around the method. Understand the proxy and you understand all their gotchas.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>Busy chefs get a <strong>personal assistant</strong> who stands in front of them. Customers talk to the assistant, who logs the order, checks the card, starts the timer, passes the request to the chef, and stops the timer after. The chef only cooks. But when the chef <strong>talks to himself</strong> ("now I'll also make the sauce"), the assistant isn't involved: no log, no timer.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 230" role="img" aria-label="Caller holds a reference to the proxy. The proxy runs advice before and after delegating to the target. A call from inside the target to its own method skips the proxy.">
+      <rect x="10" y="80" width="130" height="60" rx="10" class="d-vio"/><text x="75" y="106" text-anchor="middle" class="d-t">Caller</text><text x="75" y="124" text-anchor="middle" class="d-xs">injected "service"</text>
+      <path d="M140 110 H200" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="202" y="20" width="440" height="190" rx="14" class="d-amb"/><text x="422" y="44" text-anchor="middle" class="d-t">Proxy (CGLIB subclass or JDK dynamic proxy)</text>
+      <rect x="222" y="60" width="140" height="44" rx="8" class="d-acc"/><text x="292" y="80" text-anchor="middle" class="d-xs">@Before / @Around</text><text x="292" y="95" text-anchor="middle" class="d-xs">begin tx, check auth</text>
+      <rect x="222" y="140" width="140" height="44" rx="8" class="d-acc"/><text x="292" y="160" text-anchor="middle" class="d-xs">@After / @AfterThrowing</text><text x="292" y="175" text-anchor="middle" class="d-xs">commit / rollback</text>
+      <rect x="400" y="60" width="220" height="124" rx="10" class="d-box"/><text x="510" y="84" text-anchor="middle" class="d-t">Target: OrderService</text>
+      <text x="420" y="110" class="d-m">placeAll() {</text><text x="436" y="130" class="d-m">this.place(o);</text><text x="420" y="150" class="d-m">}</text><text x="420" y="172" class="d-m">@Transactional place()</text>
+      <path d="M362 82 H398" class="d-line" marker-end="url(#ah)"/>
+      <path d="M530 126 C600 126,600 168,592 168" class="d-lbad d-dash" marker-end="url(#ab)"/>
+      <text x="750" y="110" text-anchor="middle" class="d-xs">this.place() goes</text><text x="750" y="126" text-anchor="middle" class="d-xs">straight to the target:</text><text x="750" y="142" text-anchor="middle" class="d-xs">no proxy → no advice</text>
+    </svg></div></figure>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Write your own aspect: time every service method">
+@Aspect
+@Component
+public class TimingAspect {
+    private static final Logger log = LoggerFactory.getLogger(TimingAspect.class);
+
+    @Around("within(@org.springframework.stereotype.Service *)")   // pointcut: every @Service method
+    public Object time(ProceedingJoinPoint pjp) throws Throwable {
+        long start = System.nanoTime();
+        try {
+            return pjp.proceed();                                    // call the real method
+        } finally {
+            long ms = (System.nanoTime() - start) / 1_000_000;
+            if (ms > 200) log.warn("{} took {} ms", pjp.getSignature().toShortString(), ms);
+        }
+    }
+}
+// Vocabulary: Aspect (the module) · Advice (the code: @Before, @After, @AfterReturning,
+// @AfterThrowing, @Around) · Pointcut (where: execution(...), within(...), @annotation(...))
+// · Join point (a method execution) · Weaving (Spring weaves at runtime via proxies)
+</script>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Proxy type</th><th>How</th><th>When</th><th>Limits</th></tr>
+    <tr><td>JDK dynamic proxy</td><td>implements the bean's interfaces</td><td>bean has interfaces and proxyTargetClass=false</td><td>only interface methods</td></tr>
+    <tr><td>CGLIB (Boot default)</td><td>generates a subclass at runtime</td><td>default in Spring Boot</td><td>can't proxy final classes/methods or private methods</td></tr>
+  </table></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Annotation</th><th>Advice the proxy adds</th></tr>
+    <tr><td><code>@Transactional</code></td><td>begin / commit / rollback</td></tr>
+    <tr><td><code>@Async</code></td><td>submit the call to a TaskExecutor, return immediately</td></tr>
+    <tr><td><code>@Cacheable</code></td><td>look up the cache, skip the method on a hit</td></tr>
+    <tr><td><code>@PreAuthorize</code></td><td>evaluate the SpEL rule, throw AccessDenied</td></tr>
+    <tr><td><code>@Retryable</code> (Framework 7 core)</td><td>re-invoke on failure with backoff</td></tr>
+    <tr><td><code>@Validated</code></td><td>validate method parameters</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Talk to the assistant, not to yourself.</p>
+    <p>Annotation magic = <span class="hl">proxy + advice</span>. Proxies only see calls from outside, on public, non-final methods. Fix self-invocation by moving the method to another bean.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What is AOP and where does Spring use it?</summary><div class="ans"><p>Aspect-Oriented Programming separates cross-cutting concerns (transactions, security, caching, logging, metrics, retries) from business code. Spring AOP implements it with runtime proxies around beans; Spring's own @Transactional, @Async, @Cacheable and method security are built on it.</p></div></details>
+    <details><summary>Spring AOP vs AspectJ?</summary><div class="ans"><p>Spring AOP is proxy-based, method-execution join points only, on Spring beans, woven at runtime: simple and enough for most needs. AspectJ weaves bytecode at compile or load time and supports fields, constructors, self-invocation and non-Spring objects, at the cost of build/agent setup.</p></div></details>
+  </div>
+  {{done}}
+</section>

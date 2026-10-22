@@ -1,0 +1,118 @@
+<section class="chapter" id="ch-api" data-title="APIs: REST, GraphQL, gRPC, WebSockets">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Communication</div>
+    <h2>APIs: REST, GraphQL, gRPC and real-time</h2>
+    <p class="ch-oneline"><b>An API is the contract between two pieces of software</b>: what you can ask for, how to ask, and what you'll get back.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>Ramu paints a menu board: "Masala chai ₹15. Elaichi chai ₹20. Add ginger +₹5." Customers don't need to know how the stove works; they just order from the board. When Ramu changes his recipe, the board stays the same, so nobody is confused. That board is an <strong>API</strong>: a stable contract that hides the kitchen.</p></div>
+
+  <h3>REST: resources and verbs</h3>
+  <p>REST treats everything as a <strong>resource</strong> (a noun with a URL) and uses HTTP methods as the verbs.</p>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Avoid (verbs in URLs)</th><th>Prefer (RESTful)</th><th>Returns</th></tr>
+    <tr><td><code>POST /createOrder</code></td><td><code>POST /orders</code></td><td>201 Created + Location header</td></tr>
+    <tr><td><code>GET /getOrder?id=42</code></td><td><code>GET /orders/42</code></td><td>200 or 404</td></tr>
+    <tr><td><code>POST /updateSugar</code></td><td><code>PATCH /orders/42</code></td><td>200</td></tr>
+    <tr><td><code>GET /getOrdersOfUser?u=7</code></td><td><code>GET /users/7/orders?status=PAID&amp;limit=20</code></td><td>200 + page</td></tr>
+    <tr><td><code>POST /deleteOrder</code></td><td><code>DELETE /orders/42</code></td><td>204 No Content</td></tr>
+  </table></div>
+
+  <h4>Production API habits</h4>
+  <div class="cards">
+    <div class="card"><h5>Versioning</h5><p><code>/v1/orders</code> or a header. Never break existing clients; add fields, don't rename them.</p></div>
+    <div class="card"><h5>Pagination</h5><p><strong>Offset</strong> (<code>?page=5</code>) is simple but slow and shifts when rows are added. <strong>Cursor</strong> (<code>?after=ord_981</code>) is stable and fast for feeds.</p></div>
+    <div class="card"><h5>Idempotency keys</h5><p>Client sends <code>Idempotency-Key: uuid</code> with a POST; the server stores the result and returns it again on retry. Stripe-style safe payments.</p></div>
+    <div class="card"><h5>Consistent errors</h5><p>Correct status codes and a body like <code>{"code":"OUT_OF_STOCK","message":"…"}</code>.</p></div>
+  </div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: RPC-style URL, wrong status, retries create duplicates">
+@PostMapping("/createOrder")
+public Map<String, Object> createOrder(@RequestBody Map<String, Object> body) {
+    // untyped input, no validation
+    Order o = orderService.create(body);
+    // always 200, even for "created"; client can't find the new resource
+    // a network timeout + client retry = TWO orders
+    return Map.of("status", "ok", "id", o.getId());
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: resource URL, 201 + Location, idempotency key">
+@RestController
+@RequestMapping("/v1/orders")                       // versioned resource collection
+public class OrderController {
+
+    @PostMapping
+    public ResponseEntity<OrderResponse> create(
+            @RequestHeader("Idempotency-Key") String idemKey,  // unique per user action
+            @Valid @RequestBody CreateOrderRequest req) {      // typed + validated DTO
+
+        // Returns the SAME order if this key was already processed
+        Order order = orderService.createOnce(idemKey, req);
+
+        URI location = URI.create("/v1/orders/" + order.getId());
+        return ResponseEntity.created(location)                 // 201 Created
+                             .body(OrderResponse.from(order));  // never expose the entity
+    }
+
+    @GetMapping("/{id}")
+    public OrderResponse get(@PathVariable long id) {
+        return OrderResponse.from(orderService.find(id)        // throws -> 404 via
+                .orElseThrow(() -> new NotFoundException(id)));  // @ControllerAdvice
+    }
+}
+</script>
+</div>
+
+  <h3>REST vs GraphQL vs gRPC</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>REST</th><th>GraphQL</th><th>gRPC</th></tr>
+    <tr><td>Shape</td><td>Many URLs, fixed responses</td><td>One endpoint; client writes a query for exactly the fields it wants</td><td>Remote function calls defined in <code>.proto</code> files</td></tr>
+    <tr><td>Format</td><td>JSON over HTTP/1.1 or 2</td><td>JSON over HTTP</td><td>Binary Protobuf over HTTP/2</td></tr>
+    <tr><td>Strength</td><td>Simple, cacheable, universal</td><td>No over-fetching/under-fetching; great for varied UIs</td><td>Very fast, strongly typed, streaming both ways</td></tr>
+    <tr><td>Weakness</td><td>Over-fetching; many round trips for nested data</td><td>Hard to cache; complex queries can be expensive (N+1)</td><td>Not browser-friendly; binary is hard to debug</td></tr>
+    <tr><td>Use for</td><td>Public APIs, CRUD</td><td>Mobile/web front ends aggregating many sources</td><td>Internal service-to-service calls</td></tr>
+  </table></div>
+
+  <h3>Real-time: how the server talks first</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 280" role="img" aria-label="Timelines comparing short polling, long polling, server-sent events and WebSockets">
+      <g>
+        <text x="20" y="40" class="d-t">Short polling</text><text x="20" y="56" class="d-xs">"any news?" every 2 s</text>
+        <line x1="170" y1="45" x2="800" y2="45" class="d-line"/>
+        <path d="M200 38 V52 M280 38 V52 M360 38 V52 M440 38 V52 M520 38 V52 M600 38 V52 M680 38 V52 M760 38 V52" class="d-lbad"/>
+        <text x="480" y="72" text-anchor="middle" class="d-xs">mostly empty answers · wasteful · simple</text>
+      </g>
+      <g>
+        <text x="20" y="110" class="d-t">Long polling</text><text x="20" y="126" class="d-xs">server holds the request</text>
+        <line x1="170" y1="115" x2="800" y2="115" class="d-line"/>
+        <rect x="200" y="108" width="190" height="14" rx="7" class="d-amb"/><rect x="400" y="108" width="120" height="14" rx="7" class="d-amb"/><rect x="530" y="108" width="230" height="14" rx="7" class="d-amb"/>
+        <text x="480" y="142" text-anchor="middle" class="d-xs">reply when data arrives, client immediately asks again</text>
+      </g>
+      <g>
+        <text x="20" y="180" class="d-t">Server-Sent Events</text><text x="20" y="196" class="d-xs">one-way stream server → client</text>
+        <line x1="170" y1="185" x2="800" y2="185" class="d-lgood"/>
+        <circle cx="260" cy="185" r="5" class="d-goodf"/><circle cx="390" cy="185" r="5" class="d-goodf"/><circle cx="430" cy="185" r="5" class="d-goodf"/><circle cx="620" cy="185" r="5" class="d-goodf"/>
+        <text x="480" y="212" text-anchor="middle" class="d-xs">live scores, notifications, stock tickers, AI token streaming</text>
+      </g>
+      <g>
+        <text x="20" y="245" class="d-t">WebSocket</text><text x="20" y="261" class="d-xs">full-duplex, both ways</text>
+        <line x1="170" y1="250" x2="800" y2="250" class="d-lacc" style="stroke-width:5"/>
+        <path d="M250 240 L270 250 L250 260 M420 240 L400 250 L420 260 M560 240 L580 250 L560 260 M700 240 L680 250 L700 260" class="d-lacc" style="stroke-width:2"/>
+        <text x="480" y="276" text-anchor="middle" class="d-xs">chat, multiplayer games, collaborative editing</text>
+      </g>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Four ways to get updates to a client. Pick the simplest one that meets the latency need. <strong>Webhooks</strong> are the server-to-server cousin: "call my URL when the payment succeeds."</figcaption>
+  </figure>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Nouns in the URL, verbs in the method.</p>
+    <p>REST for public and CRUD, GraphQL for flexible front ends, gRPC for fast internal calls. Real-time ladder: <strong>poll → long-poll → SSE → WebSocket</strong>. Always: version, paginate (cursor for feeds), and use <span class="hl">idempotency keys</span> on POSTs that move money.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How would you design pagination for an infinite-scroll feed?</summary><div class="ans"><p>Cursor-based: return items plus an opaque <code>next_cursor</code> (e.g. encoded last <code>created_at</code> + <code>id</code>). The next query is <code>WHERE (created_at, id) &lt; (cursor) ORDER BY created_at DESC, id DESC LIMIT 20</code>, which uses an index and doesn't skip or repeat items when new posts arrive. Offset pagination gets slower with depth and shifts under inserts.</p></div></details>
+    <details><summary>WebSocket at scale: what's hard?</summary><div class="ans"><p>Connections are long-lived and stateful, so each server holds many open sockets (memory, file descriptors); load balancers must support upgrades and long timeouts; to message a user you must know which server holds their socket (a connection registry in Redis, or pub/sub between servers); and reconnect storms after a deploy need jittered backoff.</p></div></details>
+  </div>
+  {{done}}
+</section>

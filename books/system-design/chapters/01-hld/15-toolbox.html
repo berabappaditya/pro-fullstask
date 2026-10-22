@@ -1,0 +1,116 @@
+<section class="chapter" id="ch-toolbox" data-title="The toolbox: IDs, Bloom filters, geo, search, storage">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Toolbox</div>
+    <h2>The toolbox: IDs, Bloom filters, geo, search and storage</h2>
+    <p class="ch-oneline"><b>Small, clever building blocks that show up again and again in design interviews.</b> Know what each one is for and its one-line trade-off.</p>
+  </header>
+
+  <h3>1. Unique IDs at scale: Snowflake</h3>
+  <p>A single MySQL <code>AUTO_INCREMENT</code> breaks with many shards (two shards both produce id 1001). UUIDs are unique but 128 bits, random (bad for B-tree index locality) and not time-sortable. Twitter's <strong>Snowflake</strong> packs a time-sortable, unique 64-bit ID that any server can generate without coordination:</p>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 800 130" role="img" aria-label="Snowflake ID layout: 1 sign bit, 41 bits timestamp, 10 bits machine ID, 12 bits sequence">
+      <rect x="20" y="30" width="30" height="50" class="d-paper"/><text x="35" y="60" text-anchor="middle" class="d-xs">0</text>
+      <rect x="50" y="30" width="420" height="50" class="d-acc"/><text x="260" y="52" text-anchor="middle" class="d-t">41 bits · timestamp (ms since custom epoch)</text><text x="260" y="70" text-anchor="middle" class="d-xs">~69 years of IDs, sorted by time</text>
+      <rect x="470" y="30" width="140" height="50" class="d-amb"/><text x="540" y="52" text-anchor="middle" class="d-t">10 bits · machine</text><text x="540" y="70" text-anchor="middle" class="d-xs">1,024 generators</text>
+      <rect x="610" y="30" width="170" height="50" class="d-good"/><text x="695" y="52" text-anchor="middle" class="d-t">12 bits · sequence</text><text x="695" y="70" text-anchor="middle" class="d-xs">4,096 IDs per ms per machine</text>
+      <text x="35" y="100" text-anchor="middle" class="d-xs">sign</text>
+      <text x="400" y="118" text-anchor="middle" class="d-s">= ~4 million IDs per second per machine, no central coordinator, roughly ordered by creation time</text>
+    </svg></div>
+  </figure>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="A minimal Snowflake generator">
+public final class Snowflake {
+    private static final long EPOCH = 1_704_067_200_000L;  // 2024-01-01 UTC
+    private final long machineId;                          // 0..1023, from config
+    private long lastMs = -1, seq = 0;
+
+    public Snowflake(long machineId) { this.machineId = machineId; }
+
+    public synchronized long nextId() {
+        long now = System.currentTimeMillis();
+        if (now < lastMs) throw new IllegalStateException("clock moved backwards");
+        if (now == lastMs) {
+            seq = (seq + 1) & 0xFFF;                       // 12-bit wrap
+            if (seq == 0) while ((now = System.currentTimeMillis()) <= lastMs) { } // next ms
+        } else seq = 0;
+        lastMs = now;
+        return ((now - EPOCH) << 22) | (machineId << 12) | seq;   // pack the bits
+    }
+}
+</script>
+
+  <h3>2. Bloom filter: "definitely not" or "probably yes"</h3>
+  <p>A tiny bit array plus k hash functions that answers "have I seen this before?" using very little memory. False positives are possible; <strong>false negatives never</strong> happen.</p>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 800 170" role="img" aria-label="A bloom filter bit array: adding chai sets three bits; checking coffee finds one zero bit so it is definitely absent">
+      <g>
+        <rect x="80" y="70" width="40" height="40" class="d-paper"/><rect x="120" y="70" width="40" height="40" class="d-acc"/><rect x="160" y="70" width="40" height="40" class="d-paper"/><rect x="200" y="70" width="40" height="40" class="d-paper"/><rect x="240" y="70" width="40" height="40" class="d-acc"/><rect x="280" y="70" width="40" height="40" class="d-paper"/><rect x="320" y="70" width="40" height="40" class="d-paper"/><rect x="360" y="70" width="40" height="40" class="d-acc"/><rect x="400" y="70" width="40" height="40" class="d-paper"/><rect x="440" y="70" width="40" height="40" class="d-acc"/><rect x="480" y="70" width="40" height="40" class="d-paper"/><rect x="520" y="70" width="40" height="40" class="d-acc"/>
+        <text x="100" y="95" text-anchor="middle" class="d-m">0</text><text x="140" y="95" text-anchor="middle" class="d-m">1</text><text x="180" y="95" text-anchor="middle" class="d-m">0</text><text x="220" y="95" text-anchor="middle" class="d-m">0</text><text x="260" y="95" text-anchor="middle" class="d-m">1</text><text x="300" y="95" text-anchor="middle" class="d-m">0</text><text x="340" y="95" text-anchor="middle" class="d-m">0</text><text x="380" y="95" text-anchor="middle" class="d-m">1</text><text x="420" y="95" text-anchor="middle" class="d-m">0</text><text x="460" y="95" text-anchor="middle" class="d-m">1</text><text x="500" y="95" text-anchor="middle" class="d-m">0</text><text x="540" y="95" text-anchor="middle" class="d-m">1</text>
+      </g>
+      <text x="20" y="35" class="d-tg">add("chai") → h1=1, h2=4, h3=7 → set those bits to 1</text>
+      <path d="M140 42 V68 M260 42 V68 M380 42 V68" class="d-lgood" marker-end="url(#ag)"/>
+      <text x="20" y="145" class="d-tb">check("coffee") → h1=2, h2=9, h3=11 → bit 2 is 0 → definitely NOT present</text>
+      <path d="M180 132 V112 M460 132 V112 M540 132 V112" class="d-lbad" marker-end="url(#ab)"/>
+      <text x="600" y="86" class="d-s">all bits 1 → "probably yes"</text><text x="600" y="102" class="d-s">any bit 0 → "definitely no"</text>
+    </svg></div>
+  </figure>
+  <p>Uses: skip a disk lookup for keys that don't exist (Cassandra, HBase), stop cache penetration, "username taken?" pre-checks, web crawler "already visited this URL?", Medium's "already recommended".</p>
+
+  <h3>3. Geospatial: "find drivers within 2 km"</h3>
+  <div class="cards">
+    <div class="card"><h5>Geohash</h5><p>Encode latitude/longitude into a string like <code>tdr1y</code>; nearby places share a prefix. Query your cell and its 8 neighbours. Redis <code>GEOADD</code>/<code>GEOSEARCH</code> uses this idea.</p></div>
+    <div class="card"><h5>Quadtree</h5><p>Recursively split the map into 4 squares until each has at most N points. Dense cities get small cells, empty areas big ones.</p></div>
+    <div class="card"><h5>Uber H3 / Google S2</h5><p>Hexagonal or spherical cell systems used in production ride-hailing and maps.</p></div>
+  </div>
+
+  <h3>4. Search: the inverted index</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 800 170" role="img" aria-label="Inverted index maps each word to the list of documents containing it">
+      <rect x="20" y="20" width="300" height="130" rx="10" class="d-paper"/>
+      <text x="35" y="45" class="d-m">doc1: "masala chai with ginger"</text>
+      <text x="35" y="75" class="d-m">doc2: "ginger lemon tea"</text>
+      <text x="35" y="105" class="d-m">doc3: "masala dosa"</text>
+      <text x="170" y="140" text-anchor="middle" class="d-xs">documents</text>
+      <path d="M330 85 H400" class="d-line" marker-end="url(#ah)"/><text x="365" y="76" text-anchor="middle" class="d-xs">tokenise</text>
+      <rect x="410" y="20" width="370" height="130" rx="10" class="d-acc"/>
+      <text x="430" y="45" class="d-m">masala → [doc1, doc3]</text>
+      <text x="430" y="68" class="d-m">ginger → [doc1, doc2]</text>
+      <text x="430" y="91" class="d-m">chai   → [doc1]</text>
+      <text x="430" y="114" class="d-m">tea    → [doc2]   lemon → [doc2]</text>
+      <text x="595" y="140" text-anchor="middle" class="d-xs">word → posting list (Elasticsearch, Lucene, Solr)</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Searching "masala ginger" intersects two short lists instead of scanning every document. <code>LIKE '%ginger%'</code> in SQL can't use a normal index; that's why search runs in a separate engine.</figcaption>
+  </figure>
+
+  <h3>5. Keeping a cluster together</h3>
+  <div class="cards">
+    <div class="card"><h5>Heartbeats</h5><p>Nodes send "I'm alive" every few seconds; missing several marks a node dead.</p></div>
+    <div class="card"><h5>Gossip protocol</h5><p>Each node tells a few random others what it knows; news spreads like rumours to all nodes in O(log N) rounds. Cassandra membership.</p></div>
+    <div class="card"><h5>Leader election &amp; consensus</h5><p>Raft/Paxos let nodes agree on one leader and one log order, even if some fail (needs a majority). etcd, ZooKeeper, Kafka KRaft.</p></div>
+    <div class="card"><h5>Distributed lock</h5><p>Ensure only one worker runs a job: Redis <code>SET key val NX PX 30000</code>, or ZooKeeper/etcd leases. Use fencing tokens for safety.</p></div>
+  </div>
+
+  <h3>6. Kinds of storage</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Type</th><th>Think of it as</th><th>Examples</th><th>Use for</th></tr>
+    <tr><td>Block storage</td><td>A raw hard disk attached to one machine</td><td>AWS EBS, SAN</td><td>Database data files, OS disks</td></tr>
+    <tr><td>File storage</td><td>A shared folder with directories</td><td>NFS, AWS EFS</td><td>Shared files between servers, legacy apps</td></tr>
+    <tr><td>Object storage</td><td>An infinite bucket of files, each with a key and metadata, via HTTP</td><td>AWS S3, GCS, MinIO</td><td>Images, videos, backups, data lakes; cheap and durable</td></tr>
+  </table></div>
+  <p class="small">Pattern you will draw constantly: <strong>store the file in object storage, store its URL/key in the database, serve it through a CDN</strong>. Upload directly from the client using a pre-signed URL so your servers don't carry the bytes.</p>
+
+  <h3>7. Batch vs stream processing</h3>
+  <div class="cards">
+    <div class="card"><h5>Batch</h5><p>Process a large, bounded dataset on a schedule (nightly reports, ML training). Hadoop MapReduce, Spark.</p></div>
+    <div class="card"><h5>Stream</h5><p>Process events continuously as they arrive (fraud detection, live dashboards). Kafka Streams, Flink, Spark Streaming.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Snowflake for IDs, Bloom for "no", Geohash for "near", Inverted index for "find".</p>
+    <p>Files go to <span class="hl">object storage + CDN</span>, with only the URL in the DB. Clusters agree through heartbeats, gossip and consensus (Raft).</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Why can't a Bloom filter delete items, and what's the fix?</summary><div class="ans"><p>Clearing a bit might also clear it for other items that hashed to the same bit, causing false negatives. A counting Bloom filter stores small counters instead of bits, so deletes decrement them.</p></div></details>
+    <details><summary>How do you serve "nearby restaurants" quickly?</summary><div class="ans"><p>Index restaurant locations by geohash (or quadtree). For a user, compute their geohash at a precision matching the search radius, fetch candidates in that cell plus its neighbours, then compute exact distances and rank. Restaurant locations rarely change, so the index can be cached heavily.</p></div></details>
+  </div>
+  {{done}}
+</section>

@@ -1,0 +1,85 @@
+<section class="chapter" id="ch-cicd" data-title="CI/CD and deployment strategies">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Delivery</div>
+    <h2>CI/CD and deployment strategies</h2>
+    <p class="ch-oneline"><b>CI: every commit is built and tested automatically. CD: every green build can be released safely, with a strategy that limits blast radius and allows instant rollback.</b></p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>A new recipe travels on a <strong>conveyor belt</strong>: tasted by the quality team (tests), sealed (image), first served at <strong>one counter</strong> to a few customers (canary), watched for complaints (metrics), then rolled out to every counter. If customers frown, the belt <strong>reverses</strong> (rollback).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 150" role="img" aria-label="Pipeline stages: commit, build and unit test, static analysis and security scan, build image, deploy to staging with integration tests, approval, production deploy with canary and monitoring">
+      <g class="d-xs">
+        <rect x="10" y="40" width="100" height="60" rx="10" class="d-vio"/><text x="60" y="66" text-anchor="middle" class="d-t">Commit</text><text x="60" y="84" text-anchor="middle">PR opened</text>
+        <rect x="128" y="40" width="110" height="60" rx="10" class="d-box"/><text x="183" y="66" text-anchor="middle" class="d-t">Build + test</text><text x="183" y="84" text-anchor="middle">unit, slice</text>
+        <rect x="256" y="40" width="110" height="60" rx="10" class="d-box"/><text x="311" y="66" text-anchor="middle" class="d-t">Scan</text><text x="311" y="84" text-anchor="middle">SAST, deps, secrets</text>
+        <rect x="384" y="40" width="110" height="60" rx="10" class="d-amb"/><text x="439" y="66" text-anchor="middle" class="d-t">Image</text><text x="439" y="84" text-anchor="middle">build, scan, push</text>
+        <rect x="512" y="40" width="110" height="60" rx="10" class="d-box"/><text x="567" y="66" text-anchor="middle" class="d-t">Staging</text><text x="567" y="84" text-anchor="middle">deploy + e2e</text>
+        <rect x="640" y="40" width="210" height="60" rx="10" class="d-good"/><text x="745" y="66" text-anchor="middle" class="d-t">Production</text><text x="745" y="84" text-anchor="middle">canary → watch → 100%</text>
+      </g>
+      <path d="M110 70 H126 M238 70 H254 M366 70 H382 M494 70 H510 M622 70 H638" class="d-line"/>
+      <text x="245" y="126" text-anchor="middle" class="d-s">Continuous Integration</text><text x="680" y="126" text-anchor="middle" class="d-s">Continuous Delivery / Deployment</text>
+    </svg></div></figure>
+
+<script type="text/x-code" data-lang="yaml" data-variant="good" data-title=".github/workflows/deploy.yml: build, push to ECR without stored keys, deploy">
+name: orders-ci-cd
+on:
+  push: { branches: [main] }
+  pull_request:
+permissions:
+  id-token: write          # lets the job get a short-lived OIDC token for AWS (no access keys)
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '25', cache: maven }
+      - run: ./mvnw -B verify                       # unit + integration tests (Testcontainers)
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/github-orders-deploy
+          aws-region: ap-south-1
+      - name: Build and push image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          aws ecr get-login-password | docker login --username AWS --password-stdin $REGISTRY
+          docker build -t $REGISTRY/orders:${{ github.sha }} .
+          docker push $REGISTRY/orders:${{ github.sha }}
+        env: { REGISTRY: 123456789012.dkr.ecr.ap-south-1.amazonaws.com }
+      # Deploy: update the image tag in the GitOps repo (Argo CD syncs it), or call kubectl/helm/ecs here.
+</script>
+
+  <div class="widget" id="w-deploy">
+    <div class="widget-head"><span class="live">Live</span>Deployment strategies: roll out v2 and inject a bug</div>
+    <div class="widget-body">
+      <div class="controls" id="depControls"></div>
+      <div class="dep-stage" id="depStage"></div>
+      <div class="statrow" id="depStats"></div>
+      <div class="wlog" id="depLog" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Strategy</th><th>How</th><th>Pros</th><th>Cons</th></tr>
+    <tr><td>Recreate</td><td>stop all v1, start v2</td><td>simple, no mixed versions</td><td>downtime</td></tr>
+    <tr><td>Rolling</td><td>replace pods a few at a time</td><td>no downtime, no extra capacity (Kubernetes default)</td><td>v1 and v2 serve together; rollback is another roll</td></tr>
+    <tr><td>Blue-green</td><td>full v2 stack beside v1; switch traffic at once</td><td>instant switch and rollback, test v2 before switching</td><td>double capacity during deploy</td></tr>
+    <tr><td>Canary</td><td>send 1% → 10% → 50% → 100% to v2 while watching metrics</td><td>smallest blast radius, data-driven</td><td>needs good metrics and traffic splitting</td></tr>
+    <tr><td>Feature flags</td><td>deploy dark, enable per user/percentage at runtime</td><td>decouples deploy from release, instant kill switch</td><td>flag debt, testing combinations</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Taste, seal, serve one counter, watch, then everyone.</p>
+    <p>CI on every commit; immutable images tagged by commit SHA; <span class="hl">OIDC instead of stored keys</span>; staging gates; canary or blue-green with automatic rollback on bad metrics; database migrations backward compatible.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Continuous delivery vs continuous deployment?</summary><div class="ans"><p>Continuous delivery: every change is automatically built, tested and ready to release; production release is a button press (manual approval). Continuous deployment: every change that passes the pipeline goes to production automatically.</p></div></details>
+    <details><summary>How do you deploy a database schema change without downtime?</summary><div class="ans"><p>Expand–migrate–contract: first deploy a backward-compatible change (add nullable column/new table) that both old and new app versions tolerate; deploy the app that writes both/reads new; backfill data; once no old version runs, remove the old column in a later release. Never rename or drop in the same release as the code change.</p></div></details>
+    <details><summary>What is GitOps?</summary><div class="ans"><p>The desired state of every environment lives in Git (Kubernetes manifests, Helm values). An agent in the cluster (Argo CD, Flux) continuously syncs the cluster to Git. Deploys and rollbacks are pull requests and reverts, with history and review built in; the CI system needs no cluster credentials.</p></div></details>
+  </div>
+  {{done}}
+</section>

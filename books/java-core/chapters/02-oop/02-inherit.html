@@ -1,0 +1,101 @@
+<section class="chapter" id="ch-inherit" data-title="Interfaces, abstract classes, records, enums, sealed">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>OOP Java</div>
+    <h2>Interfaces, abstract classes, records, enums and sealed types</h2>
+    <p class="ch-oneline"><b>An interface says what something can do; an abstract class shares how it's done.</b> Records, enums and sealed types are modern shortcuts for data, fixed sets and closed hierarchies.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>"Anyone who can <strong>Deliver</strong>" is a job description: Swiggy, Zomato, or Ramu's nephew on a cycle can all do it, however different they are (interface). "<strong>Beverage</strong>" is a half-written recipe: every beverage is poured into a cup the same way, but how it's brewed is left to Chai, Coffee, Lassi (abstract class). The menu's <strong>sizes</strong> are only Small, Medium and Large, nothing else (enum). An <strong>order slip</strong> is just data (record).</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Interface</th><th>Abstract class</th></tr>
+    <tr><td>Represents</td><td>A capability: "can do"</td><td>A partial base: "is a kind of"</td></tr>
+    <tr><td>Multiple?</td><td class="yes">A class can implement many</td><td class="no">Can extend only one</td></tr>
+    <tr><td>State</td><td>Only <code>static final</code> constants</td><td>Any fields</td></tr>
+    <tr><td>Constructors</td><td class="no">No</td><td class="yes">Yes (called by subclasses)</td></tr>
+    <tr><td>Methods</td><td>abstract, <code>default</code>, <code>static</code>, <code>private</code> (Java 9+)</td><td>Any, abstract or concrete</td></tr>
+    <tr><td>Use when</td><td>Unrelated classes share a contract; you want to swap implementations (DI)</td><td>Closely related classes share code and state</td></tr>
+  </table></div>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="plain" data-title="Interface: a contract many unrelated classes can sign">
+public interface Deliverer {
+    void deliver(Order o);                          // abstract: every implementer must write it
+
+    default String eta(int km) {                    // default method (Java 8): shared behaviour,
+        return (km * 4) + " min";                   // lets you add methods without breaking implementers
+    }
+    static Deliverer pickup() {                     // static factory on the interface
+        return o -> System.out.println("Customer collects " + o.id());
+    }
+}
+class SwiggyPartner implements Deliverer, Trackable { // many interfaces OK
+    public void deliver(Order o) { /* call Swiggy API */ }
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="plain" data-title="Abstract class: shared steps, one step left open">
+public abstract class Beverage {
+    private final String name;                       // shared state
+    protected Beverage(String name) { this.name = name; }
+
+    public final void serve() {                      // template method: fixed order of steps
+        boilWater();
+        brew();                                      // the one step each subclass decides
+        System.out.println("Pour " + name + " into cup");
+    }
+    private void boilWater() { System.out.println("Boil water"); }
+    protected abstract void brew();                  // no body: subclass must implement
+}
+class Chai extends Beverage {
+    Chai() { super("Chai"); }
+    protected void brew() { System.out.println("Add tea leaves, milk, ginger"); }
+}
+</script>
+</div>
+
+  <h3>Modern Java data types</h3>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="enum, record and sealed interface working together">
+public enum Size {                       // a fixed set of constants, each a singleton object
+    SMALL(150), MEDIUM(250), LARGE(350);
+    private final int ml;
+    Size(int ml) { this.ml = ml; }       // enum constructors are always private
+    public int ml() { return ml; }
+}
+
+public record OrderLine(String item, Size size, int qty) {   // Java 16+: immutable data carrier
+    public OrderLine {                                       // compact constructor for validation
+        if (qty <= 0) throw new IllegalArgumentException("qty must be > 0");
+    }
+}   // free: private final fields, constructor, accessors item(), equals, hashCode, toString
+
+public sealed interface Payment permits Cash, Upi, Card {}  // Java 17: ONLY these three can implement
+public record Cash(int amount) implements Payment {}
+public record Upi(String vpa, int amount) implements Payment {}
+public record Card(String last4, int amount) implements Payment {}
+
+static String receipt(Payment p) {
+    return switch (p) {                                       // pattern matching switch (Java 21)
+        case Cash c        -> "Cash ₹" + c.amount();
+        case Upi(var vpa, var amt) -> "UPI " + vpa + " ₹" + amt;  // record pattern: deconstructs fields
+        case Card c when c.amount() > 5000 -> "Card (needs PIN) ₹" + c.amount();  // guard
+        case Card c        -> "Card ₹" + c.amount();
+    };   // no default needed: the compiler KNOWS these are all the cases (exhaustive)
+}
+</script>
+
+  <div class="box tip"><div class="box-tag">Interview tip</div><p>When asked "interface or abstract class?", say: <em>prefer interfaces</em> for the contract (it keeps classes free to extend something else and makes mocking and DI easy), and add an abstract base class only to share real code between closely related implementations. Mention that Spring injects by interface type.</p></div>
+
+  <div class="box pitfall"><div class="box-tag">Common trap</div><p>The diamond problem with default methods: if a class implements two interfaces with the same default method, it <strong>must</strong> override it and can pick one with <code>A.super.method()</code>. Java never silently guesses.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Interface = can-do. Abstract = is-a, half-built. Record = data. Enum = fixed list. Sealed = closed family.</p>
+    <p>Sealed types + records + pattern-matching switch = <span class="hl">exhaustive, compiler-checked</span> handling of every case.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Why were default methods added in Java 8?</summary><div class="ans"><p>To evolve interfaces without breaking existing implementations. <code>Collection</code> needed <code>stream()</code> and <code>forEach()</code>; adding abstract methods would have broken every collection class ever written, so they were added as defaults.</p></div></details>
+    <details><summary>Can a record have extra methods or fields?</summary><div class="ans"><p>It can have extra methods, static fields and static methods, and a compact or custom constructor. It can't declare extra instance fields, can't extend another class (it implicitly extends <code>java.lang.Record</code>), and its fields are final. It can implement interfaces.</p></div></details>
+    <details><summary>Why is an enum a good way to write a Singleton?</summary><div class="ans"><p>The JVM guarantees exactly one instance per constant, it's thread-safe by class initialisation, and it's safe against reflection and serialization attacks that can break other singleton styles.</p></div></details>
+  </div>
+  {{done}}
+</section>

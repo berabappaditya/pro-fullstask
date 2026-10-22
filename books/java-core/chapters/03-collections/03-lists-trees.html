@@ -1,0 +1,100 @@
+<section class="chapter" id="ch-lists-trees" data-title="Iterators, TreeMap, LinkedHashMap, PriorityQueue">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Collections</div>
+    <h2>Iterators, sorted maps, LRU and heaps</h2>
+    <p class="ch-oneline"><b>The specialised collections solve classic interview problems in one line:</b> TreeMap for ranges, LinkedHashMap for LRU, PriorityQueue for top-K.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>A chef counting tickets on the rail while a waiter clips a new one on will lose count; the kitchen rule is "stop and shout" (fail-fast iterator). The <strong>price board</strong> sorted by price lets Ramu answer "cheapest dish above ₹50" instantly (TreeMap). The <strong>VIP bell</strong> always serves the most important order next (PriorityQueue).</p></div>
+
+  <h3>Fail-fast iterators and ConcurrentModificationException</h3>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Removing inside a for-each loop">
+List<Order> orders = new ArrayList<>(all);
+for (Order o : orders) {
+    if (o.isCancelled()) orders.remove(o);   // ConcurrentModificationException
+}   // the iterator sees modCount changed behind its back and throws
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Three safe ways">
+orders.removeIf(Order::isCancelled);             // 1. simplest (Java 8)
+
+Iterator<Order> it = orders.iterator();          // 2. iterator's own remove()
+while (it.hasNext()) if (it.next().isCancelled()) it.remove();
+
+List<Order> live = orders.stream()               // 3. build a new list
+        .filter(o -> !o.isCancelled()).toList();
+</script>
+</div>
+  <p class="small">Concurrent collections (ConcurrentHashMap, CopyOnWriteArrayList) have <em>weakly consistent / fail-safe</em> iterators: they never throw CME, but may not show changes made during iteration.</p>
+
+  <h3>TreeMap: sorted keys and range queries</h3>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="NavigableMap methods that save you a binary search">
+TreeMap<Integer, String> byPrice = new TreeMap<>(Map.of(15, "chai", 30, "coffee", 45, "lassi", 60, "thali"));
+byPrice.firstKey();           // 15
+byPrice.ceilingKey(40);       // 45  (smallest key >= 40)
+byPrice.floorKey(40);         // 30  (largest key <= 40)
+byPrice.headMap(45);          // {15=chai, 30=coffee}   keys < 45
+byPrice.tailMap(45, true);    // {45=lassi, 60=thali}   keys >= 45
+byPrice.descendingMap();      // reverse order view
+// Backed by a red-black tree: every operation O(log n). Real use: rate cards, time-series buckets.
+</script>
+
+  <h3>LinkedHashMap as an LRU cache</h3>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="An LRU cache in 8 lines">
+class LruCache<K, V> extends LinkedHashMap<K, V> {
+    private final int capacity;
+    LruCache(int capacity) {
+        super(16, 0.75f, true);        // true = ACCESS order: get() moves an entry to the end
+        this.capacity = capacity;
+    }
+    @Override
+    protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+        return size() > capacity;      // called after each put: drop the least recently used
+    }
+}
+// Not thread-safe. For production use Caffeine; the hand-built version is in the System Design book.
+</script>
+  <p class="small">The from-scratch HashMap + doubly-linked-list version, with a live simulator, is in {{xref:system-design/ch-cache}}.</p>
+
+  <h3>PriorityQueue: top-K in O(n log k)</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg viewBox="0 0 640 210" role="img" aria-label="A min-heap stored as an array: index i has children 2i+1 and 2i+2">
+      <circle cx="200" cy="40" r="20" class="d-good"/><text x="200" y="45" text-anchor="middle" class="d-t">3</text>
+      <circle cx="130" cy="100" r="20" class="d-box"/><text x="130" y="105" text-anchor="middle" class="d-t">7</text>
+      <circle cx="270" cy="100" r="20" class="d-box"/><text x="270" y="105" text-anchor="middle" class="d-t">5</text>
+      <circle cx="95" cy="160" r="20" class="d-box"/><text x="95" y="165" text-anchor="middle" class="d-t">9</text>
+      <circle cx="165" cy="160" r="20" class="d-box"/><text x="165" y="165" text-anchor="middle" class="d-t">8</text>
+      <circle cx="235" cy="160" r="20" class="d-box"/><text x="235" y="165" text-anchor="middle" class="d-t">6</text>
+      <path d="M186 54 L144 86 M214 54 L256 86 M120 118 L104 142 M140 118 L156 142 M262 118 L244 142" class="d-line"/>
+      <text x="200" y="200" text-anchor="middle" class="d-xs">the smallest is always at the root: peek() O(1)</text>
+      <g class="d-m"><rect x="360" y="70" width="40" height="34" rx="4" class="d-good"/><text x="380" y="92" text-anchor="middle">3</text>
+      <rect x="402" y="70" width="40" height="34" rx="4" class="d-box"/><text x="422" y="92" text-anchor="middle">7</text>
+      <rect x="444" y="70" width="40" height="34" rx="4" class="d-box"/><text x="464" y="92" text-anchor="middle">5</text>
+      <rect x="486" y="70" width="40" height="34" rx="4" class="d-box"/><text x="506" y="92" text-anchor="middle">9</text>
+      <rect x="528" y="70" width="40" height="34" rx="4" class="d-box"/><text x="548" y="92" text-anchor="middle">8</text>
+      <rect x="570" y="70" width="40" height="34" rx="4" class="d-box"/><text x="590" y="92" text-anchor="middle">6</text></g>
+      <text x="485" y="60" text-anchor="middle" class="d-xs">stored as an array</text>
+      <text x="485" y="128" text-anchor="middle" class="d-xs">children of i: 2i+1, 2i+2 · parent: (i-1)/2</text>
+    </svg></div></figure>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Top 3 best-selling dishes from a million sales">
+Map<String, Integer> sales = loadSales();               // dish -> count
+PriorityQueue<Map.Entry<String, Integer>> top =
+        new PriorityQueue<>(Map.Entry.comparingByValue()); // MIN-heap on count
+for (var e : sales.entrySet()) {
+    top.offer(e);                                       // O(log k)
+    if (top.size() > 3) top.poll();                     // drop the smallest: heap stays size k
+}
+// 'top' now holds the 3 largest. O(n log k) time, O(k) memory, instead of sorting everything.
+// Note: iterating a PriorityQueue is NOT in sorted order; only poll() is.
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Remove with removeIf. Ranges with TreeMap. LRU with LinkedHashMap. Top-K with a size-k heap.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What is the difference between fail-fast and fail-safe iterators?</summary><div class="ans"><p>Fail-fast (ArrayList, HashMap) track a modification count and throw ConcurrentModificationException if the collection changes outside the iterator. Fail-safe / weakly consistent (concurrent collections) iterate over a snapshot or tolerate changes and never throw.</p></div></details>
+    <details><summary>HashMap vs LinkedHashMap vs TreeMap?</summary><div class="ans"><p>HashMap: no order, O(1). LinkedHashMap: keeps insertion (or access) order with a doubly linked list through the entries, O(1), slightly more memory. TreeMap: sorted by key with a red-black tree, O(log n), supports range queries.</p></div></details>
+  </div>
+  {{done}}
+</section>

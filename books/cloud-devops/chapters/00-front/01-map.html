@@ -1,0 +1,25 @@
+<section class="chapter" id="ch-map" data-title="How this book works" data-num="00">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">00</span>Orientation</div>
+    <h2>How this book works</h2>
+    <p class="ch-oneline"><b>Five parts: cloud foundations, running code, containers and delivery, operating in production, and Linux.</b> Every service is shown on AWS and GCP side by side.</p>
+  </header>
+  <div class="box story"><div class="box-tag">Ramu rents kitchens in a food court</div>
+    <p>Instead of building his own restaurant buildings, Ramu now <strong>rents kitchen space in giant food courts</strong> run by two landlords, Amazon and Google. He rents as many stoves as today's crowd needs and pays by the hour (the cloud). His recipes travel in <strong>sealed tiffin boxes</strong> that taste the same in any kitchen (containers). A <strong>floor manager</strong> decides which kitchen runs which tiffin and replaces any stove that breaks (Kubernetes). A <strong>conveyor belt</strong> from his test kitchen to every counter delivers new recipes safely (CI/CD).</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>In the food court</th><th>In the cloud</th><th>Chapter</th></tr>
+    <tr><td>Renting by the hour instead of building</td><td>IaaS / PaaS / SaaS, pay-as-you-go</td><td>{{n:ch-cloud-basics}}</td></tr>
+    <tr><td>Keys and staff badges</td><td>IAM: users, roles, policies</td><td>{{n:ch-iam}}</td></tr>
+    <tr><td>Your fenced-off section with a private back door</td><td>VPC, subnets, NAT, security groups</td><td>{{n:ch-networking}}</td></tr>
+    <tr><td>Extra stoves on busy evenings</td><td>Auto Scaling groups / managed instance groups</td><td>{{n:ch-compute}}</td></tr>
+    <tr><td>Stoves that only light when an order arrives</td><td>Lambda, Cloud Run</td><td>{{n:ch-serverless}}</td></tr>
+    <tr><td>Sealed tiffin boxes</td><td>Docker images and containers</td><td>{{n:ch-docker}}</td></tr>
+    <tr><td>The floor manager</td><td>Kubernetes</td><td>{{n:ch-kubernetes}}</td></tr>
+    <tr><td>The conveyor belt from test kitchen to counters</td><td>CI/CD and deployment strategies</td><td>{{n:ch-cicd}}</td></tr>
+    <tr><td>The building's blueprint, kept in a drawer</td><td>Terraform (infrastructure as code)</td><td>{{n:ch-terraform}}</td></tr>
+    <tr><td>Talking to the kitchen machines directly</td><td>Linux commands</td><td>{{n:ch-linux-basics}}</td></tr>
+  </table></div>
+  <div class="box tip"><div class="box-tag">How deep?</div><p>An SDE-2 interview won't ask you to recite every AWS service. It asks you to <strong>design and justify</strong>: "how would you deploy this service, make it highly available, secure it and know when it breaks?". Each chapter ends with that kind of question. The Spring Boot app we deploy in {{ref:ch-deploy-boot}} is the one built in {{xref:spring-boot/ch-crud}}.</p></div>
+  {{done}}
+</section>

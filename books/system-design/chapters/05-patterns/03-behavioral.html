@@ -1,0 +1,271 @@
+<section class="chapter" id="ch-behavioral" data-title="Behavioral patterns">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Patterns · Behavioral</div>
+    <h2>Behavioral patterns: how objects cooperate</h2>
+    <p class="ch-oneline"><b>Behavioral patterns are about responsibilities and communication</b>: who decides, who gets told, and how work passes along.</p>
+  </header>
+
+  <!-- Strategy -->
+  <h3>Strategy: swap the algorithm</h3>
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div><p>Delivery charges change with the situation: normal days ₹20, rainy days surge pricing, festival days free over ₹200. The delivery desk keeps a <strong>card for each pricing rule</strong> and simply picks today's card.</p></div>
+  <figure class="figure"><div class="svgwrap">
+    <svg viewBox="0 0 640 200" role="img" aria-label="Strategy pattern: a DeliveryFeeCalculator context holds a FeeStrategy interface, implemented by Normal, Rain surge and Festival strategies">
+      <rect x="20" y="70" width="170" height="56" rx="8" class="d-acc"/><text x="105" y="94" text-anchor="middle" class="d-t">FeeCalculator</text><text x="105" y="112" text-anchor="middle" class="d-xs">context: has a strategy</text>
+      <rect x="250" y="70" width="150" height="56" rx="8" class="d-box"/><text x="325" y="92" text-anchor="middle" class="d-xs">«interface»</text><text x="325" y="110" text-anchor="middle" class="d-t">FeeStrategy</text>
+      <path d="M190 98 H248" class="d-line" marker-start="url(#diao)" marker-end="url(#open)"/>
+      <rect x="460" y="15" width="160" height="40" rx="8" class="d-good"/><text x="540" y="40" text-anchor="middle" class="d-s">NormalFee</text>
+      <rect x="460" y="78" width="160" height="40" rx="8" class="d-good"/><text x="540" y="103" text-anchor="middle" class="d-s">RainSurgeFee</text>
+      <rect x="460" y="141" width="160" height="40" rx="8" class="d-good"/><text x="540" y="166" text-anchor="middle" class="d-s">FestivalFee</text>
+      <path d="M458 35 L402 90 M458 98 H402 M458 161 L402 106" class="d-line d-dash" marker-end="url(#tri)"/>
+    </svg></div>
+  </figure>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: every rule in one growing if-else">
+public BigDecimal deliveryFee(Order o, Weather w, LocalDate d) {
+    if (Festivals.isFestival(d)) {
+        return o.total().compareTo(bd(200)) >= 0 ? BigDecimal.ZERO : bd(20);
+    } else if (w == Weather.RAIN) {
+        return bd(20).multiply(bd("1.5"));
+    } else if (o.distanceKm() > 5) {
+        return bd(20).add(bd(5).multiply(bd(o.distanceKm() - 5)));
+    }
+    return bd(20);
+    // Hard to test each rule alone; every new rule edits this method.
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: each rule is a strategy, chosen at runtime">
+public interface FeeStrategy { BigDecimal fee(Order o); }
+
+public class NormalFee implements FeeStrategy {
+    public BigDecimal fee(Order o) {
+        double extraKm = Math.max(0, o.distanceKm() - 5);
+        return bd(20).add(bd(5).multiply(bd(extraKm)));     // ₹5 per km beyond 5
+    }
+}
+public class RainSurgeFee implements FeeStrategy {
+    private final FeeStrategy base = new NormalFee();
+    public BigDecimal fee(Order o) { return base.fee(o).multiply(bd("1.5")); }
+}
+public class FestivalFee implements FeeStrategy {
+    public BigDecimal fee(Order o) {
+        return o.total().compareTo(bd(200)) >= 0 ? BigDecimal.ZERO : bd(20);
+    }
+}
+
+public class FeeCalculator {                                 // the context
+    public BigDecimal feeFor(Order o, Weather w, LocalDate d) {
+        FeeStrategy s = Festivals.isFestival(d) ? new FestivalFee()
+                      : w == Weather.RAIN      ? new RainSurgeFee()
+                      :                          new NormalFee();
+        return s.fee(o);                                     // delegate the algorithm
+    }
+}
+// Real world: Comparator passed to sort(), Spring's PasswordEncoder, ResourceLoader
+</script>
+</div>
+
+  <!-- Observer -->
+  <h3>Observer: tell everyone who cares</h3>
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div><p>When a fresh batch of samosas comes out, Ramu rings a bell. Whoever is waiting (customers, the delivery desk, the stock clerk) reacts in their own way. Ramu doesn't need to know who's listening.</p></div>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: the order service knows every downstream reaction">
+public void markReady(Order o) {
+    o.setStatus(READY);
+    repo.save(o);
+    smsService.send(o.phone(), "Ready!");      // knows about SMS
+    loyaltyService.addPoints(o.customer(), 5); // knows about loyalty
+    analytics.track("order_ready", o.id());    // knows about analytics
+    // New reaction (WhatsApp, kitchen display) = edit this method again.
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: publish an event; listeners subscribe themselves">
+public record OrderReady(long orderId, long customerId, String phone) { }
+
+@Service
+public class OrderService {
+    private final ApplicationEventPublisher events;      // the subject's "bell"
+    public OrderService(ApplicationEventPublisher events) { this.events = events; }
+
+    @Transactional
+    public void markReady(Order o) {
+        o.markReady();
+        events.publishEvent(new OrderReady(o.id(), o.customerId(), o.phone()));
+    }                                                    // knows nobody downstream
+}
+
+@Component
+class SmsOnReady {
+    @TransactionalEventListener                          // fires after commit succeeds
+    void on(OrderReady e) { sms.send(e.phone(), "Your chai is ready!"); }
+}
+
+@Component
+class LoyaltyOnReady {
+    @EventListener
+    void on(OrderReady e) { loyalty.addPoints(e.customerId(), 5); }
+}
+// New reaction = new listener class. OrderService never changes (OCP).
+// Across services, the same idea becomes pub/sub with Kafka (Chapter {{n:ch-queue}}).
+</script>
+</div>
+
+  <!-- Command -->
+  <h3>Command: turn a request into an object</h3>
+  <p>An order slip is a request written down: it can be queued, logged, retried, or cancelled (undone). The <strong>Command</strong> pattern does the same in code.</p>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Commands with undo: the editor/cart pattern">
+public interface Command { void execute(); void undo(); }
+
+public class AddItemCommand implements Command {
+    private final Cart cart; private final Item item;
+    public AddItemCommand(Cart cart, Item item) { this.cart = cart; this.item = item; }
+    public void execute() { cart.add(item); }
+    public void undo()    { cart.remove(item); }       // knows how to reverse itself
+}
+
+public class CartEditor {                              // the invoker
+    private final Deque<Command> history = new ArrayDeque<>();
+    public void run(Command c) { c.execute(); history.push(c); }
+    public void undoLast()     { if (!history.isEmpty()) history.pop().undo(); }
+}
+
+editor.run(new AddItemCommand(cart, masalaChai));
+editor.run(new AddItemCommand(cart, samosa));
+editor.undoLast();                                     // samosa removed
+// Real world: Runnable submitted to an ExecutorService, job queues, GUI actions, transaction logs
+</script>
+
+  <!-- State -->
+  <h3>State: behaviour changes with state</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 160" role="img" aria-label="Order states: placed, brewing, ready, delivered, with cancel possible only from placed">
+      <rect x="20" y="50" width="130" height="50" rx="25" class="d-acc"/><text x="85" y="80" text-anchor="middle" class="d-t">PLACED</text>
+      <rect x="230" y="50" width="130" height="50" rx="25" class="d-amb"/><text x="295" y="80" text-anchor="middle" class="d-t">BREWING</text>
+      <rect x="440" y="50" width="130" height="50" rx="25" class="d-vio"/><text x="505" y="80" text-anchor="middle" class="d-t">READY</text>
+      <rect x="650" y="50" width="150" height="50" rx="25" class="d-good"/><text x="725" y="80" text-anchor="middle" class="d-t">DELIVERED</text>
+      <rect x="20" y="125" width="130" height="30" rx="15" class="d-bad"/><text x="85" y="145" text-anchor="middle" class="d-s">CANCELLED</text>
+      <path d="M150 75 H228 M360 75 H438 M570 75 H648" class="d-line" marker-end="url(#ah)"/>
+      <text x="189" y="66" text-anchor="middle" class="d-xs">startBrewing()</text><text x="399" y="66" text-anchor="middle" class="d-xs">finish()</text><text x="609" y="66" text-anchor="middle" class="d-xs">deliver()</text>
+      <path d="M85 100 V123" class="d-lbad" marker-end="url(#ab)"/><text x="95" y="116" class="d-xs">cancel() only here</text>
+      <text x="410" y="25" text-anchor="middle" class="d-s">Each state object decides which actions are allowed and what the next state is.</text>
+    </svg></div>
+  </figure>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: the same switch in every method">
+public void cancel() {
+    switch (status) {
+        case PLACED -> status = CANCELLED;
+        case BREWING, READY -> throw new IllegalStateException("too late");
+        case DELIVERED -> throw new IllegalStateException("already delivered");
+    }
+}
+public void deliver() {
+    switch (status) { /* ...another full switch... */ }
+}
+// Add a state (OUT_FOR_DELIVERY) = edit every method's switch.
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: one class per state">
+public interface OrderState {
+    default OrderState startBrewing() { throw illegal("startBrewing"); }
+    default OrderState finish()       { throw illegal("finish"); }
+    default OrderState deliver()      { throw illegal("deliver"); }
+    default OrderState cancel()       { throw illegal("cancel"); }
+    private IllegalStateException illegal(String a) {
+        return new IllegalStateException(a + " not allowed in " + getClass().getSimpleName());
+    }
+}
+public class Placed implements OrderState {
+    public OrderState startBrewing() { return new Brewing(); }
+    public OrderState cancel()       { return new Cancelled(); }  // only Placed allows cancel
+}
+public class Brewing   implements OrderState { public OrderState finish()  { return new Ready(); } }
+public class Ready     implements OrderState { public OrderState deliver() { return new Delivered(); } }
+public class Delivered implements OrderState { }
+public class Cancelled implements OrderState { }
+
+public class Order {
+    private OrderState state = new Placed();
+    public void startBrewing() { state = state.startBrewing(); }  // delegate + transition
+    public void finish()       { state = state.finish(); }
+    public void deliver()      { state = state.deliver(); }
+    public void cancel()       { state = state.cancel(); }
+}
+// Classic LLD uses: vending machine, elevator, traffic light, ATM, document workflow
+</script>
+</div>
+
+  <!-- Template method -->
+  <h3>Template Method: fixed steps, customisable details</h3>
+  <p>You met this in {{ref:ch-oop}}: <code>Chai.prepare()</code> is <code>final</code> and fixes the order of steps; subclasses fill in <code>addExtras()</code>. <strong>Real world:</strong> Spring's <code>JdbcTemplate</code>, <code>RestTemplate</code>, <code>AbstractController</code>; JUnit's setUp/test/tearDown lifecycle; <code>HttpServlet.service()</code> calling <code>doGet()</code>/<code>doPost()</code>.</p>
+
+  <!-- Chain of Responsibility -->
+  <h3>Chain of Responsibility: pass it along until someone handles it</h3>
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div><p>Refunds: the cashier can approve up to ₹100, the branch manager up to ₹1,000, anything bigger goes to Ramu. A request walks up the chain until someone has the authority.</p></div>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="A refund approval chain">
+public abstract class Approver {
+    private Approver next;
+    public Approver then(Approver next) { this.next = next; return next; }  // build the chain
+
+    public final void handle(Refund r) {
+        if (canApprove(r)) approve(r);
+        else if (next != null) next.handle(r);                 // pass it on
+        else throw new IllegalStateException("Nobody can approve ₹" + r.amount());
+    }
+    protected abstract boolean canApprove(Refund r);
+    protected abstract void approve(Refund r);
+}
+
+public class Cashier extends Approver {
+    protected boolean canApprove(Refund r) { return r.amount().compareTo(bd(100)) <= 0; }
+    protected void approve(Refund r) { log.info("Cashier approved {}", r.id()); }
+}
+public class Manager extends Approver {
+    protected boolean canApprove(Refund r) { return r.amount().compareTo(bd(1000)) <= 0; }
+    protected void approve(Refund r) { log.info("Manager approved {}", r.id()); }
+}
+public class Owner extends Approver {
+    protected boolean canApprove(Refund r) { return true; }
+    protected void approve(Refund r) { log.info("Ramu approved {}", r.id()); }
+}
+
+Approver chain = new Cashier();
+chain.then(new Manager()).then(new Owner());
+chain.handle(new Refund("R-91", bd(450)));    // Manager approved R-91
+// Real world: Servlet filters, Spring Security's SecurityFilterChain, logging levels
+</script>
+
+  <h3>Four more to recognise</h3>
+  <div class="cards">
+    <div class="card"><span class="k">Iterator</span><h5>Walk a collection without exposing its insides</h5><p><code>Iterator&lt;T&gt;</code>, the for-each loop. Lists, sets and trees all iterate the same way.</p></div>
+    <div class="card"><span class="k">Mediator</span><h5>A central hub so objects don't talk directly</h5><p>An airport control tower; a chat room routing messages between users. Cuts many-to-many links to one-to-many.</p></div>
+    <div class="card"><span class="k">Memento</span><h5>Save and restore an object's state</h5><p>"Undo" in an editor; saving a game checkpoint, without exposing internals.</p></div>
+    <div class="card"><span class="k">Visitor</span><h5>Add operations to a class hierarchy without editing it</h5><p>Tax calculation and export over a tree of menu items; compilers walking syntax trees.</p></div>
+  </div>
+
+  <h3>Which pattern solves which problem?</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>When you see…</th><th>Reach for</th></tr>
+    <tr><td>A big <code>if/switch</code> choosing an algorithm</td><td>Strategy</td></tr>
+    <tr><td>A big <code>switch</code> on status in many methods</td><td>State</td></tr>
+    <tr><td>"When X happens, also do Y, Z…"</td><td>Observer / events</td></tr>
+    <tr><td>Constructors with many parameters</td><td>Builder</td></tr>
+    <tr><td><code>new ConcreteClass()</code> decided by input, repeated around the code</td><td>Factory</td></tr>
+    <tr><td>Adding optional features in layers</td><td>Decorator</td></tr>
+    <tr><td>Third-party API doesn't fit your interface</td><td>Adapter</td></tr>
+    <tr><td>Callers need one easy entry to many subsystems</td><td>Facade</td></tr>
+    <tr><td>Need caching, lazy loading or access checks transparently</td><td>Proxy</td></tr>
+    <tr><td>Tree of things, treated uniformly</td><td>Composite</td></tr>
+    <tr><td>Requests that need queuing, logging or undo</td><td>Command</td></tr>
+    <tr><td>Several possible handlers, in order</td><td>Chain of Responsibility</td></tr>
+    <tr><td>Same skeleton, different steps</td><td>Template Method</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Strategy swaps HOW. State swaps WHO-I-AM. Observer shouts WHAT-HAPPENED.</p>
+    <p>Command = request as an object (queue, undo). Template = fixed recipe, custom steps. Chain = pass it up until someone handles it.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Strategy vs State: they look identical. What's the difference?</summary><div class="ans"><p>Structurally both delegate to an interface. In Strategy, the <em>client</em> picks the algorithm and strategies don't know about each other. In State, the <em>state objects themselves</em> trigger transitions to the next state, and the set of allowed operations changes as the object moves through its lifecycle.</p></div></details>
+    <details><summary>What's the downside of the Observer pattern?</summary><div class="ans"><p>Flow becomes implicit: reading the publisher doesn't tell you what happens next. Listener order may be undefined, a slow or failing listener can affect the publisher if run synchronously, and forgotten subscriptions leak memory. Use clear event names, async listeners for slow work, and tracing.</p></div></details>
+  </div>
+  {{done}}
+</section>

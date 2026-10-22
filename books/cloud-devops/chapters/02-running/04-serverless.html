@@ -1,0 +1,79 @@
+<section class="chapter" id="ch-serverless" data-title="Serverless and messaging">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Running code</div>
+    <h2>Serverless and messaging: Lambda, Cloud Run, queues and events</h2>
+    <p class="ch-oneline"><b>Serverless runs your code only when something happens and bills per use; queues and topics connect pieces without them waiting on each other.</b></p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the food court</div>
+    <p>A <strong>stove that lights itself when an order slip drops in</strong> and switches off when idle: you pay only for cooking time (serverless). The first order after a quiet hour waits a moment while it heats up (cold start). Order slips pile on a <strong>spike</strong> so the kitchen works at its own pace (queue); an announcement over the <strong>loudspeaker</strong> reaches every counter that cares (pub/sub).</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>AWS Lambda / Cloud Run functions</th><th>Cloud Run / ECS Fargate</th><th>Kubernetes (EKS/GKE)</th></tr>
+    <tr><td>Unit</td><td>a function per event</td><td>a container serving HTTP or jobs</td><td>pods on a cluster</td></tr>
+    <tr><td>Scale to zero</td><td class="yes">yes</td><td>Cloud Run yes; Fargate no</td><td class="no">not by default</td></tr>
+    <tr><td>Limits</td><td>15 min max (Lambda), memory caps</td><td>long requests OK, any language</td><td>none beyond your cluster</td></tr>
+    <tr><td>Cold starts</td><td>yes (Java: use SnapStart / GraalVM)</td><td>yes (min instances to avoid)</td><td>no (always running)</td></tr>
+    <tr><td>Best for</td><td>event glue: S3 uploads, queue consumers, cron</td><td>APIs without cluster ops</td><td>many services, full control</td></tr>
+  </table></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 220" role="img" aria-label="Order service publishes OrderPlaced to a topic; the topic fans out to three queues for kitchen, SMS and analytics; each queue is consumed by a Lambda or worker; failures go to a dead-letter queue">
+      <rect x="10" y="80" width="140" height="60" rx="12" class="d-box"/><text x="80" y="106" text-anchor="middle" class="d-t">Order service</text><text x="80" y="124" text-anchor="middle" class="d-xs">publish once</text>
+      <path d="M150 110 H200" class="d-lvio" marker-end="url(#av)"/>
+      <rect x="202" y="76" width="150" height="68" rx="12" class="d-vio"/><text x="277" y="104" text-anchor="middle" class="d-t">Topic</text><text x="277" y="122" text-anchor="middle" class="d-xs">SNS / EventBridge / Pub/Sub</text>
+      <path d="M352 96 C390 96,390 40,428 40" class="d-lvio" marker-end="url(#av)"/>
+      <path d="M352 110 H428" class="d-lvio" marker-end="url(#av)"/>
+      <path d="M352 124 C390 124,390 180,428 180" class="d-lvio" marker-end="url(#av)"/>
+      <rect x="430" y="16" width="150" height="48" rx="10" class="d-amb"/><text x="505" y="45" text-anchor="middle" class="d-t">kitchen queue</text>
+      <rect x="430" y="86" width="150" height="48" rx="10" class="d-amb"/><text x="505" y="115" text-anchor="middle" class="d-t">sms queue</text>
+      <rect x="430" y="156" width="150" height="48" rx="10" class="d-amb"/><text x="505" y="185" text-anchor="middle" class="d-t">analytics queue</text>
+      <path d="M580 40 H630 M580 110 H630 M580 180 H630" class="d-line"/>
+      <rect x="632" y="16" width="120" height="48" rx="10" class="d-good"/><text x="692" y="45" text-anchor="middle" class="d-xs">kitchen worker</text>
+      <rect x="632" y="86" width="120" height="48" rx="10" class="d-good"/><text x="692" y="115" text-anchor="middle" class="d-xs">SMS Lambda</text>
+      <rect x="632" y="156" width="120" height="48" rx="10" class="d-good"/><text x="692" y="185" text-anchor="middle" class="d-xs">analytics job</text>
+      <rect x="772" y="86" width="80" height="48" rx="10" class="d-bad"/><text x="812" y="108" text-anchor="middle" class="d-xs">DLQ</text><text x="812" y="122" text-anchor="middle" class="d-xs">after 5 tries</text>
+      <path d="M752 110 H770" class="d-lbad d-dash" marker-end="url(#ab)"/>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Fan-out: one event, several independent consumers, each with its own queue, retries and dead-letter queue. A slow SMS provider can't slow the kitchen.</figcaption></figure>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="A Java Lambda handling S3 upload events">
+public class ReceiptThumbnailHandler implements RequestHandler<S3Event, Void> {
+    private static final S3Client S3 = S3Client.create();     // created once per container: reused
+                                                               // across warm invocations (faster)
+    @Override
+    public Void handleRequest(S3Event event, Context ctx) {
+        for (var rec : event.getRecords()) {
+            String bucket = rec.getS3().getBucket().getName();
+            String key = rec.getS3().getObject().getUrlDecodedKey();
+            byte[] img = S3.getObjectAsBytes(b -> b.bucket(bucket).key(key)).asByteArray();
+            S3.putObject(b -> b.bucket(bucket).key("thumbs/" + key), RequestBody.fromBytes(Thumbs.make(img)));
+            ctx.getLogger().log("thumbnail for " + key);
+        }
+        return null;
+    }
+}
+// Java cold starts: enable SnapStart, keep the jar small, or use GraalVM native images.
+// For Spring Boot APIs, Cloud Run / Fargate containers are usually a better fit than Lambda.
+</script>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Need</th><th>AWS</th><th>GCP</th></tr>
+    <tr><td>Work queue (one consumer per message)</td><td>SQS (standard or FIFO)</td><td>Pub/Sub pull subscription, Cloud Tasks</td></tr>
+    <tr><td>Fan-out to many subscribers</td><td>SNS → SQS</td><td>Pub/Sub topic with several subscriptions</td></tr>
+    <tr><td>Event routing by content</td><td>EventBridge rules</td><td>Eventarc</td></tr>
+    <tr><td>Ordered, replayable stream</td><td>Kinesis, MSK</td><td>Pub/Sub ordering keys, Managed Kafka</td></tr>
+    <tr><td>Workflows / orchestration</td><td>Step Functions</td><td>Workflows</td></tr>
+    <tr><td>Cron</td><td>EventBridge Scheduler</td><td>Cloud Scheduler</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">A stove that lights when a slip drops in.</p>
+    <p>Serverless = pay per use, scale to zero, cold starts. <span class="hl">Queue = one consumer; topic = fan-out.</span> At-least-once delivery → idempotent consumers, visibility timeouts, DLQs.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>When would you not use Lambda?</summary><div class="ans"><p>Long-running work (over 15 minutes), steady high traffic (containers are cheaper), latency-critical paths that can't tolerate cold starts, heavy frameworks with slow startup, or when you need persistent connections or local state. Cloud Run/Fargate or Kubernetes fit better.</p></div></details>
+    <details><summary>SQS standard vs FIFO?</summary><div class="ans"><p>Standard: nearly unlimited throughput, at-least-once delivery, best-effort ordering. FIFO: strict ordering within a message group and exactly-once processing within a deduplication window, with lower throughput limits. Choose FIFO only when order truly matters (per account, per order).</p></div></details>
+  </div>
+  {{done}}
+</section>

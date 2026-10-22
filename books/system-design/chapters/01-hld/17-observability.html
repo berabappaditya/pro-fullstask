@@ -1,0 +1,68 @@
+<section class="chapter" id="ch-observe" data-title="Observability: logs, metrics, traces, SLOs">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Operations</div>
+    <h2>Observability: logs, metrics, traces and SLOs</h2>
+    <p class="ch-oneline"><b>Observability means you can tell what your system is doing, and why, from the outside</b>, without adding new code every time something breaks.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>With 40 branches, Ramu can't watch every stove. So he installs a dashboard showing cups sold per minute and average wait time (<strong>metrics</strong>), keeps a complaints diary at every branch (<strong>logs</strong>), and gives each big catering order a token number that every counter writes down, so he can see exactly where order #7781 got stuck (<strong>tracing</strong>). He also promises customers "95% of chai served within 3 minutes" (<strong>SLO</strong>).</p></div>
+
+  <div class="cards">
+    <div class="card"><span class="k">pillar 1</span><h5>Logs</h5><p>Timestamped records of events: "payment failed for order 7781: card declined". Structured JSON, centralised (ELK, Loki, CloudWatch). Answer "what exactly happened?"</p></div>
+    <div class="card"><span class="k">pillar 2</span><h5>Metrics</h5><p>Numbers over time: requests/s, error %, p99 latency, CPU. Cheap to store, great for dashboards and alerts (Prometheus + Grafana). Answer "is something wrong?"</p></div>
+    <div class="card"><span class="k">pillar 3</span><h5>Traces</h5><p>One request's journey across services, as a tree of timed spans sharing a trace ID (OpenTelemetry, Jaeger, Zipkin). Answer "where is it slow?"</p></div>
+  </div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 800 200" role="img" aria-label="A distributed trace waterfall: the API gateway span contains order service, which calls payment and inventory; payment's DB call is the slowest">
+      <text x="20" y="22" class="d-s">trace_id = 4bf92f3577b34da6 · total 820 ms</text>
+      <line x1="200" y1="32" x2="200" y2="190" class="d-line d-dash"/><line x1="780" y1="32" x2="780" y2="190" class="d-line d-dash"/>
+      <text x="20" y="55" class="d-t">api-gateway</text><rect x="200" y="42" width="580" height="18" rx="4" class="d-acc"/>
+      <text x="36" y="85" class="d-t">order-service</text><rect x="215" y="72" width="555" height="18" rx="4" class="d-acc"/>
+      <text x="52" y="115" class="d-t">inventory GET</text><rect x="230" y="102" width="90" height="18" rx="4" class="d-good"/>
+      <text x="52" y="145" class="d-t">payment POST</text><rect x="330" y="132" width="430" height="18" rx="4" class="d-amb"/>
+      <text x="68" y="175" class="d-t">payment DB</text><rect x="345" y="162" width="390" height="18" rx="4" class="d-bad"/><text x="540" y="175" text-anchor="middle" class="d-xs">560 ms: missing index on payments.order_id</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> A trace waterfall. Without tracing you'd only know "checkout is slow"; with it you see the slow span in one glance.</figcaption>
+  </figure>
+
+  <h3>SLI, SLO, SLA and the error budget</h3>
+  <div class="cards">
+    <div class="card"><span class="k">SLI · indicator</span><h5>What you measure</h5><p>"Percentage of requests faster than 300 ms", "percentage of successful requests".</p></div>
+    <div class="card"><span class="k">SLO · objective</span><h5>Your internal target</h5><p>"99.9% of requests succeed over 30 days."</p></div>
+    <div class="card"><span class="k">SLA · agreement</span><h5>The contract with customers</h5><p>"99.5% uptime or you get a 10% refund." Always looser than the SLO.</p></div>
+    <div class="card"><span class="k">error budget</span><h5>Allowed failure</h5><p>99.9% SLO = 0.1% budget ≈ 43 minutes/month. Budget left? Ship features. Budget spent? Focus on reliability.</p></div>
+  </div>
+  <p><strong>The four golden signals</strong> (Google SRE): <strong>Latency, Traffic, Errors, Saturation</strong>. Alert on symptoms users feel (error rate, latency SLO burn), not on every CPU spike.</p>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Correlation ID: stamp every log line of a request with the same ID">
+@Component
+public class CorrelationIdFilter extends OncePerRequestFilter {
+    @Override
+    protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res,
+                                    FilterChain chain) throws ServletException, IOException {
+        String id = Optional.ofNullable(req.getHeader("X-Correlation-Id"))
+                            .orElse(UUID.randomUUID().toString());  // first hop creates it
+        MDC.put("correlationId", id);         // logback pattern prints %X{correlationId}
+        res.setHeader("X-Correlation-Id", id); // give it back to the caller
+        try {
+            chain.doFilter(req, res);          // every log line in this request has the id
+        } finally {
+            MDC.remove("correlationId");       // thread pools reuse threads: always clean up
+        }
+    }
+}
+// Outgoing calls forward the header, so one grep finds the whole journey.
+// (Micrometer Tracing / OpenTelemetry does this, plus spans, automatically.)
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Metrics say "something's wrong", traces say "where", logs say "why".</p>
+    <p>Golden signals: <strong>Latency, Traffic, Errors, Saturation</strong>. SLI is the measurement, SLO the target, SLA the promise with penalties; the gap is your <span class="hl">error budget</span>.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>What would you put on the dashboard for a new service?</summary><div class="ans"><p>Request rate, error rate (by status code), latency p50/p95/p99 per endpoint, saturation (CPU, memory, thread pool and DB connection pool usage, queue lag), dependency health (calls, errors, latency to DB/cache/other services), and business metrics (orders per minute). Alerts on SLO burn rate rather than raw thresholds.</p></div></details>
+  </div>
+  {{done}}
+</section>

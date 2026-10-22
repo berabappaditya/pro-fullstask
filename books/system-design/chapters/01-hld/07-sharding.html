@@ -1,0 +1,112 @@
+<section class="chapter" id="ch-sharding" data-title="Sharding and consistent hashing">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Data</div>
+    <h2>Sharding and consistent hashing</h2>
+    <p class="ch-oneline"><b>Sharding splits one big dataset into smaller pieces stored on different machines</b>, so writes and storage can grow beyond what one database can hold.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>The head-office ledger is now 4,000 pages, and only one clerk can write in it at a time. The queue of clerks waiting to write is longer than the queue of customers. Ramu splits it into three ledgers: surnames A–H, I–P and Q–Z, each with its own clerk. Three clerks now write in parallel.</p>
+    <p>But then a hundred customers named "Sharma" and "Singh" show up, and the Q–Z clerk is drowning while A–H sits idle. That's a <strong>hot shard</strong>, and it's why choosing the split (the <strong>shard key</strong>) is the most important sharding decision.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 220" role="img" aria-label="A single large users table is split by user ID ranges into three shards on three database servers, with a router in front">
+      <rect x="20" y="40" width="150" height="150" rx="10" class="d-bad"/><text x="95" y="70" text-anchor="middle" class="d-t">users</text><text x="95" y="90" text-anchor="middle" class="d-xs">600 million rows</text><text x="95" y="110" text-anchor="middle" class="d-xs">one server</text><text x="95" y="130" text-anchor="middle" class="d-xs">disk full, writes slow</text>
+      <path d="M175 115 H245" class="d-line" marker-end="url(#ah)"/><text x="210" y="105" text-anchor="middle" class="d-xs">split</text>
+      <rect x="255" y="85" width="140" height="60" rx="10" class="d-amb"/><text x="325" y="112" text-anchor="middle" class="d-t">Shard router</text><text x="325" y="130" text-anchor="middle" class="d-xs">shard = f(user_id)</text>
+      <rect x="490" y="15" width="300" height="52" rx="10" class="d-good"/><text x="640" y="38" text-anchor="middle" class="d-t">Shard 1 · user_id 1 – 200M</text><text x="640" y="56" text-anchor="middle" class="d-xs">its own server, own replicas</text>
+      <rect x="490" y="85" width="300" height="52" rx="10" class="d-good"/><text x="640" y="108" text-anchor="middle" class="d-t">Shard 2 · user_id 200M – 400M</text>
+      <rect x="490" y="155" width="300" height="52" rx="10" class="d-good"/><text x="640" y="178" text-anchor="middle" class="d-t">Shard 3 · user_id 400M – 600M</text>
+      <path d="M395 105 C440 90,450 45,488 41 M395 115 L488 111 M395 125 C440 140,450 180,488 181" class="d-line" marker-end="url(#ah)"/>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Each shard holds a different slice of rows (same schema). A router, the app itself, or a proxy like Vitess decides which shard a query goes to.</figcaption>
+  </figure>
+
+  <h3>Ways to choose the shard</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Strategy</th><th>How</th><th>Strength</th><th>Weakness</th></tr>
+    <tr><td>Range-based</td><td>IDs 1–1M → shard 1, 1M–2M → shard 2; or by date</td><td>Range queries are easy; simple</td><td>Hot spots: all new users/today's data land on the newest shard</td></tr>
+    <tr><td>Hash-based</td><td><code>shard = hash(user_id) % N</code></td><td>Even spread of data and load</td><td>Range queries hit every shard; changing N moves most data</td></tr>
+    <tr><td>Consistent hashing</td><td>Hash keys and servers onto a ring</td><td>Adding a server moves only ~1/N of keys</td><td>More complex; needs virtual nodes for balance</td></tr>
+    <tr><td>Directory / lookup</td><td>A lookup table maps key → shard</td><td>Fully flexible; move tenants individually</td><td>The directory is extra latency and a single point of failure</td></tr>
+    <tr><td>Geo-based</td><td>India users → Mumbai shard, EU → Frankfurt</td><td>Low latency, data residency laws</td><td>Uneven region sizes</td></tr>
+  </table></div>
+
+  <h3>What sharding costs you</h3>
+  <div class="cards">
+    <div class="card bad"><h5>Cross-shard queries</h5><p>"Top 10 customers overall" must ask every shard and merge (scatter–gather).</p></div>
+    <div class="card bad"><h5>Cross-shard transactions</h5><p>No simple ACID across shards. You need sagas or 2PC ({{ref:ch-dtx}}).</p></div>
+    <div class="card bad"><h5>No cross-shard JOINs</h5><p>Denormalise, or join in application code.</p></div>
+    <div class="card bad"><h5>Resharding</h5><p>Growing from 4 to 8 shards means moving data live without downtime.</p></div>
+  </div>
+  <div class="box tip"><div class="box-tag">Interview tip</div>
+    <p>Pick the shard key from the <strong>main access pattern</strong>. For a chat app: <code>conversation_id</code>, so one conversation's messages live together. For an e-commerce order system: <code>customer_id</code>, so "my orders" hits one shard. Say why, and name the hot-key risk (a celebrity, a giant tenant).</p></div>
+
+  <h3>Consistent hashing, drawn</h3>
+  <p>With plain <code>hash(key) % N</code>, going from 4 servers to 5 changes the answer for roughly 80% of keys. Every cache misses at once. Consistent hashing fixes this:</p>
+  <ol class="steps">
+    <li><b>Make a ring</b>Imagine hash values 0 … 2³²−1 bent into a circle.</li>
+    <li><b>Place servers</b>Hash each server's name to a point on the ring.</li>
+    <li><b>Place keys</b>Hash each key to a point, then walk <em>clockwise</em> to the first server. That server owns the key.</li>
+    <li><b>Add a server</b>It takes over only the keys between itself and its counter-clockwise neighbour. Everyone else stays put.</li>
+    <li><b>Use virtual nodes</b>Place each physical server at 100–200 points on the ring so the slices are even and a removed server's load spreads over many servers, not one.</li>
+  </ol>
+
+  <div class="widget" id="w-ring">
+    <div class="widget-head"><span class="live">Live</span>Consistent hashing ring vs modulo hashing</div>
+    <div class="widget-body">
+      <div class="controls">
+        <button class="btn primary" id="ringAdd">Add a server</button>
+        <button class="btn" id="ringRemove">Remove a server</button>
+        <button class="btn" id="ringVnodes">Virtual nodes: off</button>
+        <button class="btn" id="ringReset">Reset</button>
+      </div>
+      <div class="svgwrap" style="overflow-x:auto"><svg id="ringSvg" viewBox="0 0 640 340" style="min-width:520px" role="img" aria-label="Hash ring with servers and keys"></svg></div>
+      <div class="statrow" id="ringStats"></div>
+      <p class="small">60 keys are placed on the ring. Each key takes the colour of the server that owns it. When you add or remove a server, compare how many keys moved on the ring with how many would have moved using <code>hash % N</code>.</p>
+    </div>
+  </div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="A consistent hash ring with virtual nodes (TreeMap = sorted ring)">
+public class ConsistentHashRing<T> {
+    private final TreeMap<Long, T> ring = new TreeMap<>();  // position -> server
+    private final int virtualNodes;                          // e.g. 150 per server
+
+    public ConsistentHashRing(int virtualNodes) { this.virtualNodes = virtualNodes; }
+
+    public void addServer(T server) {
+        for (int i = 0; i < virtualNodes; i++)              // many points per server
+            ring.put(hash(server + "#" + i), server);       // spreads its share evenly
+    }
+
+    public void removeServer(T server) {
+        for (int i = 0; i < virtualNodes; i++)
+            ring.remove(hash(server + "#" + i));            // its keys fall to neighbours
+    }
+
+    public T serverFor(String key) {
+        if (ring.isEmpty()) throw new IllegalStateException("no servers");
+        long h = hash(key);
+        Map.Entry<Long, T> e = ring.ceilingEntry(h);        // first point clockwise
+        return (e != null ? e : ring.firstEntry()).getValue(); // wrap around the circle
+    }
+
+    private long hash(String s) {                           // any well-mixed hash works
+        CRC32 crc = new CRC32();                            // (MurmurHash in production)
+        crc.update(s.getBytes(StandardCharsets.UTF_8));
+        return crc.getValue();
+    }
+}
+</script>
+  <p class="small">Used by: Cassandra and DynamoDB (partitioning), Memcached clients, Discord, Akamai, load balancers doing cache-friendly routing.</p>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Split the ledger, walk clockwise.</p>
+    <p>Shard when <strong>one machine can't hold the writes or the data</strong>. Choose the shard key from the main query. Hash for even spread, range for range queries, <span class="hl">consistent hashing so adding a node moves only ~1/N keys</span>, virtual nodes for balance.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>Partitioning vs sharding vs replication?</summary><div class="ans"><p>Partitioning is splitting data into pieces; when the pieces live on different machines it's usually called sharding (horizontal partitioning). Vertical partitioning splits by columns or by feature (user profile table vs user activity table). Replication copies the same piece to multiple machines. Real systems do both: each shard has its own replicas.</p></div></details>
+    <details><summary>How would you reshard a live MySQL database from 4 to 8 shards?</summary><div class="ans"><p>Use logical shards: hash keys into, say, 1,024 virtual buckets mapped to 4 physical servers. To grow, move whole buckets: copy a bucket's data to the new server, stream ongoing changes (binlog/CDC) until caught up, briefly block writes for that bucket, flip the mapping, then delete the old copy. Tools like Vitess automate this.</p></div></details>
+  </div>
+  {{done}}
+</section>

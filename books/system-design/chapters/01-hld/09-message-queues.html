@@ -1,0 +1,141 @@
+<section class="chapter" id="ch-queue" data-title="Message queues and Kafka">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Communication</div>
+    <h2>Message queues, pub/sub and Kafka</h2>
+    <p class="ch-oneline"><b>A message queue lets one part of a system drop off work and move on</b>, while another part picks it up when it's ready. The two never have to wait for each other.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>At first, the cashier took an order, then stood waiting at the stove until the tea was ready, then served it. During rush hour the line didn't move. So Ramu put up a metal spike: the cashier writes an <strong>order slip</strong>, sticks it on the spike and immediately serves the next customer. Two cooks pull slips off the spike at their own pace.</p>
+    <p>At 8 a.m. the spike holds 40 slips. Nobody is turned away; the cooks just catch up by 8:20. The spike is a <strong>message queue</strong>. The cashier is the <strong>producer</strong>, the cooks are <strong>consumers</strong>, and the spike <strong>absorbing the rush</strong> is called load levelling.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 250" role="img" aria-label="Synchronous call chain where the user waits for every step, versus asynchronous with a queue where the order service returns immediately and workers handle email, inventory and analytics later">
+      <text x="200" y="22" text-anchor="middle" class="d-tb">Synchronous: user waits for everything</text>
+      <rect x="20" y="40" width="90" height="36" rx="7" class="d-vio"/><text x="65" y="63" text-anchor="middle" class="d-s">User</text>
+      <rect x="140" y="40" width="100" height="36" rx="7" class="d-box"/><text x="190" y="63" text-anchor="middle" class="d-s">Order svc</text>
+      <rect x="270" y="40" width="110" height="36" rx="7" class="d-box"/><text x="325" y="63" text-anchor="middle" class="d-s">Email (2 s)</text>
+      <rect x="270" y="90" width="110" height="36" rx="7" class="d-box"/><text x="325" y="113" text-anchor="middle" class="d-s">Inventory (1 s)</text>
+      <rect x="270" y="140" width="110" height="36" rx="7" class="d-box"/><text x="325" y="163" text-anchor="middle" class="d-s">Analytics (1 s)</text>
+      <path d="M110 58 H138 M240 58 H268 M240 66 C255 80,255 105,268 108 M240 70 C258 100,258 150,268 158" class="d-line" marker-end="url(#ah)"/>
+      <text x="200" y="210" text-anchor="middle" class="d-tb">response after ~4 s; if Email is down, the order fails</text>
+      <line x1="410" y1="15" x2="410" y2="235" class="d-line d-dash"/>
+      <text x="620" y="22" text-anchor="middle" class="d-tg">Asynchronous: drop a message and return</text>
+      <rect x="430" y="40" width="80" height="36" rx="7" class="d-vio"/><text x="470" y="63" text-anchor="middle" class="d-s">User</text>
+      <rect x="430" y="110" width="90" height="40" rx="7" class="d-box"/><text x="475" y="135" text-anchor="middle" class="d-s">Order svc</text>
+      <path d="M470 76 V108" class="d-line" marker-end="url(#ah)"/><path d="M455 108 V78" class="d-lgood" marker-end="url(#ag)"/><text x="420" y="98" text-anchor="end" class="d-tg">201 in 50 ms</text>
+      <rect x="560" y="105" width="110" height="50" rx="9" class="d-vio"/><text x="615" y="127" text-anchor="middle" class="d-t">Queue / topic</text><text x="615" y="143" text-anchor="middle" class="d-xs">"OrderPlaced"</text>
+      <path d="M520 130 H558" class="d-lvio" marker-end="url(#av)"/>
+      <rect x="705" y="45" width="105" height="34" rx="7" class="d-box"/><text x="757" y="67" text-anchor="middle" class="d-s">Email worker</text>
+      <rect x="705" y="113" width="105" height="34" rx="7" class="d-box"/><text x="757" y="135" text-anchor="middle" class="d-s">Inventory</text>
+      <rect x="705" y="181" width="105" height="34" rx="7" class="d-box"/><text x="757" y="203" text-anchor="middle" class="d-s">Analytics</text>
+      <path d="M670 120 C690 100,690 70,703 64 M670 130 H703 M670 140 C690 160,690 190,703 196" class="d-lvio d-flow"/>
+      <text x="620" y="236" text-anchor="middle" class="d-tg">fast reply; a slow or dead worker just catches up later</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> Moving non-urgent work behind a queue cuts response time and stops one slow dependency from breaking the whole request.</figcaption>
+  </figure>
+
+  <h3>Why queues are everywhere</h3>
+  <div class="cards">
+    <div class="card"><h5>Decoupling</h5><p>The producer doesn't know or care who consumes. Add a new "SMS worker" without touching the order service.</p></div>
+    <div class="card"><h5>Load levelling</h5><p>Spikes queue up instead of crashing consumers. Consumers work at a steady, safe rate.</p></div>
+    <div class="card"><h5>Reliability</h5><p>If a consumer crashes, the message stays in the queue and is retried.</p></div>
+    <div class="card"><h5>Scaling consumers</h5><p>Queue growing? Add more workers. They share the messages.</p></div>
+  </div>
+
+  <h3>Two shapes: queue and pub/sub</h3>
+  <div class="cards">
+    <div class="card"><h5>Point-to-point queue</h5><p>Each message is handled by <strong>exactly one</strong> consumer, then deleted. Work distribution: "resize this image", "send this email". RabbitMQ queues, AWS SQS.</p></div>
+    <div class="card"><h5>Publish / subscribe</h5><p>Each message goes to <strong>every subscriber</strong>. Event broadcasting: "OrderPlaced" is heard by email, inventory and analytics. Kafka topics, SNS, Redis pub/sub.</p></div>
+  </div>
+
+  <h3>Kafka in one picture</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 820 270" role="img" aria-label="A Kafka topic with three partitions as append-only logs; producers append by key, two consumer groups read independently with their own offsets">
+      <rect x="20" y="70" width="110" height="40" rx="8" class="d-box"/><text x="75" y="95" text-anchor="middle" class="d-s">Producer A</text>
+      <rect x="20" y="150" width="110" height="40" rx="8" class="d-box"/><text x="75" y="175" text-anchor="middle" class="d-s">Producer B</text>
+      <rect x="170" y="25" width="400" height="220" rx="12" class="d-paper"/><text x="370" y="46" text-anchor="middle" class="d-t">Topic "orders"  (key = stallId → same partition)</text>
+      <g class="d-m">
+        <text x="185" y="82" class="d-m">P0</text><text x="185" y="142" class="d-m">P1</text><text x="185" y="202" class="d-m">P2</text>
+      </g>
+      <g>
+        <rect x="210" y="64" width="34" height="28" class="d-acc"/><rect x="246" y="64" width="34" height="28" class="d-acc"/><rect x="282" y="64" width="34" height="28" class="d-acc"/><rect x="318" y="64" width="34" height="28" class="d-acc"/><rect x="354" y="64" width="34" height="28" class="d-acc"/><rect x="390" y="64" width="34" height="28" class="d-paper" style="stroke-dasharray:3 3"/>
+        <rect x="210" y="124" width="34" height="28" class="d-acc"/><rect x="246" y="124" width="34" height="28" class="d-acc"/><rect x="282" y="124" width="34" height="28" class="d-acc"/><rect x="318" y="124" width="34" height="28" class="d-paper" style="stroke-dasharray:3 3"/>
+        <rect x="210" y="184" width="34" height="28" class="d-acc"/><rect x="246" y="184" width="34" height="28" class="d-acc"/><rect x="282" y="184" width="34" height="28" class="d-acc"/><rect x="318" y="184" width="34" height="28" class="d-acc"/><rect x="354" y="184" width="34" height="28" class="d-acc"/><rect x="390" y="184" width="34" height="28" class="d-acc"/><rect x="426" y="184" width="34" height="28" class="d-paper" style="stroke-dasharray:3 3"/>
+        <text x="227" y="82" text-anchor="middle" class="d-xs">0</text><text x="263" y="82" text-anchor="middle" class="d-xs">1</text><text x="299" y="82" text-anchor="middle" class="d-xs">2</text><text x="335" y="82" text-anchor="middle" class="d-xs">3</text><text x="371" y="82" text-anchor="middle" class="d-xs">4</text>
+        <text x="227" y="142" text-anchor="middle" class="d-xs">0</text><text x="263" y="142" text-anchor="middle" class="d-xs">1</text><text x="299" y="142" text-anchor="middle" class="d-xs">2</text>
+        <text x="227" y="202" text-anchor="middle" class="d-xs">0</text><text x="263" y="202" text-anchor="middle" class="d-xs">1</text><text x="299" y="202" text-anchor="middle" class="d-xs">2</text><text x="335" y="202" text-anchor="middle" class="d-xs">3</text><text x="371" y="202" text-anchor="middle" class="d-xs">4</text><text x="407" y="202" text-anchor="middle" class="d-xs">5</text>
+      </g>
+      <text x="370" y="235" text-anchor="middle" class="d-xs">append-only logs · numbers are offsets · kept for days, replayable</text>
+      <path d="M130 88 C150 88,160 78,205 78 M130 170 C155 170,160 140,205 138 M130 176 C160 180,170 198,205 198" class="d-line" marker-end="url(#ah)"/>
+      <rect x="620" y="40" width="185" height="100" rx="10" class="d-good"/><text x="712" y="60" text-anchor="middle" class="d-t">Group "email"</text>
+      <rect x="635" y="72" width="155" height="26" rx="5" class="d-box"/><text x="712" y="90" text-anchor="middle" class="d-xs">consumer 1 ← P0, P1</text>
+      <rect x="635" y="104" width="155" height="26" rx="5" class="d-box"/><text x="712" y="122" text-anchor="middle" class="d-xs">consumer 2 ← P2</text>
+      <rect x="620" y="160" width="185" height="70" rx="10" class="d-amb"/><text x="712" y="182" text-anchor="middle" class="d-t">Group "analytics"</text>
+      <rect x="635" y="192" width="155" height="26" rx="5" class="d-box"/><text x="712" y="210" text-anchor="middle" class="d-xs">consumer 1 ← P0, P1, P2</text>
+      <path d="M572 110 H618 M572 190 H618" class="d-lgood" marker-end="url(#ag)"/>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.2</b> A topic is split into partitions (for parallelism). Order is guaranteed <em>within</em> a partition, so messages with the same key stay in order. Each consumer group reads every message once, tracking its own offset; inside a group, each partition goes to one consumer.</figcaption>
+  </figure>
+
+  <h3>Delivery guarantees</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Guarantee</th><th>Meaning</th><th>How it happens</th><th>Risk</th></tr>
+    <tr><td>At-most-once</td><td>Delivered 0 or 1 times</td><td>Commit offset before processing</td><td>Lost messages</td></tr>
+    <tr><td>At-least-once</td><td>Delivered 1 or more times</td><td>Commit offset after processing; retry on failure</td><td>Duplicates; the common default</td></tr>
+    <tr><td>Exactly-once</td><td>Effect happens once</td><td>Idempotent consumer, or Kafka transactions within Kafka</td><td>Costly; true end-to-end needs idempotency anyway</td></tr>
+  </table></div>
+  <p>Because at-least-once means duplicates <em>will</em> arrive, consumers must be <strong>idempotent</strong>: processing the same message twice must have the same effect as once.</p>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Before: a duplicate message charges the customer twice">
+@KafkaListener(topics = "payments")
+public void onPayment(PaymentRequested event) {
+    // Kafka redelivers after a crash or rebalance (at-least-once).
+    // Same event arrives twice -> wallet debited twice.
+    walletService.debit(event.customerId(), event.amount());
+}
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="After: an idempotent consumer using the event ID">
+@KafkaListener(topics = "payments", groupId = "wallet")
+@Transactional
+public void onPayment(PaymentRequested event) {
+    // processed_events has a UNIQUE constraint on event_id
+    boolean firstTime = processedRepo.insertIfAbsent(event.eventId());
+    if (!firstTime) {
+        log.info("duplicate {} ignored", event.eventId()); // safe to skip
+        return;
+    }
+    walletService.debit(event.customerId(), event.amount());
+    // Both the dedup row and the debit commit in ONE DB transaction,
+    // so a crash in between can't leave them disagreeing.
+}
+</script>
+</div>
+
+  <h3>Things that go wrong, and the standard fixes</h3>
+  <div class="cards">
+    <div class="card"><h5>Poison message</h5><p>A message that always fails blocks or loops forever. After N retries, move it to a <strong>dead-letter queue (DLQ)</strong> for humans to inspect.</p></div>
+    <div class="card"><h5>Ordering</h5><p>Only guaranteed per partition/queue. Use the entity ID (orderId) as the key so its events stay in order.</p></div>
+    <div class="card"><h5>Backpressure</h5><p>Consumers falling behind forever? Monitor <strong>consumer lag</strong>; scale consumers (up to the partition count) or slow producers.</p></div>
+    <div class="card"><h5>Dual write</h5><p>Saving to the DB and publishing to Kafka are two systems; one can fail. Use the <strong>transactional outbox</strong> ({{ref:ch-dtx}}).</p></div>
+  </div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>RabbitMQ</th><th>Apache Kafka</th><th>AWS SQS</th></tr>
+    <tr><td>Model</td><td>Smart broker, queues and exchanges</td><td>Distributed append-only log</td><td>Managed simple queue</td></tr>
+    <tr><td>After reading</td><td>Message removed when acked</td><td>Message kept (retention); can replay</td><td>Removed when deleted</td></tr>
+    <tr><td>Throughput</td><td>Tens of thousands/s</td><td>Millions/s</td><td>Very high, managed</td></tr>
+    <tr><td>Best for</td><td>Task queues, complex routing, RPC</td><td>Event streaming, logs, analytics, event sourcing</td><td>Simple decoupling on AWS with zero ops</td></tr>
+  </table></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Slip on the spike: Drop it, Decouple, Drain later.</p>
+    <p>Queue = one consumer per message. Pub/sub = every subscriber gets it. Kafka = partitioned log, ordered per partition, replayable. Assume <span class="hl">at-least-once</span>, so make consumers <span class="hl">idempotent</span>, and send poison messages to a DLQ.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How many consumers can usefully read a Kafka topic with 6 partitions in one group?</summary><div class="ans"><p>At most 6. Each partition is assigned to exactly one consumer in a group; a 7th consumer sits idle. To scale beyond that, increase partitions (plan this upfront, since changing partition count reshuffles key-to-partition mapping).</p></div></details>
+    <details><summary>When would you not use a queue?</summary><div class="ans"><p>When the user needs the result right now (checking a password, reading a balance), when strict request–response semantics are needed, or when the added infrastructure and eventual consistency aren't worth it for a small system.</p></div></details>
+  </div>
+  {{done}}
+</section>

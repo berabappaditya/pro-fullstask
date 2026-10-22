@@ -1,0 +1,75 @@
+<section class="chapter" id="ch-micro" data-title="Monolith vs microservices">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>HLD · Architecture</div>
+    <h2>Monolith vs microservices</h2>
+    <p class="ch-oneline"><b>A monolith is one deployable app that does everything; microservices split it into small services</b>, each owning one business capability and its own data.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">At Ramu's chai stall</div>
+    <p>In the original stall, Ramu did everything at one counter: tea, samosas, billing, deliveries. Easy to manage, one place to look. But when the samosa fryer catches fire, the whole stall shuts. And hiring a samosa specialist means retraining him on tea and billing too.</p>
+    <p>The flagship store now has <strong>separate counters</strong>: a tea counter, a snacks counter, a billing counter and a delivery desk. Each has its own staff, its own stock and its own hours. If snacks close, tea keeps selling. A <strong>front desk</strong> greets everyone and sends them to the right counter. That front desk is the <strong>API gateway</strong>.</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 840 270" role="img" aria-label="A monolith with all modules and one database, compared with microservices behind an API gateway each with its own database">
+      <text x="160" y="22" text-anchor="middle" class="d-tl">Monolith</text>
+      <rect x="30" y="40" width="260" height="140" rx="12" class="d-box"/>
+      <rect x="50" y="60" width="105" height="40" rx="6" class="d-acc"/><text x="102" y="85" text-anchor="middle" class="d-s">Orders</text>
+      <rect x="165" y="60" width="105" height="40" rx="6" class="d-acc"/><text x="217" y="85" text-anchor="middle" class="d-s">Payments</text>
+      <rect x="50" y="115" width="105" height="40" rx="6" class="d-acc"/><text x="102" y="140" text-anchor="middle" class="d-s">Menu</text>
+      <rect x="165" y="115" width="105" height="40" rx="6" class="d-acc"/><text x="217" y="140" text-anchor="middle" class="d-s">Delivery</text>
+      <text x="160" y="172" text-anchor="middle" class="d-xs">one codebase · one deploy · one process</text>
+      <rect x="95" y="205" width="130" height="44" rx="10" class="d-good"/><text x="160" y="232" text-anchor="middle" class="d-t">One database</text>
+      <path d="M160 180 V203" class="d-line" marker-end="url(#ah)"/>
+      <line x1="330" y1="20" x2="330" y2="260" class="d-line d-dash"/>
+      <text x="590" y="22" text-anchor="middle" class="d-tl">Microservices</text>
+      <rect x="520" y="38" width="140" height="40" rx="9" class="d-amb"/><text x="590" y="63" text-anchor="middle" class="d-t">API Gateway</text>
+      <g>
+        <rect x="355" y="115" width="105" height="40" rx="8" class="d-box"/><text x="407" y="140" text-anchor="middle" class="d-s">Order svc</text>
+        <rect x="475" y="115" width="105" height="40" rx="8" class="d-box"/><text x="527" y="140" text-anchor="middle" class="d-s">Payment svc</text>
+        <rect x="595" y="115" width="105" height="40" rx="8" class="d-box"/><text x="647" y="140" text-anchor="middle" class="d-s">Menu svc</text>
+        <rect x="715" y="115" width="105" height="40" rx="8" class="d-box"/><text x="767" y="140" text-anchor="middle" class="d-s">Delivery svc</text>
+        <ellipse cx="407" cy="215" rx="42" ry="20" class="d-good"/><text x="407" y="219" text-anchor="middle" class="d-xs">MySQL</text>
+        <ellipse cx="527" cy="215" rx="42" ry="20" class="d-good"/><text x="527" y="219" text-anchor="middle" class="d-xs">Postgres</text>
+        <ellipse cx="647" cy="215" rx="42" ry="20" class="d-good"/><text x="647" y="219" text-anchor="middle" class="d-xs">Mongo</text>
+        <ellipse cx="767" cy="215" rx="42" ry="20" class="d-good"/><text x="767" y="219" text-anchor="middle" class="d-xs">Redis</text>
+      </g>
+      <path d="M560 78 L410 113 M580 78 L530 113 M600 78 L645 113 M620 78 L765 113" class="d-line" marker-end="url(#ah)"/>
+      <path d="M407 155 V193 M527 155 V193 M647 155 V193 M767 155 V193" class="d-line"/>
+      <text x="590" y="262" text-anchor="middle" class="d-xs">each service: own code, own team, own deploy, own database</text>
+    </svg></div>
+    <figcaption><b>Figure {{num}}.1</b> In microservices, services never reach into each other's databases. They talk only through APIs or events.</figcaption>
+  </figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th></th><th>Monolith</th><th>Microservices</th></tr>
+    <tr><td>Deploy</td><td>Everything together</td><td>Each service independently, many times a day</td></tr>
+    <tr><td>Scaling</td><td>Scale the whole app</td><td>Scale only the hot service (e.g. search)</td></tr>
+    <tr><td>Failure</td><td>A memory leak in one module can take down all</td><td>Failures can be contained (with timeouts and circuit breakers)</td></tr>
+    <tr><td>Data</td><td>One DB, easy JOINs and ACID</td><td>DB per service; cross-service consistency via sagas/events</td></tr>
+    <tr><td>Complexity</td><td>Low ops; can become a "big ball of mud"</td><td>Network calls, distributed tracing, versioning, DevOps maturity needed</td></tr>
+    <tr><td>Teams</td><td>Fine for small teams</td><td>Fits many teams owning separate domains (Conway's Law)</td></tr>
+  </table></div>
+
+  <h3>The supporting cast of a microservice system</h3>
+  <div class="cards">
+    <div class="card"><h5>API Gateway</h5><p>Single entry: routing, auth, rate limiting, TLS, request aggregation. Spring Cloud Gateway, Kong, AWS API Gateway.</p></div>
+    <div class="card"><h5>Service discovery</h5><p>Services register where they run; others look them up by name, not IP. Eureka, Consul, Kubernetes DNS.</p></div>
+    <div class="card"><h5>Config server</h5><p>Central, versioned configuration and secrets. Spring Cloud Config, Vault.</p></div>
+    <div class="card"><h5>Service mesh</h5><p>A sidecar proxy next to each service handles retries, mTLS and metrics without code changes. Istio, Linkerd.</p></div>
+    <div class="card"><h5>Backend for Frontend</h5><p>A thin API per client type (mobile BFF, web BFF) shaping data for that UI.</p></div>
+    <div class="card"><h5>Observability</h5><p>Centralised logs, metrics and distributed traces with a correlation ID across services ({{ref:ch-observe}}).</p></div>
+  </div>
+
+  <div class="box pitfall"><div class="box-tag">Common trap</div>
+    <p>The <strong>distributed monolith</strong>: services that share one database or must all deploy together. You get all the pain of microservices and none of the benefits. Also, splitting too early: start with a well-structured <strong>modular monolith</strong> and extract services along clear domain boundaries (DDD bounded contexts) when a team or scaling need justifies it.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Separate counters, separate stock, one front desk.</p>
+    <p>Microservice = <strong>one business capability, own data, independent deploy</strong>. Pay for it with network calls, eventual consistency and ops tooling. Monolith first is not a failure; it's usually the right start.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How do you decide service boundaries?</summary><div class="ans"><p>Follow business domains (Domain-Driven Design bounded contexts): Orders, Payments, Catalogue, Shipping. A good service has high cohesion inside, few calls outside, owns its data, and can be owned by one team. If two services always change together or need constant synchronous chatter, they probably belong together.</p></div></details>
+    <details><summary>Sync (REST/gRPC) or async (events) between services?</summary><div class="ans"><p>Use sync when the caller needs an answer to continue (check stock before showing checkout). Use async events for side effects and for spreading information (OrderPlaced → email, analytics, loyalty). Async reduces coupling and cascading failures; sync is simpler to reason about. Most systems mix both.</p></div></details>
+  </div>
+  {{done}}
+</section>

@@ -1,0 +1,114 @@
+<section class="chapter" id="ch-juc" data-title="Locks, concurrent collections, virtual threads">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Concurrency</div>
+    <h2>java.util.concurrent toolbox and virtual threads</h2>
+    <p class="ch-oneline"><b>Use the ready-made tools:</b> ConcurrentHashMap, BlockingQueue, CountDownLatch, Semaphore, ReentrantLock, ReadWriteLock, and since Java 21, virtual threads for millions of blocking tasks.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In Ramu's kitchen</div>
+    <p>Ramu's kitchen has gadgets for every coordination problem: a <strong>ticket rail that makes chefs wait when empty</strong> (BlockingQueue), a <strong>countdown board</strong> "start serving when all 3 starters are ready" (CountDownLatch), <strong>3 tokens for 3 stoves</strong> (Semaphore), and a <strong>menu board</strong> anyone can read but only one person can rewrite (ReadWriteLock).</p></div>
+
+  <h3>ConcurrentHashMap</h3>
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Check-then-act race, even on a thread-safe map">
+ConcurrentHashMap<String, Integer> stock = new ConcurrentHashMap<>();
+if (!stock.containsKey("samosa")) {        // thread A and B both see "absent"
+    stock.put("samosa", 0);                // both put
+}
+stock.put("samosa", stock.get("samosa") + 1);   // read-modify-write: lost updates
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Atomic compound operations">
+stock.putIfAbsent("samosa", 0);
+stock.merge("samosa", 1, Integer::sum);           // atomic increment (insert 1 if absent)
+stock.compute("samosa", (k, v) -> v == null ? 1 : v + 1);
+Map<String, List<Order>> byTable = new ConcurrentHashMap<>();
+byTable.computeIfAbsent("T4", k -> new CopyOnWriteArrayList<>()).add(order);
+// Java 8+: no segments; CAS on empty bins, synchronized on the bin's first node otherwise.
+// Reads are lock-free. No null keys or values (null would be ambiguous: absent or null?).
+</script>
+</div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Tool</th><th>Kitchen picture</th><th>Typical use</th></tr>
+    <tr><td><code>BlockingQueue</code> (Array/Linked)</td><td>ticket rail: <code>put</code> waits if full, <code>take</code> waits if empty</td><td>producer–consumer, back-pressure</td></tr>
+    <tr><td><code>CopyOnWriteArrayList</code></td><td>reprint the whole list on every change</td><td>many reads, rare writes (listeners)</td></tr>
+    <tr><td><code>CountDownLatch(n)</code></td><td>"serve when all n starters are ready"; single use</td><td>wait for n tasks to finish / start together</td></tr>
+    <tr><td><code>CyclicBarrier(n)</code></td><td>everyone waits at the pass until all n arrive; reusable</td><td>phases of parallel work</td></tr>
+    <tr><td><code>Semaphore(n)</code></td><td>n stove tokens</td><td>limit concurrent calls to a slow API</td></tr>
+    <tr><td><code>ReentrantLock</code></td><td>a key you can try for, with timeout</td><td>tryLock, fairness, multiple Conditions</td></tr>
+    <tr><td><code>ReentrantReadWriteLock</code> / <code>StampedLock</code></td><td>many readers or one writer</td><td>read-heavy caches</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Producer–consumer and Semaphore in a few lines">
+BlockingQueue<Order> rail = new ArrayBlockingQueue<>(50);      // bounded ticket rail
+
+Runnable waiter = () -> { while (true) rail.put(takeOrder()); };     // blocks when 50 tickets wait
+Runnable chef   = () -> { while (true) cook(rail.take()); };         // blocks when the rail is empty
+
+Semaphore smsSlots = new Semaphore(5);                          // SMS vendor allows 5 parallel calls
+void sendSms(String to) throws InterruptedException {
+    smsSlots.acquire();                                         // take a token (waits if none)
+    try { vendor.send(to); }
+    finally { smsSlots.release(); }                             // ALWAYS give it back
+}
+
+CountDownLatch ready = new CountDownLatch(3);
+for (Service s : List.of(db, cache, broker)) pool.submit(() -> { s.warmUp(); ready.countDown(); });
+ready.await(10, TimeUnit.SECONDS);                              // continue when all 3 are warm
+</script>
+
+  <h3>ThreadLocal</h3>
+  <p>A ThreadLocal gives each thread its own copy of a variable (each chef's own apron pocket). Spring uses it for the current transaction, security context and request attributes.</p>
+  <div class="box pitfall"><div class="box-tag">Common trap</div><p>In a thread pool the thread is reused, so a value left in a ThreadLocal leaks into the <em>next request</em> on that thread (wrong user!) and can leak memory. Always <code>remove()</code> in a <code>finally</code>. In Java 25 prefer <strong>ScopedValue</strong>, which is immutable and automatically ends with its scope.</p></div>
+
+  <h3>Virtual threads (Java 21)</h3>
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 236" role="img" aria-label="Many virtual threads are mounted on a few carrier platform threads; when a virtual thread blocks on I/O it unmounts and the carrier runs another">
+      <text x="430" y="20" text-anchor="middle" class="d-s">10,000 virtual threads (cheap objects on the heap, KB each)</text>
+      <g class="d-xs">
+        <rect x="40" y="34" width="60" height="26" rx="6" class="d-vio"/><rect x="110" y="34" width="60" height="26" rx="6" class="d-vio"/><rect x="180" y="34" width="60" height="26" rx="6" class="d-amb"/><rect x="250" y="34" width="60" height="26" rx="6" class="d-vio"/><rect x="320" y="34" width="60" height="26" rx="6" class="d-amb"/><rect x="390" y="34" width="60" height="26" rx="6" class="d-vio"/><rect x="460" y="34" width="60" height="26" rx="6" class="d-vio"/><rect x="530" y="34" width="60" height="26" rx="6" class="d-amb"/><rect x="600" y="34" width="60" height="26" rx="6" class="d-vio"/><rect x="670" y="34" width="60" height="26" rx="6" class="d-vio"/><rect x="740" y="34" width="80" height="26" rx="6" class="d-paper"/>
+        <text x="780" y="51" text-anchor="middle">… 9,989</text>
+      </g>
+      <text x="430" y="202" text-anchor="middle" class="d-xs">amber = blocked on DB/HTTP: parked on the heap, using no OS thread</text>
+      <path d="M140 60 C160 100,200 110,215 128" class="d-lacc d-dash" marker-end="url(#aa)"/><path d="M280 60 L300 128" class="d-lacc d-dash" marker-end="url(#aa)"/><path d="M420 60 C430 100,420 110,415 128" class="d-lacc d-dash" marker-end="url(#aa)"/><path d="M630 60 C620 100,580 110,560 128" class="d-lacc d-dash" marker-end="url(#aa)"/>
+      <rect x="150" y="130" width="130" height="50" rx="10" class="d-good"/><text x="215" y="152" text-anchor="middle" class="d-t">carrier 1</text><text x="215" y="168" text-anchor="middle" class="d-xs">platform thread</text>
+      <rect x="300" y="130" width="130" height="50" rx="10" class="d-good"/><text x="365" y="152" text-anchor="middle" class="d-t">carrier 2</text><text x="365" y="168" text-anchor="middle" class="d-xs">platform thread</text>
+      <rect x="450" y="130" width="130" height="50" rx="10" class="d-good"/><text x="515" y="152" text-anchor="middle" class="d-t">carrier 3</text><text x="515" y="168" text-anchor="middle" class="d-xs">platform thread</text>
+      <rect x="600" y="130" width="130" height="50" rx="10" class="d-good"/><text x="665" y="152" text-anchor="middle" class="d-t">carrier N</text><text x="665" y="168" text-anchor="middle" class="d-xs">N = CPU cores</text>
+      <text x="430" y="226" text-anchor="middle" class="d-s">Blocking a virtual thread is cheap: it unmounts and the carrier picks up another one.</text>
+    </svg></div></figure>
+
+<div class="compare">
+<script type="text/x-code" data-lang="java" data-variant="bad" data-title="Platform threads: 10,000 blocking calls need a huge pool">
+ExecutorService pool = Executors.newFixedThreadPool(200);   // 200 OS threads, ~200 MB of stacks
+for (int i = 0; i < 10_000; i++)
+    pool.submit(() -> httpClient.send(req, ofString()));     // each blocks ~1 s → 50 s total
+</script>
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Virtual threads: one per task, simple blocking code">
+try (var exec = Executors.newVirtualThreadPerTaskExecutor()) {  // a new virtual thread per task
+    for (int i = 0; i < 10_000; i++)
+        exec.submit(() -> httpClient.send(req, ofString()));    // all wait concurrently → ~1–2 s
+}   // close() waits for all tasks
+// Spring Boot 3.2+/4: spring.threads.virtual.enabled=true  → Tomcat & @Async use virtual threads
+</script>
+</div>
+
+  <div class="cards">
+    <div class="card good"><h5>Great for</h5><p>I/O-bound request handling: REST calls, DB queries, message consumers. Write simple blocking code, get reactive-like scalability.</p></div>
+    <div class="card bad"><h5>Don't</h5><p>Pool them (they're cheap; create one per task). Use them for CPU-heavy work (no speed-up). Forget the DB pool is still the limit: use a Semaphore or pool size.</p></div>
+    <div class="card"><h5>Pinning</h5><p>In Java 21–23 a virtual thread blocking inside <code>synchronized</code> pinned its carrier. Java 24 (JEP 491) fixed this for synchronized; native calls can still pin.</p></div>
+    <div class="card"><h5>Structured concurrency (preview)</h5><p><code>StructuredTaskScope</code> treats subtasks as one unit: if one fails, the others are cancelled. Still a preview in Java 25.</p></div>
+  </div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Rail, countdown, tokens, read-many-write-one.</p>
+    <p>Use <code>merge/compute</code> on ConcurrentHashMap, bounded BlockingQueues for producer–consumer, and <span class="hl">virtual threads for blocking I/O</span>, not for CPU work.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How does ConcurrentHashMap achieve thread safety?</summary><div class="ans"><p>Java 7 used 16 segments each with its own lock. Java 8+ uses a Node array like HashMap: inserting into an empty bin uses CAS; otherwise it synchronizes on the bin's head node, so only one bucket is locked. Reads are lock-free using volatile reads. Size is tracked with LongAdder-style counter cells.</p></div></details>
+    <details><summary>synchronized vs ReentrantLock?</summary><div class="ans"><p>Both are reentrant mutual-exclusion locks with the same memory semantics. ReentrantLock adds tryLock (with timeout), lockInterruptibly, optional fairness, and multiple Condition objects, but you must unlock in finally. synchronized is simpler and released automatically.</p></div></details>
+    <details><summary>CountDownLatch vs CyclicBarrier?</summary><div class="ans"><p>CountDownLatch: one or more threads wait until a count reaches zero; other threads count down; it can't be reset. CyclicBarrier: a fixed number of threads wait for each other at a barrier point, then all proceed; it resets for reuse and can run a barrier action.</p></div></details>
+    <details><summary>When would virtual threads not help?</summary><div class="ans"><p>CPU-bound work (cores are the limit), code limited by a small downstream resource (connection pools), and code relying heavily on ThreadLocal caches of expensive objects (one per virtual thread means millions).</p></div></details>
+  </div>
+  {{done}}
+</section>

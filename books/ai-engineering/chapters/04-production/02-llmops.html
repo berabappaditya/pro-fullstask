@@ -1,0 +1,53 @@
+<section class="chapter" id="ch-llmops" data-title="LLMOps: running AI in production">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Production AI</div>
+    <h2>LLMOps: observability, guardrails, cost and reliability</h2>
+    <p class="ch-oneline"><b>LLM features fail differently from normal code: silently, probabilistically and expensively.</b> Trace every call, guard inputs and outputs, control cost, and plan for provider outages.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">Ramu's assistant</div>
+    <p>Ramu now <strong>records every conversation</strong> (with private details masked), reads a sample each week, tracks how much each answer costs, keeps a <strong>backup assistant</strong> from another agency for days the first one is unavailable, and never lets a new instruction sheet go live without testing it on the question stack.</p></div>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Area</th><th>Practice</th></tr>
+    <tr><td>Tracing</td><td>log prompt version, model + version, retrieved chunk ids, tool calls, tokens in/out, latency, cost, user feedback per request (OpenTelemetry GenAI conventions; Langfuse, LangSmith, Arize, Datadog…)</td></tr>
+    <tr><td>Versioning</td><td>prompts and configs in Git; pin model versions; change one thing at a time; run the evaluation set in CI</td></tr>
+    <tr><td>Guardrails</td><td>input: PII redaction, injection/jailbreak detection, topic limits · output: schema validation, citation checks, toxicity/safety classifiers, PII filters</td></tr>
+    <tr><td>Reliability</td><td>timeouts, retries with backoff on 429/5xx, fallback model/provider, circuit breaker, graceful degradation ("search results only")</td></tr>
+    <tr><td>Rate limits</td><td>provider tokens-per-minute quotas: queue, prioritise, spread across regions/providers</td></tr>
+    <tr><td>Cost</td><td>per-feature/per-tenant budgets, prompt caching, semantic cache, shorter contexts, model routing, batch APIs</td></tr>
+    <tr><td>Privacy</td><td>data processing agreements, no training on your data, regional endpoints, retention limits, mask logs</td></tr>
+    <tr><td>Feedback loop</td><td>thumbs up/down, escalations and failed tasks become new evaluation cases</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Resilience around model calls">
+@Service
+class ResilientChat {
+    private final ChatClient primary, fallback;
+    ResilientChat(@Qualifier("claudeClient") ChatClient primary, @Qualifier("smallModelClient") ChatClient fallback) {
+        this.primary = primary; this.fallback = fallback;
+    }
+
+    @CircuitBreaker(name = "llm", fallbackMethod = "degraded")
+    @Retry(name = "llm")                                            // backoff on 429 / 5xx only
+    @TimeLimiter(name = "llm")                                      // e.g. 20 s ceiling
+    public CompletableFuture<String> answer(String q) {
+        return CompletableFuture.supplyAsync(() -> primary.prompt().user(q).call().content());
+    }
+
+    CompletableFuture<String> degraded(String q, Throwable t) {
+        log.warn("primary model unavailable: {}", t.toString());
+        return CompletableFuture.supplyAsync(() -> fallback.prompt().user(q).call().content());
+    }
+}
+</script>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Record, sample, cost each answer, keep a backup, test every change.</p>
+    <p><span class="hl">Trace everything, version prompts, evaluate in CI</span>, guard input/output, budget tokens, fall back across models.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How do you monitor an LLM feature in production?</summary><div class="ans"><p>Technical metrics (latency, errors, 429s, tokens, cost per request/tenant), quality signals (user feedback, escalation rate, groundedness scores from sampled LLM-judge runs, refusal rate), safety signals (guardrail triggers, injection attempts), and traces linking prompt version, retrieved context and tool calls to each answer, with alerts on drift.</p></div></details>
+  </div>
+  {{done}}
+</section>

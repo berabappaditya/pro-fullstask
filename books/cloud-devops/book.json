@@ -1,0 +1,39 @@
+{
+  "id": "cloud-devops",
+  "file": "cloud-devops.html",
+  "title": "Cloud & DevOps Field Guide",
+  "short": "Cloud & DevOps",
+  "icon": "cloud",
+  "tagline": "AWS, GCP, Docker, Kubernetes, CI/CD and the Linux you use every day.",
+  "description": "A visual study book for cloud and deployment: AWS and GCP core services, IAM, networking, compute, storage and databases, serverless and messaging, Docker, Kubernetes, CI/CD, Terraform, deploying a Spring Boot app end to end, observability, cloud security, and essential Linux commands.",
+  "story": "Ramu rents kitchens in a food court",
+  "searchHint": "Find a topic (e.g. VPC, Kubernetes, grep)",
+  "topics": [
+    "AWS vs GCP",
+    "IAM",
+    "VPC",
+    "EC2 & autoscaling",
+    "S3 & RDS",
+    "Lambda & Cloud Run",
+    "Docker",
+    "Kubernetes",
+    "CI/CD",
+    "Terraform",
+    "Observability",
+    "Linux commands"
+  ],
+  "theme": {
+    "light": {
+      "accent": "#0E7490",
+      "accentInk": "#155E75",
+      "accentSoft": "#DBF1F6",
+      "hero": "#0E7490"
+    },
+    "dark": {
+      "accent": "#5CCFE6",
+      "accentInk": "#94E2F0",
+      "accentSoft": "#0C2A33",
+      "hero": "#155E75"
+    }
+  }
+}

@@ -1,0 +1,78 @@
+<section class="chapter" id="ch-microservices" data-title="Microservices with Spring Cloud">
+  <header class="ch-head">
+    <div class="ch-eyebrow"><span class="num">{{num}}</span>Production</div>
+    <h2>Microservices with Spring Boot and Spring Cloud</h2>
+    <p class="ch-oneline"><b>One service = one business capability = one database.</b> A gateway in front, discovery (or Kubernetes DNS) between them, resilience on every call, events for decoupling, tracing across all.</p>
+  </header>
+
+  <div class="box story"><div class="box-tag">In the franchise</div>
+    <p>Ramu's head office splits into <strong>separate counters with their own stock</strong>: Orders, Payments, Kitchen, Loyalty. A <strong>receptionist</strong> (API gateway) greets every visitor and sends them to the right counter. Counters talk by <strong>intercom</strong> for quick questions (REST) and by a <strong>notice board</strong> for announcements (Kafka). If Loyalty's line is busy, Orders doesn't wait forever (circuit breaker).</p></div>
+
+  <figure class="figure"><div class="svgwrap">
+    <svg class="wide" viewBox="0 0 860 260" role="img" aria-label="Client calls Spring Cloud Gateway which routes to Order, Payment and Kitchen services, each with its own database; services publish events to Kafka; config, discovery and tracing support all services">
+      <rect x="10" y="100" width="100" height="56" rx="10" class="d-vio"/><text x="60" y="132" text-anchor="middle" class="d-t">Client</text>
+      <path d="M110 128 H150" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="152" y="86" width="140" height="84" rx="12" class="d-acc"/><text x="222" y="112" text-anchor="middle" class="d-t">API Gateway</text><text x="222" y="130" text-anchor="middle" class="d-xs">auth, routing,</text><text x="222" y="146" text-anchor="middle" class="d-xs">rate limiting</text>
+      <path d="M292 110 C320 110,320 50,346 50" class="d-lacc" marker-end="url(#aa)"/>
+      <path d="M292 128 H346" class="d-lacc" marker-end="url(#aa)"/>
+      <path d="M292 146 C320 146,320 206,346 206" class="d-lacc" marker-end="url(#aa)"/>
+      <rect x="348" y="24" width="150" height="52" rx="10" class="d-box"/><text x="423" y="46" text-anchor="middle" class="d-t">Order service</text><text x="423" y="64" text-anchor="middle" class="d-xs">Postgres</text>
+      <rect x="348" y="102" width="150" height="52" rx="10" class="d-box"/><text x="423" y="124" text-anchor="middle" class="d-t">Payment service</text><text x="423" y="142" text-anchor="middle" class="d-xs">Postgres</text>
+      <rect x="348" y="180" width="150" height="52" rx="10" class="d-box"/><text x="423" y="202" text-anchor="middle" class="d-t">Kitchen service</text><text x="423" y="220" text-anchor="middle" class="d-xs">MongoDB</text>
+      <path d="M423 76 V100" class="d-lamb d-dash" marker-end="url(#am)"/><text x="436" y="92" class="d-xs">RestClient + CB</text>
+      <rect x="560" y="90" width="130" height="76" rx="12" class="d-amb"/><text x="625" y="118" text-anchor="middle" class="d-t">Kafka</text><text x="625" y="136" text-anchor="middle" class="d-xs">OrderPlaced,</text><text x="625" y="152" text-anchor="middle" class="d-xs">PaymentDone</text>
+      <path d="M498 50 C530 50,530 110,558 112" class="d-lvio" marker-end="url(#av)"/>
+      <path d="M558 150 C530 152,530 206,500 206" class="d-lvio" marker-end="url(#av)"/>
+      <rect x="730" y="24" width="120" height="44" rx="10" class="d-teal"/><text x="790" y="50" text-anchor="middle" class="d-xs">Config / Secrets</text>
+      <rect x="730" y="80" width="120" height="44" rx="10" class="d-teal"/><text x="790" y="106" text-anchor="middle" class="d-xs">Discovery / k8s DNS</text>
+      <rect x="730" y="136" width="120" height="44" rx="10" class="d-teal"/><text x="790" y="162" text-anchor="middle" class="d-xs">Tracing (OTel)</text>
+      <rect x="730" y="192" width="120" height="44" rx="10" class="d-teal"/><text x="790" y="218" text-anchor="middle" class="d-xs">Metrics / Logs</text>
+    </svg></div></figure>
+
+  <div class="table-wrap"><table class="t">
+    <tr><th>Concern</th><th>Spring option</th><th>On Kubernetes, often</th></tr>
+    <tr><td>API gateway</td><td>Spring Cloud Gateway</td><td>Ingress / Gateway API, cloud API gateway</td></tr>
+    <tr><td>Service discovery</td><td>Eureka, Consul</td><td>Kubernetes Services + DNS</td></tr>
+    <tr><td>Configuration</td><td>Spring Cloud Config</td><td>ConfigMaps, Secrets, cloud secret managers</td></tr>
+    <tr><td>Service calls</td><td>RestClient / HTTP interfaces / OpenFeign</td><td>same, plus a service mesh</td></tr>
+    <tr><td>Resilience</td><td>Resilience4j (circuit breaker, retry, bulkhead, rate limiter)</td><td>plus mesh retries/timeouts</td></tr>
+    <tr><td>Messaging</td><td>Spring for Apache Kafka, Spring AMQP, Spring Cloud Stream</td><td>managed Kafka (MSK, Confluent), Pub/Sub</td></tr>
+    <tr><td>Tracing</td><td>Micrometer Tracing + OpenTelemetry</td><td>Tempo, Jaeger, X-Ray, Cloud Trace</td></tr>
+  </table></div>
+
+<script type="text/x-code" data-lang="java" data-variant="good" data-title="Resilience4j around a remote call, and a Kafka listener">
+@Service
+class LoyaltyClient {
+    private final RestClient client;
+    LoyaltyClient(RestClient loyaltyRestClient) { this.client = loyaltyRestClient; }
+
+    @CircuitBreaker(name = "loyalty", fallbackMethod = "noPoints")   // open after repeated failures
+    @Retry(name = "loyalty")                                         // retry transient errors with backoff
+    public int points(long customerId) {
+        return client.get().uri("/points/{id}", customerId).retrieve().body(Integer.class);
+    }
+    private int noPoints(long customerId, Throwable t) { return 0; }  // degrade gracefully
+}
+
+@Component
+class KitchenListener {
+    @KafkaListener(topics = "order-placed", groupId = "kitchen")
+    void onOrder(OrderPlaced event) {                                 // at-least-once delivery:
+        if (tickets.existsByOrderId(event.orderId())) return;         // make the handler IDEMPOTENT
+        tickets.save(Ticket.from(event));
+    }
+}
+</script>
+
+  <div class="box pitfall"><div class="box-tag">Distributed data</div><p>No shared database, so no cross-service @Transactional. Use the <strong>transactional outbox</strong> (write the event in the same DB transaction, relay it to Kafka) and <strong>sagas</strong> with compensating actions. Full explanation with diagrams: {{xref:system-design/ch-dtx}} and {{xref:system-design/ch-micro}}.</p></div>
+
+  <div class="box remember"><div class="box-tag">Lock it in</div>
+    <p class="mnemonic">Separate counters, one receptionist, intercom and a notice board.</p>
+    <p><span class="hl">Database per service</span>, gateway in front, timeouts + circuit breakers on sync calls, idempotent consumers on async ones, outbox + saga instead of distributed transactions, tracing everywhere. Start with a modular monolith.</p></div>
+
+  <div class="qa"><h4>Interview questions</h4>
+    <details><summary>How does a circuit breaker work?</summary><div class="ans"><p>It wraps calls and counts failures over a sliding window. CLOSED: calls pass. When the failure rate crosses a threshold it goes OPEN: calls fail fast to the fallback without hitting the sick service. After a wait it goes HALF_OPEN and lets a few trial calls through; success closes it, failure re-opens. It stops cascading failures and thread-pool exhaustion.</p></div></details>
+    <details><summary>When would you not use microservices?</summary><div class="ans"><p>Small teams, unclear domain boundaries, early-stage products, or when you can't invest in CI/CD, observability and on-call for many services. A well-modularised monolith is faster to build and can be split later along proven boundaries.</p></div></details>
+  </div>
+  {{done}}
+</section>
